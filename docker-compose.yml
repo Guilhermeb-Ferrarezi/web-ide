@@ -1,0 +1,33 @@
+services:
+  api:
+    build: ./api
+    container_name: web-ide-api
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./api/.env
+    environment:
+      - WORKSPACES_ROOT=/data/workspaces
+    volumes:
+      - workspace_data:/data/workspaces
+    networks:
+      - ide_net
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    container_name: web-ide-web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+    networks:
+      - ide_net
+    restart: unless-stopped
+
+networks:
+  ide_net:
+    driver: bridge
+
+volumes:
+  workspace_data:

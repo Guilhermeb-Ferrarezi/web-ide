@@ -1,0 +1,64 @@
+import type { FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
+import path from 'node:path';
+import { deletePath, makeDir, readFile, readTree, renamePath, uploadFile, writeFile } from './fs.service.ts';
+
+const pathSchema = z.string().min(1).max(1024);
+
+export async function getTree(req: FastifyRequest, reply: FastifyReply) {
+  const tree = await readTree(req.workspacePath!);
+  return reply.send(tree);
+}
+
+export async function getFile(
+  req: FastifyRequest<{ Querystring: { workspace: string; path: string } }>,
+  reply: FastifyReply,
+) {
+  const file = await readFile(req.workspacePath!, pathSchema.parse(req.query.path));
+  return reply.send(file);
+}
+
+const writeSchema = z.object({
+  workspace: z.string(),
+  path: pathSchema,
+  content: z.string(),
+  encoding: z.enum(['utf-8', 'base64']).default('utf-8'),
+});
+
+export async function putFile(req: FastifyRequest, reply: FastifyReply) {
+  const body = writeSchema.parse(req.body);
+  await writeFile(req.workspacePath!, body.path, body.content, body.encoding);
+  return reply.send({ ok: true });
+}
+
+export async function deleteFile(
+  req: FastifyRequest<{ Querystring: { workspace: string; path: string } }>,
+  reply: FastifyReply,
+) {
+  await deletePath(req.workspacePath!, pathSchema.parse(req.query.path));
+  return reply.code(204).send();
+}
+
+const mkdirSchema = z.object({ workspace: z.string(), path: pathSchema });
+export async function postMkdir(req: FastifyRequest, reply: FastifyReply) {
+  const body = mkdirSchema.parse(req.body);
+  await makeDir(req.workspacePath!, body.path);
+  return reply.code(201).send({ ok: true });
+}
+
+const renameSchema = z.object({ workspace: z.string(), from: pathSchema, to: pathSchema });
+export async function postRename(req: FastifyRequest, reply: FastifyReply) {
+  const body = renameSchema.parse(req.body);
+  await renamePath(req.workspacePath!, body.from, body.to);
+  return reply.send({ ok: true });
+}
+
+export async function postUpload(req: FastifyRequest, reply: FastifyReply) {
+  const data = await req.file();
+  if (!data) return reply.code(400).send({ error: 'no_file' });
+  const target = (data.fields.path as any)?.value ?? data.filename;
+  if (!target) return reply.code(400).send({ error: 'path_required' });
+  const buf = await data.toBuffer();
+  await uploadFile(req.workspacePath!, path.posix.normalize(target), buf);
+  return reply.code(201).send({ ok: true, path: target });
+}
