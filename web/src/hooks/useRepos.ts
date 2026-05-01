@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { cloneRepo as apiClone, deleteLocalRepo as apiDelete, listRepos } from '@/api/repos';
+import { cloneRepo as apiClone, deleteLocalRepo as apiDelete, initRepo as apiInit, listRepos } from '@/api/repos';
 import type { LocalRepo, RemoteRepo } from '@/types';
 
 const REPOS_PAGE_SIZE = 10;
@@ -93,6 +93,16 @@ export function useRepos() {
     [],
   );
 
+  const init = useCallback(async (repoName: string, defaultBranch?: string): Promise<LocalRepo> => {
+    const result = await apiInit(repoName, defaultBranch);
+    setLocalRepos((prev) =>
+      prev.some((r) => r.id === result.repo.id)
+        ? prev
+        : [result.repo, ...prev],
+    );
+    return result.repo;
+  }, []);
+
   const remove = useCallback(async (repo: LocalRepo) => {
     try {
       await apiDelete(repo.slug);
@@ -117,6 +127,7 @@ export function useRepos() {
     loadMoreGithub,
     loadMoreLocal,
     clone,
+    init,
     remove,
   };
 }

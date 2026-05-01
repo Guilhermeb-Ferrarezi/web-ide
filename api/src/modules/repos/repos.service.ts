@@ -8,7 +8,7 @@ import { createOctokit } from '../../utils/octokit.ts';
 import { db } from '../../db/client.ts';
 import { repoPermissions, repos } from '../../db/schema.ts';
 import { and, asc, eq, inArray } from 'drizzle-orm';
-import { getSharedReposRoot, sanitizeRepoName } from '../../utils/path.utils.ts';
+import { getSharedRepoPath, getSharedReposRoot, sanitizeRepoName } from '../../utils/path.utils.ts';
 import { grantRepoPermission } from '../permissions/permissions.service.ts';
 import { ensureImportedRepo } from './repo-catalog.service.ts';
 
@@ -331,6 +331,76 @@ export async function importRepo(opts: {
 
   const repoGit = simpleGit(repoRecord.storagePath);
   await repoGit.remote(['set-url', 'origin', `https://github.com/${owner}/${name}.git`]);
+  await grantRepoPermission({
+    repoId: repoRecord.id,
+    userId: opts.userId,
+    permission: 'write',
+    createdByUserId: opts.userId,
+  });
+
+  return {
+    repo: {
+      id: repoRecord.id,
+      slug: repoRecord.slug,
+      githubFullName: repoRecord.githubFullName,
+      permission: 'write',
+      path: repoRecord.storagePath,
+      canManage: true,
+    },
+    permission: 'write',
+  };
+}
+
+export async function initRepo(opts: {
+  userId: string;
+  userLogin: string;
+  repoName: string;
+  defaultBranch?: string;
+}): Promise<{ repo: LocalRepo; permission: 'read' | 'write' }> {
+  const sanitized = sanitizeRepoName(opts.repoName.toLowerCase());
+  if (!sanitized) throw new Error('Nome inválido');
+
+  const githubFullName = `${opts.userLogin}/${sanitized}`;
+  const branch = opts.defaultBranch ?? 'main';
+
+  const existing = await db.query.repos.findFirst({
+    where: eq(repos.githubFullName, githubFullName),
+  });
+  if (existing) throw new Error('Já existe um repositório com esse nome');
+
+  let slug = sanitized;
+  let n = 1;
+  while (await db.query.repos.findFirst({ where: eq(repos.slug, slug) })) {
+    n += 1;
+    slug = `${sanitized}-${n}`;
+  }
+
+  await fs.mkdir(getSharedReposRoot(config.WORKSPACES_ROOT), { recursive: true });
+  const storagePath = getSharedRepoPath(config.WORKSPACES_ROOT, slug);
+  await fs.mkdir(storagePath, { recursive: true });
+
+  const git = simpleGit(storagePath);
+  await git.init();
+  await git.addConfig('user.name', opts.userLogin);
+  await git.addConfig('user.email', `${opts.userLogin}@users.noreply.github.com`);
+  await git.raw(['checkout', '-b', branch]);
+  await fs.writeFile(path.join(storagePath, 'README.md'), `# ${sanitized}\n`);
+  await git.add('.');
+  await git.commit('Initial commit');
+
+  const [repoRecord] = await db
+    .insert(repos)
+    .values({
+      slug,
+      githubFullName,
+      githubOwner: opts.userLogin,
+      githubName: sanitized,
+      defaultBranch: branch,
+      storagePath,
+      createdByUserId: opts.userId,
+    })
+    .returning();
+
   await grantRepoPermission({
     repoId: repoRecord.id,
     userId: opts.userId,

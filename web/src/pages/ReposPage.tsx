@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Code2, Download, ExternalLink, Lock, LogOut, Search, Share2, Trash2 } from 'lucide-react';
+import { Code2, Download, ExternalLink, FolderPlus, Lock, LogOut, Search, Share2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useRepos } from '@/hooks/useRepos';
@@ -35,9 +35,13 @@ export default function ReposPage() {
     loadMoreGithub,
     loadMoreLocal,
     clone,
+    init,
     remove,
   } = useRepos();
   const [query, setQuery] = useState('');
+  const [showInitModal, setShowInitModal] = useState(false);
+  const [initName, setInitName] = useState('');
+  const [initBusy, setInitBusy] = useState(false);
   const [sharingRepoId, setSharingRepoId] = useState<string | null>(null);
   const [shareLogin, setShareLogin] = useState('');
   const [sharePermission, setSharePermission] = useState<'read' | 'write'>('read');
@@ -149,6 +153,25 @@ export default function ReposPage() {
     return () => observer.disconnect();
   }, [hasMoreGithub, loadMoreGithub]);
 
+  async function handleInit() {
+    const name = initName.trim();
+    if (!name) return toast.warning('Informe o nome do repositório');
+    setInitBusy(true);
+    try {
+      const repo = await init(name);
+      toast.success(`Repositório "${repo.slug}" criado`);
+      setShowInitModal(false);
+      setInitName('');
+      navigate(`/ide/${repo.slug}`);
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 409) toast.warning('Já existe um repositório com esse nome');
+      else toast.error(err?.response?.data?.message ?? 'Falha ao criar repositório');
+    } finally {
+      setInitBusy(false);
+    }
+  }
+
   async function handleGrant(repoId: string) {
     const login = shareLogin.trim().replace(/^@/, '');
     if (!login) return toast.warning('Informe o login do GitHub');
@@ -232,11 +255,60 @@ export default function ReposPage() {
             <p className="text-sm text-muted-foreground">@{user?.login}</p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={() => void logout()}>
-          <LogOut className="mr-2 h-4 w-4" />
-          Sair
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" onClick={() => setShowInitModal(true)}>
+            <FolderPlus className="mr-2 h-4 w-4" />
+            Novo repositório
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => void logout()}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Sair
+          </Button>
+        </div>
       </header>
+
+      {showInitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg border bg-background p-6 shadow-lg">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Novo repositório</h2>
+              <button
+                type="button"
+                className="rounded-md p-1 hover:bg-accent"
+                onClick={() => { setShowInitModal(false); setInitName(''); }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium" htmlFor="init-repo-name">
+                  Nome
+                </label>
+                <Input
+                  id="init-repo-name"
+                  value={initName}
+                  onChange={(e) => setInitName(e.target.value)}
+                  placeholder="meu-projeto"
+                  onKeyDown={(e) => { if (e.key === 'Enter') void handleInit(); }}
+                  autoFocus
+                />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Um README.md será criado automaticamente.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setShowInitModal(false); setInitName(''); }}>
+                  Cancelar
+                </Button>
+                <Button disabled={initBusy} onClick={() => void handleInit()}>
+                  {initBusy ? 'Criando...' : 'Criar repositório'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="relative mb-4">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

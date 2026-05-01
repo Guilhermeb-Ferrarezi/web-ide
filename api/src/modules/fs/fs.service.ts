@@ -253,6 +253,71 @@ async function searchDir(
   return results;
 }
 
+const MAX_DTS_FILE_SIZE = 500 * 1024;
+
+async function walkDts(
+  dir: string,
+  virtualBase: string,
+  out: { virtualPath: string; content: string }[],
+  visited = new Set<string>(),
+): Promise<void> {
+  if (visited.has(dir) || out.length >= 1000) return;
+  visited.add(dir);
+
+  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => null);
+  if (!entries) return;
+
+  for (const entry of entries) {
+    if (out.length >= 1000) break;
+    if (entry.name === 'node_modules') continue;
+    const fullPath = path.join(dir, entry.name);
+    const virtualPath = `${virtualBase}/${entry.name}`;
+
+    if (entry.isDirectory()) {
+      await walkDts(fullPath, virtualPath, out, visited);
+    } else if (entry.isFile() && entry.name.endsWith('.d.ts')) {
+      const stat = await fs.stat(fullPath).catch(() => null);
+      if (!stat || stat.size > MAX_DTS_FILE_SIZE) continue;
+      const content = await fs.readFile(fullPath, 'utf-8').catch(() => null);
+      if (content !== null) out.push({ virtualPath, content });
+    }
+  }
+}
+
+export async function collectTypeDefs(workspacePath: string): Promise<{ virtualPath: string; content: string }[]> {
+  const nodeModulesPath = path.join(workspacePath, 'node_modules');
+  const results: { virtualPath: string; content: string }[] = [];
+
+  const atTypesEntries = await fs.readdir(path.join(nodeModulesPath, '@types'), { withFileTypes: true }).catch(() => null);
+  if (atTypesEntries) {
+    for (const pkg of atTypesEntries) {
+      if (!pkg.isDirectory()) continue;
+      await walkDts(
+        path.join(nodeModulesPath, '@types', pkg.name),
+        `node_modules/@types/${pkg.name}`,
+        results,
+      );
+    }
+  }
+
+  let allDeps: string[] = [];
+  try {
+    const pkgJson = JSON.parse(await fs.readFile(path.join(workspacePath, 'package.json'), 'utf-8'));
+    allDeps = [...Object.keys(pkgJson.dependencies ?? {}), ...Object.keys(pkgJson.devDependencies ?? {})];
+  } catch {}
+
+  for (const dep of allDeps) {
+    if (results.length >= 1000) break;
+    const depDir = path.join(nodeModulesPath, dep);
+    const depPkg = await fs.readFile(path.join(depDir, 'package.json'), 'utf-8').then(JSON.parse).catch(() => null);
+    if (depPkg?.types || depPkg?.typings) {
+      await walkDts(depDir, `node_modules/${dep}`, results);
+    }
+  }
+
+  return results;
+}
+
 export async function searchFiles(
   workspacePath: string,
   rawQuery: string,

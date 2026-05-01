@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
-import Editor, { type OnMount } from '@monaco-editor/react';
+import Editor, { useMonaco, type OnMount } from '@monaco-editor/react';
 import type { EditorTab } from '@/types';
 import { detectLanguage, isImage } from '@/lib/language';
 import { useEditorStore } from '@/stores/editorStore';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { fetchTypes } from '@/api/fs';
 
 type Props = {
   tab: EditorTab | null;
@@ -15,6 +17,37 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const pendingJump = useEditorStore((s) => s.pendingJump);
   const setPendingJump = useEditorStore((s) => s.setPendingJump);
+  const monaco = useMonaco();
+  const workspace = useWorkspaceStore((s) => s.workspace);
+
+  useEffect(() => {
+    if (!monaco || !workspace) return;
+
+    const ts = monaco.languages.typescript;
+    const opts: Parameters<typeof ts.typescriptDefaults.setCompilerOptions>[0] = {
+      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      allowSyntheticDefaultImports: true,
+      esModuleInterop: true,
+      jsx: ts.JsxEmit.ReactJSX,
+      strict: false,
+      noEmit: true,
+      skipLibCheck: true,
+    };
+    ts.typescriptDefaults.setCompilerOptions(opts);
+    ts.javascriptDefaults.setCompilerOptions(opts);
+
+    let cancelled = false;
+    fetchTypes(workspace).then((types) => {
+      if (cancelled) return;
+      for (const { virtualPath, content } of types) {
+        const uri = `file:///${virtualPath}`;
+        ts.typescriptDefaults.addExtraLib(content, uri);
+        ts.javascriptDefaults.addExtraLib(content, uri);
+      }
+    });
+
+    return () => { cancelled = true; };
+  }, [monaco, workspace]);
 
   useEffect(() => {
     function handle(e: KeyboardEvent) {

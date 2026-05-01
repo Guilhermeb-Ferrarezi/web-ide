@@ -22,6 +22,11 @@ export async function cloneRepo(repoFullName: string, branch?: string) {
   return data;
 }
 
+export async function initRepo(repoName: string, defaultBranch?: string) {
+  const { data } = await api.post<{ repo: LocalRepo; permission: 'read' | 'write' }>('/repos/init', { repoName, defaultBranch });
+  return data;
+}
+
 export async function deleteLocalRepo(name: string) {
   await api.delete(`/repos/local/${encodeURIComponent(name)}`);
 }

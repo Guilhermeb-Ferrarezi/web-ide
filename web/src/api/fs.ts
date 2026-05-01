@@ -40,6 +40,13 @@ export async function renamePath(workspace: string, from: string, to: string) {
   await api.post('/fs/rename', { workspace, from, to });
 }
 
+export type TypeDef = { virtualPath: string; content: string };
+
+export async function fetchTypes(workspace: string): Promise<TypeDef[]> {
+  const { data } = await api.get<TypeDef[]>('/fs/types', { params: { workspace } });
+  return data;
+}
+
 export async function uploadFile(workspace: string, path: string, file: File) {
   const form = new FormData();
   form.append('path', path);

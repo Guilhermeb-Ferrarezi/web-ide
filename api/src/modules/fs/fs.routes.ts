@@ -7,6 +7,7 @@ import {
   getFile,
   getSearch,
   getTree,
+  getTypes,
   postMkdir,
   postRename,
   postUpload,
@@ -17,6 +18,7 @@ export default async function fsRoutes(app: FastifyInstance) {
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
   app.addHook('preHandler', requireAuth);
   app.get('/fs/tree', { preHandler: resolveRepoAccess('read') }, getTree);
+  app.get('/fs/types', { preHandler: resolveRepoAccess('read') }, getTypes);
   app.get('/fs/search', { preHandler: resolveRepoAccess('read') }, getSearch);
   app.get('/fs/file', { preHandler: resolveRepoAccess('read') }, getFile);
   app.put('/fs/file', { preHandler: resolveRepoAccess('write') }, putFile);

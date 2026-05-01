@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import path from 'node:path';
-import { deletePath, makeDir, readFile, readTree, renamePath, searchFiles, uploadFile, writeFile } from './fs.service.ts';
+import { collectTypeDefs, deletePath, makeDir, readFile, readTree, renamePath, searchFiles, uploadFile, writeFile } from './fs.service.ts';
 
 const pathSchema = z.string().min(1).max(1024);
 
@@ -74,6 +74,11 @@ export async function postRename(req: FastifyRequest, reply: FastifyReply) {
   const body = renameSchema.parse(req.body);
   await renamePath(req.workspacePath!, body.from, body.to);
   return reply.send({ ok: true });
+}
+
+export async function getTypes(req: FastifyRequest, reply: FastifyReply) {
+  const types = await collectTypeDefs(req.workspacePath!);
+  return reply.send(types);
 }
 
 export async function postUpload(req: FastifyRequest, reply: FastifyReply) {

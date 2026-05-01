@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { deleteLocalRepo, importRepo, listLocalRepos, listReposForUser } from './repos.service.ts';
+import { deleteLocalRepo, importRepo, initRepo, listLocalRepos, listReposForUser } from './repos.service.ts';
 
 const cloneSchema = z.object({
   repoFullName: z.string().regex(/^[^/]+\/[^/]+$/),
@@ -43,6 +43,30 @@ export async function postClone(req: FastifyRequest, reply: FastifyReply) {
     const msg = (err as Error).message;
     req.log.error({ err }, 'Clone failed');
     return reply.code(500).send({ error: 'clone_failed', message: msg });
+  }
+}
+
+const initSchema = z.object({
+  repoName: z.string().min(1).max(100),
+  defaultBranch: z.string().optional(),
+});
+
+export async function postInit(req: FastifyRequest, reply: FastifyReply) {
+  const user = req.session.user!;
+  const body = initSchema.parse(req.body);
+  try {
+    const result = await initRepo({
+      userId: user.userId,
+      userLogin: user.login,
+      repoName: body.repoName,
+      defaultBranch: body.defaultBranch,
+    });
+    return reply.code(201).send(result);
+  } catch (err) {
+    const msg = (err as Error).message;
+    req.log.error({ err }, 'Init repo failed');
+    const isConflict = msg.includes('Já existe');
+    return reply.code(isConflict ? 409 : 500).send({ error: isConflict ? 'conflict' : 'init_failed', message: msg });
   }
 }
 
