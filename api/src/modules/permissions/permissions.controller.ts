@@ -1,10 +1,11 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { db } from '../../db/client.ts';
-import { repoPermissions } from '../../db/schema.ts';
-import { eq } from 'drizzle-orm';
+import { repoPermissions, repos } from '../../db/schema.ts';
+import { and, eq } from 'drizzle-orm';
 import { grantRepoPermission, removeRepoPermission } from './permissions.service.ts';
 import { findUserByLogin, searchUsersByLogin } from '../users/users.service.ts';
+import { createOctokit } from '../../utils/octokit.ts';
 
 const paramsSchema = z.object({
   repoId: z.string().uuid(),
@@ -47,21 +48,39 @@ export async function getRepoPermissions(req: FastifyRequest, reply: FastifyRepl
 export async function postRepoPermission(req: FastifyRequest, reply: FastifyReply) {
   const { repoId } = paramsSchema.parse(req.params);
   const body = bodySchema.parse(req.body);
-  const targetUser = body.userId
-    ? await db.query.users.findFirst({ where: (fields, ops) => ops.eq(fields.id, body.userId!) })
-    : await findUserByLogin(body.login!);
+  const [targetUser, repo] = await Promise.all([
+    body.userId
+      ? db.query.users.findFirst({ where: (fields, ops) => ops.eq(fields.id, body.userId!) })
+      : findUserByLogin(body.login!),
+    db.query.repos.findFirst({ where: eq(repos.id, repoId) }),
+  ]);
   if (!targetUser) {
     return reply.code(404).send({
       error: 'user_not_found',
       message: 'Usuario nao encontrado. Ele precisa entrar na plataforma pelo menos uma vez.',
     });
   }
+  if (!repo) return reply.code(404).send({ error: 'repo_not_found' });
+
   await grantRepoPermission({
     repoId,
     userId: targetUser.id,
     permission: body.permission,
     createdByUserId: req.session.user!.userId,
   });
+
+  const octokit = createOctokit(req.session.user!.accessToken);
+  try {
+    await octokit.repos.addCollaborator({
+      owner: repo.githubOwner,
+      repo: repo.githubName,
+      username: targetUser.login,
+      permission: body.permission === 'write' ? 'push' : 'pull',
+    });
+  } catch (err) {
+    req.log.warn({ err }, 'GitHub collaborator sync failed — permission saved locally anyway');
+  }
+
   return reply.send({ ok: true });
 }
 
@@ -75,6 +94,26 @@ export async function getShareUsers(req: FastifyRequest, reply: FastifyReply) {
 export async function deleteRepoPermission(req: FastifyRequest, reply: FastifyReply) {
   const { repoId, userId } = paramsSchema.parse(req.params);
   if (!userId) return reply.code(400).send({ error: 'user_id_required' });
+
+  const [repo, targetUser] = await Promise.all([
+    db.query.repos.findFirst({ where: eq(repos.id, repoId) }),
+    db.query.users.findFirst({ where: (fields, ops) => ops.eq(fields.id, userId) }),
+  ]);
+
   await removeRepoPermission(repoId, userId);
+
+  if (repo && targetUser) {
+    const octokit = createOctokit(req.session.user!.accessToken);
+    try {
+      await octokit.repos.removeCollaborator({
+        owner: repo.githubOwner,
+        repo: repo.githubName,
+        username: targetUser.login,
+      });
+    } catch (err) {
+      req.log.warn({ err }, 'GitHub collaborator removal failed — permission removed locally anyway');
+    }
+  }
+
   return reply.code(204).send();
 }
