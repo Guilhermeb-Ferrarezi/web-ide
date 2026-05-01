@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { TreeNode } from '@/types';
 import { cn } from '@/lib/utils';
-import { resolveMaterialFileIcon, resolveMaterialFolderIcon } from '@/lib/fileTreeIcons';
+import { resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
 
 type InlineActionState =
   | { mode: 'create-file'; parentPath: string; value: string }
@@ -87,8 +87,8 @@ export function FileTreeNode({
 
     const icon =
       inlineAction.mode === 'create-folder'
-        ? resolveMaterialFolderIcon('', { expanded: false })
-        : resolveMaterialFileIcon(inlineAction.value || 'untitled');
+        ? resolveFolderIcon('', { expanded: false })
+        : resolveFileIcon(inlineAction.value || 'untitled');
 
     return (
       <li>
@@ -114,7 +114,7 @@ export function FileTreeNode({
     node.type === 'directory';
 
   if (node.type === 'directory') {
-    const folderIcon = resolveMaterialFolderIcon(node.path, { expanded: open || Boolean(isCreatingHere) });
+    const folderIcon = resolveFolderIcon(node.path, { expanded: open || Boolean(isCreatingHere) });
 
     return (
       <li>
@@ -162,8 +162,8 @@ export function FileTreeNode({
                 <InlineTreeInput
                   icon={
                     inlineAction.mode === 'create-folder'
-                      ? resolveMaterialFolderIcon('', { expanded: false })
-                      : resolveMaterialFileIcon(inlineAction.value || 'untitled')
+                      ? resolveFolderIcon('', { expanded: false })
+                      : resolveFileIcon(inlineAction.value || 'untitled')
                   }
                   level={level + 1}
                   value={inlineAction.value}
@@ -180,7 +180,7 @@ export function FileTreeNode({
     );
   }
 
-  const fileIcon = resolveMaterialFileIcon(node.path);
+  const fileIcon = resolveFileIcon(node.path);
 
   return (
     <li>

@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import { resolveMaterialFileIcon, resolveMaterialFolderIcon } from '@/lib/fileTreeIcons';
+import { resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
 
 type Props = {
   path: string | null;
@@ -18,8 +18,8 @@ export function EditorBreadcrumbs({ path, dirty = false }: Props) {
         const isLast = index === segments.length - 1;
         const segmentPath = segments.slice(0, index + 1).join('/');
         const iconSrc = isLast
-          ? resolveMaterialFileIcon(segmentPath)
-          : resolveMaterialFolderIcon(segmentPath);
+          ? resolveFileIcon(segmentPath)
+          : resolveFolderIcon(segmentPath);
 
         return (
           <div key={segmentPath} className="flex shrink-0 items-center gap-1">

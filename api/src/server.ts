@@ -13,6 +13,7 @@ import watcherRoutes from './modules/watcher/watcher.routes.ts';
 import { runMigrations } from './db/run-migrations.ts';
 import permissionsRoutes from './modules/permissions/permissions.routes.ts';
 import adminRoutes from './modules/admin/admin.routes.ts';
+import extensionsRoutes from './modules/extensions/extensions.routes.ts';
 
 const app = Fastify({
   logger: {
@@ -45,6 +46,7 @@ await app.register(
     await api.register(watcherRoutes);
     await api.register(permissionsRoutes);
     await api.register(adminRoutes);
+    await api.register(extensionsRoutes);
   },
   { prefix: '/api' },
 );

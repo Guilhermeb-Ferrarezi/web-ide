@@ -112,3 +112,54 @@ export type EditorTab = {
   mimeType: string;
   dirty: boolean;
 };
+
+export type MonacoThemeRule = {
+  token: string;
+  foreground?: string;
+  background?: string;
+  fontStyle?: string;
+};
+
+export type InstalledTheme = {
+  id: string;
+  extensionId: string;
+  label: string;
+  uiTheme: 'vs' | 'vs-dark' | 'hc-black';
+  colors: Record<string, string>;
+  rules: MonacoThemeRule[];
+};
+
+export type InstalledIconTheme = {
+  id: string;
+  extensionId: string;
+  label: string;
+  icons: {
+    file: string;
+    folder: string;
+    folderExpanded: string;
+    fileNames: Record<string, string>;
+    fileExtensions: Record<string, string>;
+    folderNames: Record<string, string>;
+    folderNamesExpanded: Record<string, string>;
+    languageIds: Record<string, string>;
+    iconDefinitions: Record<string, string>;
+  };
+};
+
+export type MarketplaceExtension = {
+  id: string;
+  name: string;
+  namespace: string;
+  displayName: string;
+  description: string | null;
+  version: string;
+  iconUrl: string | null;
+  downloadCount: number;
+};
+
+export type InstalledExtensionPayload = {
+  extensionId: string;
+  displayName: string;
+  themes: InstalledTheme[];
+  iconThemes: InstalledIconTheme[];
+};

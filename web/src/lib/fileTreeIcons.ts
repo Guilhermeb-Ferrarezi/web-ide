@@ -1,15 +1,37 @@
 import { generateManifest } from 'material-icon-theme';
+import { useAppearanceStore, DEFAULT_ICON_THEME_ID } from '@/stores/appearanceStore';
 import { detectLanguage } from './language';
+import type { InstalledIconTheme } from '@/types';
 
 const manifest = generateManifest();
 const MATERIAL_ICON_THEME_VERSION = '5.34.0';
 const MATERIAL_ICON_THEME_BASE_URL =
   `https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/v${MATERIAL_ICON_THEME_VERSION}/icons`;
 
-const iconDefinitions = manifest.iconDefinitions ?? {};
-const DEFAULT_FILE_ICON = manifest.file ?? 'file';
-const DEFAULT_FOLDER_ICON = manifest.folder ?? 'folder';
-const DEFAULT_FOLDER_EXPANDED_ICON = manifest.folderExpanded ?? DEFAULT_FOLDER_ICON;
+type ResolvedIconTheme = InstalledIconTheme['icons'];
+
+const defaultIconTheme: ResolvedIconTheme = {
+  file: manifest.file ?? 'file',
+  folder: manifest.folder ?? 'folder',
+  folderExpanded: manifest.folderExpanded ?? manifest.folder ?? 'folder',
+  fileNames: manifest.fileNames ?? {},
+  fileExtensions: manifest.fileExtensions ?? {},
+  folderNames: manifest.folderNames ?? {},
+  folderNamesExpanded: manifest.folderNamesExpanded ?? {},
+  languageIds: manifest.languageIds ?? {},
+  iconDefinitions: Object.fromEntries(
+    Object.entries(manifest.iconDefinitions ?? {}).map(([id, definition]) => {
+      const fileName = definition.iconPath?.split('/').at(-1) ?? `${id}.svg`;
+      return [id, `${MATERIAL_ICON_THEME_BASE_URL}/${fileName}`];
+    }),
+  ),
+};
+
+function getActiveIconTheme(): ResolvedIconTheme {
+  const { activeIconThemeId, installedIconThemes } = useAppearanceStore.getState();
+  if (activeIconThemeId === DEFAULT_ICON_THEME_ID) return defaultIconTheme;
+  return installedIconThemes.find((theme) => theme.id === activeIconThemeId)?.icons ?? defaultIconTheme;
+}
 
 function normalizeSegment(value: string): string {
   return value.trim().toLowerCase();
@@ -22,11 +44,9 @@ function splitPath(path: string): { name: string; parent?: string } {
   return { name, parent };
 }
 
-function iconIdToUrl(iconId: string | undefined, fallbackId: string): string {
+function iconIdToUrl(iconTheme: ResolvedIconTheme, iconId: string | undefined, fallbackId: string): string {
   const resolvedId = iconId ?? fallbackId;
-  const iconPath = iconDefinitions[resolvedId]?.iconPath;
-  const fileName = iconPath?.split('/').at(-1) ?? `${resolvedId}.svg`;
-  return `${MATERIAL_ICON_THEME_BASE_URL}/${fileName}`;
+  return iconTheme.iconDefinitions[resolvedId] ?? iconTheme.iconDefinitions[fallbackId] ?? '';
 }
 
 function matchAssociation(
@@ -59,48 +79,52 @@ function getExtensionCandidates(name: string): string[] {
   return candidates;
 }
 
-export function resolveMaterialFileIcon(path: string): string {
+export function resolveFileIcon(path: string): string {
+  const iconTheme = getActiveIconTheme();
   const { name, parent } = splitPath(path);
   const normalizedName = normalizeSegment(name);
 
-  const fileNameMatch = matchAssociation(manifest.fileNames, normalizedName, parent);
+  const fileNameMatch = matchAssociation(iconTheme.fileNames, normalizedName, parent);
   if (fileNameMatch) {
-    return iconIdToUrl(fileNameMatch, DEFAULT_FILE_ICON);
+    return iconIdToUrl(iconTheme, fileNameMatch, iconTheme.file);
   }
 
   for (const extension of getExtensionCandidates(normalizedName)) {
-    const extensionMatch = matchAssociation(manifest.fileExtensions, extension, parent);
+    const extensionMatch = matchAssociation(iconTheme.fileExtensions, extension, parent);
     if (extensionMatch) {
-      return iconIdToUrl(extensionMatch, DEFAULT_FILE_ICON);
+      return iconIdToUrl(iconTheme, extensionMatch, iconTheme.file);
     }
   }
 
   const languageId = detectLanguage(normalizedName);
-  const languageMatch = languageId === 'plaintext' ? undefined : manifest.languageIds?.[languageId];
-  return iconIdToUrl(languageMatch, DEFAULT_FILE_ICON);
+  const languageMatch = languageId === 'plaintext' ? undefined : iconTheme.languageIds[languageId];
+  return iconIdToUrl(iconTheme, languageMatch, iconTheme.file);
 }
 
-export function resolveMaterialFolderIcon(
-  path: string,
-  options?: { expanded?: boolean },
-): string {
+export function resolveFolderIcon(path: string, options?: { expanded?: boolean }): string {
+  const iconTheme = getActiveIconTheme();
   const { name, parent } = splitPath(path);
   const normalizedName = normalizeSegment(name);
 
   const specificAssociation = options?.expanded
-    ? matchAssociation(manifest.folderNamesExpanded, normalizedName, parent)
-      ?? matchAssociation(manifest.folderNames, normalizedName, parent)
-    : matchAssociation(manifest.folderNames, normalizedName, parent);
+    ? matchAssociation(iconTheme.folderNamesExpanded, normalizedName, parent)
+      ?? matchAssociation(iconTheme.folderNames, normalizedName, parent)
+    : matchAssociation(iconTheme.folderNames, normalizedName, parent);
 
   if (specificAssociation) {
     return iconIdToUrl(
+      iconTheme,
       specificAssociation,
-      options?.expanded ? DEFAULT_FOLDER_EXPANDED_ICON : DEFAULT_FOLDER_ICON,
+      options?.expanded ? iconTheme.folderExpanded : iconTheme.folder,
     );
   }
 
   return iconIdToUrl(
-    options?.expanded ? DEFAULT_FOLDER_EXPANDED_ICON : DEFAULT_FOLDER_ICON,
-    options?.expanded ? DEFAULT_FOLDER_EXPANDED_ICON : DEFAULT_FOLDER_ICON,
+    iconTheme,
+    options?.expanded ? iconTheme.folderExpanded : iconTheme.folder,
+    options?.expanded ? iconTheme.folderExpanded : iconTheme.folder,
   );
 }
+
+export const resolveMaterialFileIcon = resolveFileIcon;
+export const resolveMaterialFolderIcon = resolveFolderIcon;

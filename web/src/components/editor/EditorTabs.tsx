@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { resolveMaterialFileIcon } from '@/lib/fileTreeIcons';
+import { resolveFileIcon } from '@/lib/fileTreeIcons';
 import type { EditorTab } from '@/types';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
     <div className="flex h-9 items-stretch overflow-x-auto border-b bg-muted/30">
       {tabs.map((tab) => {
         const active = tab.path === activePath;
-        const fileIcon = resolveMaterialFileIcon(tab.path);
+        const fileIcon = resolveFileIcon(tab.path);
         return (
           <div
             key={tab.path}

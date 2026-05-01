@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FileSearch, GitBranch, TerminalSquare } from 'lucide-react';
+import { Blocks, FileSearch, GitBranch, TerminalSquare } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { EditorBreadcrumbs } from '@/components/editor/EditorBreadcrumbs';
 import { EditorTabs } from '@/components/editor/EditorTabs';
 import { EditorPane } from '@/components/editor/EditorPane';
 import { GitPanel } from '@/components/git/GitPanel';
+import { ExtensionsPanel } from '@/components/extensions/ExtensionsPanel';
 import { CodeSearchPanel } from '@/components/shared/CodeSearchPanel';
 import { TerminalPane } from '@/components/terminal/TerminalPane';
 import { StatusBar } from './StatusBar';
@@ -16,7 +17,7 @@ import { useGitStatus } from '@/hooks/useGitStatus';
 import { cn } from '@/lib/utils';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
-type SidePanel = 'files' | 'search' | 'git';
+type SidePanel = 'files' | 'search' | 'git' | 'extensions';
 
 export function AppShell({ workspace }: { workspace: string }) {
   const { tabs, activePath, setActive, closeTab, updateContent, save } = useEditor();
@@ -73,6 +74,15 @@ export function AppShell({ workspace }: { workspace: string }) {
               </span>
             )}
           </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn('h-8 w-8', side === 'extensions' && 'bg-accent')}
+            onClick={() => setSide('extensions')}
+            title="Extensões"
+          >
+            <Blocks className="h-4 w-4" />
+          </Button>
           <div className="flex-1" />
           <Button
             variant="ghost"
@@ -90,6 +100,7 @@ export function AppShell({ workspace }: { workspace: string }) {
           {side === 'files' ? <FileTree workspace={workspace} /> : null}
           {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
           {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
+          {side === 'extensions' ? <ExtensionsPanel /> : null}
         </ResizablePanel>
         <ResizableHandle />
 

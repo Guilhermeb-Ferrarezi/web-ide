@@ -3,6 +3,7 @@ import Editor, { useMonaco, type OnMount } from '@monaco-editor/react';
 import type { EditorTab } from '@/types';
 import { detectLanguage, isImage } from '@/lib/language';
 import { useEditorStore } from '@/stores/editorStore';
+import { DEFAULT_EDITOR_THEME_ID, useAppearanceStore } from '@/stores/appearanceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { fetchTypes } from '@/api/fs';
 
@@ -19,6 +20,11 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const setPendingJump = useEditorStore((s) => s.setPendingJump);
   const monaco = useMonaco();
   const workspace = useWorkspaceStore((s) => s.workspace);
+  const installedThemes = useAppearanceStore((s) => s.installedThemes);
+  const activeThemeId = useAppearanceStore((s) => s.activeThemeId);
+  const activeTheme = activeThemeId === DEFAULT_EDITOR_THEME_ID
+    ? null
+    : installedThemes.find((theme) => theme.id === activeThemeId) ?? null;
 
   useEffect(() => {
     if (!monaco || !workspace) return;
@@ -49,6 +55,16 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
 
     return () => { cancelled = true; };
   }, [monaco, workspace]);
+
+  useEffect(() => {
+    if (!monaco || !activeTheme) return;
+    monaco.editor.defineTheme(activeTheme.id, {
+      base: activeTheme.uiTheme,
+      inherit: true,
+      rules: activeTheme.rules,
+      colors: activeTheme.colors,
+    });
+  }, [activeTheme, monaco]);
 
   useEffect(() => {
     function handle(e: KeyboardEvent) {
@@ -113,7 +129,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     <Editor
       key={tab.path}
       height="100%"
-      theme="vs-dark"
+      theme={activeTheme?.id ?? 'vs-dark'}
       language={detectLanguage(tab.name)}
       value={tab.content}
       onChange={(v) => onChange(tab.path, v ?? '')}

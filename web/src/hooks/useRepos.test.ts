@@ -100,7 +100,9 @@ describe('useRepos', () => {
   it('mostra toast de loading enquanto importa e finaliza com sucesso', async () => {
     vi.spyOn(reposApi, 'listRepos').mockResolvedValue(makePayload({}));
 
-    let resolveClone: ((value: any) => void) | null = null;
+    type CloneRepoResult = Awaited<ReturnType<typeof reposApi.cloneRepo>>;
+
+    let resolveClone!: (value: CloneRepoResult) => void;
     vi.spyOn(reposApi, 'cloneRepo').mockImplementation(
       () =>
         new Promise((resolve) => {
@@ -136,7 +138,7 @@ describe('useRepos', () => {
       expect(toast.loading).toHaveBeenCalledWith('Importando repositório e instalando dependências...'),
     );
 
-    resolveClone?.({
+    resolveClone({
       repo: {
         id: 'local-1',
         slug: 'repo-1',
