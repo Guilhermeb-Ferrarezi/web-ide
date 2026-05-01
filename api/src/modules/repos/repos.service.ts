@@ -188,6 +188,20 @@ export async function listRemoteRepos(
   };
 }
 
+export async function listRemoteBranches(accessToken: string, repoFullName: string): Promise<string[]> {
+  const [owner, repo] = repoFullName.split('/');
+  if (!owner || !repo) throw new Error('Invalid repoFullName');
+
+  const octokit = createOctokit(accessToken);
+  const branches = await octokit.paginate(octokit.repos.listBranches, {
+    owner,
+    repo,
+    per_page: 100,
+  });
+
+  return branches.map((branch) => branch.name);
+}
+
 export async function listLocalRepos(userId: string): Promise<LocalRepo[]> {
   const permissions = await db.query.repoPermissions.findMany({
     where: eq(repoPermissions.userId, userId),

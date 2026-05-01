@@ -4,7 +4,7 @@ import { Code2, Download, ExternalLink, FolderPlus, Lock, LogOut, Search, Share2
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useRepos } from '@/hooks/useRepos';
-import { grantRepoAccess, listRepoPermissions, revokeRepoAccess, searchShareUsers } from '@/api/repos';
+import { grantRepoAccess, listRepoBranches, listRepoPermissions, revokeRepoAccess, searchShareUsers } from '@/api/repos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -50,6 +50,9 @@ export default function ReposPage() {
   const [permissionDrafts, setPermissionDrafts] = useState<Record<string, 'read' | 'write'>>({});
   const [shareCandidates, setShareCandidates] = useState<ShareUserCandidate[]>([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
+  const [branchesByRepo, setBranchesByRepo] = useState<Record<string, string[]>>({});
+  const [selectedBranchByRepo, setSelectedBranchByRepo] = useState<Record<string, string>>({});
+  const [loadingBranchesByRepo, setLoadingBranchesByRepo] = useState<Record<string, boolean>>({});
   const localSentinelRef = useRef<HTMLDivElement | null>(null);
   const githubSentinelRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -152,6 +155,40 @@ export default function ReposPage() {
     observer.observe(node);
     return () => observer.disconnect();
   }, [hasMoreGithub, loadMoreGithub]);
+
+  useEffect(() => {
+    const reposToLoad = githubRepos.filter((repo) => !branchesByRepo[repo.fullName] && !loadingBranchesByRepo[repo.fullName]);
+    if (reposToLoad.length === 0) return;
+
+    reposToLoad.forEach((repo) => {
+      setLoadingBranchesByRepo((prev) => ({ ...prev, [repo.fullName]: true }));
+      setSelectedBranchByRepo((prev) => ({
+        ...prev,
+        [repo.fullName]: prev[repo.fullName] ?? repo.defaultBranch,
+      }));
+
+      void (async () => {
+        try {
+          const branches = await listRepoBranches(repo.fullName);
+          setBranchesByRepo((prev) => ({ ...prev, [repo.fullName]: branches }));
+          setSelectedBranchByRepo((prev) => ({
+            ...prev,
+            [repo.fullName]: prev[repo.fullName] && branches.includes(prev[repo.fullName])
+              ? prev[repo.fullName]
+              : (branches[0] ?? repo.defaultBranch),
+          }));
+        } catch {
+          setBranchesByRepo((prev) => ({ ...prev, [repo.fullName]: [repo.defaultBranch] }));
+          setSelectedBranchByRepo((prev) => ({
+            ...prev,
+            [repo.fullName]: prev[repo.fullName] ?? repo.defaultBranch,
+          }));
+        } finally {
+          setLoadingBranchesByRepo((prev) => ({ ...prev, [repo.fullName]: false }));
+        }
+      })();
+    });
+  }, [branchesByRepo, githubRepos, loadingBranchesByRepo]);
 
   async function handleInit() {
     const name = initName.trim();
@@ -515,12 +552,35 @@ export default function ReposPage() {
                         </div>
                       </div>
 
-                      <div className="flex shrink-0 gap-2">
+                      <div className="flex shrink-0 items-center gap-2">
+                        <div className="min-w-40">
+                          <label className="sr-only" htmlFor={`import-branch-${repo.id}`}>
+                            Branch para importar {repo.fullName}
+                          </label>
+                          <select
+                            id={`import-branch-${repo.id}`}
+                            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+                            value={selectedBranchByRepo[repo.fullName] ?? repo.defaultBranch}
+                            onChange={(e) =>
+                              setSelectedBranchByRepo((prev) => ({
+                                ...prev,
+                                [repo.fullName]: e.target.value,
+                              }))
+                            }
+                            disabled={loadingBranchesByRepo[repo.fullName] || cloningId === repo.id}
+                          >
+                            {(branchesByRepo[repo.fullName] ?? [repo.defaultBranch]).map((branch) => (
+                              <option key={branch} value={branch}>
+                                {branch}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                         <Button
                           size="sm"
                           variant={repo.cloned ? 'secondary' : 'outline'}
                           disabled={cloningId === repo.id}
-                          onClick={() => void clone(repo)}
+                          onClick={() => void clone(repo, selectedBranchByRepo[repo.fullName] ?? repo.defaultBranch)}
                         >
                           <Download className="mr-2 h-4 w-4" />
                           {cloningId === repo.id ? 'Importando...' : repo.cloned ? 'Adicionar acesso' : 'Importar'}

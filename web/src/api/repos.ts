@@ -17,6 +17,13 @@ export async function listLocalRepos(): Promise<LocalRepo[]> {
   return data;
 }
 
+export async function listRepoBranches(repoFullName: string): Promise<string[]> {
+  const { data } = await api.get<{ branches: string[] }>('/repos/branches', {
+    params: { repoFullName },
+  });
+  return data.branches;
+}
+
 export async function cloneRepo(repoFullName: string, branch?: string) {
   const { data } = await api.post<{ repo: LocalRepo; permission: 'read' | 'write' }>('/repos/clone', { repoFullName, branch });
   return data;

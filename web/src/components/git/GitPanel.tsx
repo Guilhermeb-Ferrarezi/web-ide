@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, GitBranch, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useGitStatus } from '@/hooks/useGitStatus';
-import { gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntrack } from '@/api/git';
+import { fetchBranches, gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntrack } from '@/api/git';
 import { GitFileList } from './GitFileList';
 
 type Props = { workspace: string; readOnly?: boolean };
@@ -17,6 +17,34 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState<'commit' | 'push' | 'pull' | null>(null);
+  const [branchOptions, setBranchOptions] = useState<string[]>([]);
+  const [targetBranch, setTargetBranch] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const branches = await fetchBranches(workspace);
+        if (cancelled) return;
+        setBranchOptions(branches.all);
+        setTargetBranch(branches.current);
+      } catch {
+        if (cancelled) return;
+        setBranchOptions([]);
+        setTargetBranch('');
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace]);
+
+  useEffect(() => {
+    if (!status?.branch) return;
+    setTargetBranch((current) => current || status.branch || '');
+    setBranchOptions((current) => (status.branch && !current.includes(status.branch) ? [status.branch, ...current] : current));
+  }, [status?.branch]);
 
   const stagedItems = useMemo(
     () => status?.staged.map((f) => ({ path: f.path, tag: f.index.trim() || 'M' })) ?? [],
@@ -90,7 +118,7 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
     if (!message.trim()) return toast.warning('Mensagem obrigatória');
     setBusy('commit');
     try {
-      await gitCommit(workspace, message.trim());
+      await gitCommit(workspace, message.trim(), targetBranch || undefined);
       setMessage('');
       toast.success('Commit criado');
       await refresh();
@@ -218,6 +246,28 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
       </ScrollArea>
 
       <div className="space-y-2 border-t p-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground" htmlFor="git-commit-branch">
+            Branch do commit
+          </label>
+          <select
+            id="git-commit-branch"
+            className="h-9 w-full rounded-md border bg-background px-3 text-sm"
+            value={targetBranch}
+            onChange={(e) => setTargetBranch(e.target.value)}
+            disabled={readOnly || busy !== null || branchOptions.length === 0}
+          >
+            {branchOptions.length === 0 ? (
+              <option value="">Sem branches disponíveis</option>
+            ) : (
+              branchOptions.map((branch) => (
+                <option key={branch} value={branch}>
+                  {branch}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
         <Textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}

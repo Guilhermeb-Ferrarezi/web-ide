@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { deleteLocalRepo, importRepo, initRepo, listLocalRepos, listReposForUser } from './repos.service.ts';
+import { deleteLocalRepo, importRepo, initRepo, listLocalRepos, listRemoteBranches, listReposForUser } from './repos.service.ts';
 
 const cloneSchema = z.object({
   repoFullName: z.string().regex(/^[^/]+\/[^/]+$/),
@@ -12,6 +12,9 @@ const listReposQuerySchema = z.object({
   localPage: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(10),
 });
+const remoteBranchesQuerySchema = z.object({
+  repoFullName: z.string().regex(/^[^/]+\/[^/]+$/),
+});
 
 const repoNameParam = z.object({ name: z.string().min(1) });
 
@@ -20,6 +23,13 @@ export async function getRemoteRepos(req: FastifyRequest, reply: FastifyReply) {
   const query = listReposQuerySchema.parse(req.query);
   const repos = await listReposForUser(user.accessToken, user.userId, query);
   return reply.send(repos);
+}
+
+export async function getRemoteBranches(req: FastifyRequest, reply: FastifyReply) {
+  const user = req.session.user!;
+  const query = remoteBranchesQuerySchema.parse(req.query);
+  const branches = await listRemoteBranches(user.accessToken, query.repoFullName);
+  return reply.send({ branches });
 }
 
 export async function getLocalRepos(req: FastifyRequest, reply: FastifyReply) {

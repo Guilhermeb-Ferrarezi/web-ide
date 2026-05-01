@@ -23,6 +23,8 @@ vi.mock('@/api/git', async () => {
   const actual = await vi.importActual<typeof import('@/api/git')>('@/api/git');
   return {
     ...actual,
+    fetchBranches: vi.fn().mockResolvedValue({ current: 'main', all: ['main', 'develop'] }),
+    gitCommit: vi.fn().mockResolvedValue(undefined),
     gitUntrack: vi.fn().mockResolvedValue(undefined),
   };
 });
@@ -53,5 +55,19 @@ describe('<GitPanel />', () => {
     await user.click(screen.getByRole('button', { name: 'Tirar selecionados do Git' }));
 
     expect(untrackSpy).toHaveBeenCalledWith('repo', ['README.md']);
+  });
+
+  it('permite escolher a branch do commit', async () => {
+    const user = userEvent.setup();
+    const commitSpy = vi.mocked(gitApi.gitCommit);
+
+    render(<GitPanel workspace="repo" />);
+
+    await screen.findByRole('option', { name: 'develop' });
+    await user.selectOptions(screen.getByLabelText('Branch do commit'), 'develop');
+    await user.type(screen.getByPlaceholderText('Mensagem do commit'), 'feat: branch target');
+    await user.click(screen.getByRole('button', { name: 'Commit' }));
+
+    expect(commitSpy).toHaveBeenCalledWith('repo', 'feat: branch target', 'develop');
   });
 });

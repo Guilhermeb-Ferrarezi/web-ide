@@ -102,9 +102,15 @@ export async function untrackFiles(workspacePath: string, files: string[]) {
   await git(workspacePath).raw(['rm', '--cached', '--', ...files]);
 }
 
-export async function commit(workspacePath: string, message: string, author?: GitCommitAuthor) {
+export async function commit(workspacePath: string, message: string, author?: GitCommitAuthor, branch?: string) {
   const g = git(workspacePath);
   await ensureCommitIdentity(g, author);
+  if (branch) {
+    const currentBranch = (await g.branchLocal()).current;
+    if (currentBranch !== branch) {
+      await g.checkout(branch);
+    }
+  }
   return g.commit(message);
 }
 

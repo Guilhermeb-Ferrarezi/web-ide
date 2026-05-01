@@ -71,10 +71,10 @@ export function useRepos() {
   }, [githubPage, hasMoreLocal, loading, loadingMoreLocal, localPage]);
 
   const clone = useCallback(
-    async (repo: RemoteRepo) => {
+    async (repo: RemoteRepo, branch?: string) => {
       setCloningId(repo.id);
       try {
-        const result = await apiClone(repo.fullName, repo.defaultBranch);
+        const result = await apiClone(repo.fullName, branch ?? repo.defaultBranch);
         toast.success(`${repo.name} clonado`);
         setGithubRepos((prev) => prev.map((r) => (r.id === repo.id ? { ...r, cloned: true } : r)));
         setLocalRepos((prev) =>

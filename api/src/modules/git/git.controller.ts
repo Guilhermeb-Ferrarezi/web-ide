@@ -42,11 +42,11 @@ export async function postUntrack(req: FastifyRequest, reply: FastifyReply) {
   return reply.send({ ok: true });
 }
 
-const commitSchema = z.object({ workspace: z.string(), message: z.string().min(1) });
+const commitSchema = z.object({ workspace: z.string(), message: z.string().min(1), branch: z.string().min(1).optional() });
 export async function postCommit(req: FastifyRequest, reply: FastifyReply) {
   const body = commitSchema.parse(req.body);
   try {
-    const result = await gitService.commit(req.workspacePath!, body.message, req.session.user);
+    const result = await gitService.commit(req.workspacePath!, body.message, req.session.user, body.branch);
     return reply.send({ ok: true, commit: result.commit });
   } catch (err) {
     return reply.code(422).send({ error: 'commit_failed', message: (err as Error).message });

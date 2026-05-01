@@ -65,6 +65,7 @@ describe('<ReposPage />', () => {
       cloningId: null,
       loadMoreGithub: vi.fn(),
       loadMoreLocal: vi.fn(),
+      init: vi.fn(),
       clone: vi.fn(),
       remove: vi.fn(),
     });
@@ -116,7 +117,6 @@ describe('<ReposPage />', () => {
     expect(await screen.findByText('@octodemo')).toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByLabelText('Permissão de octodemo'), 'write');
-    await userEvent.click(screen.getByRole('button', { name: 'Atualizar octodemo' }));
 
     await waitFor(() =>
       expect(grantSpy).toHaveBeenCalledWith('repo-1', 'octodemo', 'write'),
@@ -150,6 +150,7 @@ describe('<ReposPage />', () => {
       cloningId: null,
       loadMoreGithub,
       loadMoreLocal: vi.fn(),
+      init: vi.fn(),
       clone: vi.fn(),
       remove: vi.fn(),
     });
@@ -180,5 +181,54 @@ describe('<ReposPage />', () => {
     });
 
     await waitFor(() => expect(loadMoreGithub).toHaveBeenCalledTimes(1));
+  });
+
+  it('permite escolher a branch antes de importar um repositorio do GitHub', async () => {
+    const clone = vi.fn().mockResolvedValue(undefined);
+    mockUseRepos.mockReturnValue({
+      githubRepos: [
+        {
+          id: 42,
+          name: 'repo-branch',
+          fullName: 'octocat/repo-branch',
+          private: false,
+          cloneUrl: '',
+          defaultBranch: 'main',
+          updatedAt: null,
+          description: null,
+          language: 'TypeScript',
+          cloned: false,
+        },
+      ],
+      localRepos: [],
+      loading: false,
+      loadingMoreGithub: false,
+      loadingMoreLocal: false,
+      hasMoreGithub: false,
+      hasMoreLocal: false,
+      cloningId: null,
+      loadMoreGithub: vi.fn(),
+      loadMoreLocal: vi.fn(),
+      init: vi.fn(),
+      clone,
+      remove: vi.fn(),
+    });
+    vi.spyOn(reposApi, 'listRepoPermissions').mockResolvedValue([]);
+    vi.spyOn(reposApi, 'listRepoBranches').mockResolvedValue(['main', 'develop', 'release']);
+
+    render(
+      <MemoryRouter>
+        <ReposPage />
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('option', { name: 'develop' });
+    await userEvent.selectOptions(screen.getByLabelText('Branch para importar octocat/repo-branch'), 'develop');
+    await userEvent.click(screen.getByRole('button', { name: 'Importar' }));
+
+    expect(clone).toHaveBeenCalledWith(
+      expect.objectContaining({ fullName: 'octocat/repo-branch' }),
+      'develop',
+    );
   });
 });

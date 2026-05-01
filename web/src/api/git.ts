@@ -32,8 +32,8 @@ export async function gitUntrack(workspace: string, files: string[]) {
   await api.post('/git/untrack', { workspace, files });
 }
 
-export async function gitCommit(workspace: string, message: string) {
-  await api.post('/git/commit', { workspace, message });
+export async function gitCommit(workspace: string, message: string, branch?: string) {
+  await api.post('/git/commit', { workspace, message, branch });
 }
 
 export async function gitPush(workspace: string) {

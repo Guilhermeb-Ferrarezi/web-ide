@@ -90,6 +90,30 @@ describe('addFiles / unstageFiles / commit', () => {
     expect(s.untracked).toContain('a.txt');
     expect(await fs.readFile(path.join(workspace, 'a.txt'), 'utf-8')).toBe('a');
   });
+
+  it('faz commit na branch selecionada quando ela e diferente da atual', async () => {
+    await writeFile('a.txt', 'a');
+    await addFiles(workspace, ['a.txt']);
+    await commit(workspace, 'init');
+
+    await checkout(workspace, 'develop', true);
+    await writeFile('develop.txt', 'develop');
+    await addFiles(workspace, ['develop.txt']);
+    await commit(workspace, 'develop init');
+
+    await checkout(workspace, 'master');
+    await writeFile('main.txt', 'main');
+    await addFiles(workspace, ['main.txt']);
+
+    const result = await commit(workspace, 'commit on develop', undefined, 'develop');
+    expect(result.commit).toBeTruthy();
+
+    const branches = await getBranches(workspace);
+    expect(branches.current).toBe('develop');
+
+    const log = await getLog(workspace, 1);
+    expect(log[0]?.message).toBe('commit on develop');
+  });
 });
 
 describe('getLog', () => {
