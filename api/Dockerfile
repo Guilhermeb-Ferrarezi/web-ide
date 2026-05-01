@@ -8,8 +8,7 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 
 RUN apk add --no-cache git bash python3 make g++ curl \
-  && corepack enable \
-  && npm install -g pnpm
+  && corepack enable
 
 COPY --from=deps /usr/local/bin/bun /usr/local/bin/bun
 
