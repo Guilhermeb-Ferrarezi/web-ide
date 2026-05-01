@@ -22,6 +22,64 @@ type Props = {
   onSave: (path: string) => void;
 };
 
+const FALLBACK_REACT_TYPE_LIBS = [
+  {
+    virtualPath: 'node_modules/@types/react/index.d.ts',
+    content: `
+declare namespace React {
+  type ReactNode = unknown;
+  interface Attributes {
+    key?: string | number;
+  }
+}
+
+declare namespace JSX {
+  interface Element {}
+  interface IntrinsicElements {
+    [elemName: string]: any;
+  }
+}
+
+declare module 'react' {
+  export = React;
+}
+`,
+  },
+  {
+    virtualPath: 'node_modules/@types/react/jsx-runtime.d.ts',
+    content: `
+declare module 'react/jsx-runtime' {
+  export namespace JSX {
+    interface Element {}
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+
+  export const Fragment: unique symbol;
+  export function jsx(type: any, props: any, key?: string): JSX.Element;
+  export function jsxs(type: any, props: any, key?: string): JSX.Element;
+}
+`,
+  },
+  {
+    virtualPath: 'node_modules/@types/react/jsx-dev-runtime.d.ts',
+    content: `
+declare module 'react/jsx-dev-runtime' {
+  export namespace JSX {
+    interface Element {}
+    interface IntrinsicElements {
+      [elemName: string]: any;
+    }
+  }
+
+  export const Fragment: unique symbol;
+  export function jsxDEV(type: any, props: any, key: string | undefined, isStaticChildren: boolean, source: any, self: any): JSX.Element;
+}
+`,
+  },
+] as const;
+
 export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -92,7 +150,10 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     void Promise.all([fetchTypes(workspace), fetchProjectFiles(workspace)]).then(([types, projectFiles]) => {
       if (cancelled) return;
 
-      for (const { virtualPath, content } of types) {
+      const hasReactJsxRuntime = types.some((entry) => entry.virtualPath.includes('@types/react/jsx-runtime.d.ts'));
+      const typeLibs = hasReactJsxRuntime ? types : [...types, ...FALLBACK_REACT_TYPE_LIBS];
+
+      for (const { virtualPath, content } of typeLibs) {
         const uri = monaco.Uri.parse(`file:///${virtualPath}`);
         ts.typescriptDefaults.addExtraLib(content, uri.toString());
         ts.javascriptDefaults.addExtraLib(content, uri.toString());
@@ -156,6 +217,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const handleMount: OnMount = (ed) => {
     editorRef.current = ed;
     const hoverTimer = { current: null as ReturnType<typeof setTimeout> | null };
+    let hoverRequestId = 0;
 
     function clearHoverLoading() {
       if (hoverTimer.current !== null) {
@@ -215,22 +277,45 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     ed.onMouseMove((event) => {
       clearHoverLoading();
       if (!event.target.position || !containerRef.current) return;
+      if (!monaco || tab?.kind === 'extension') return;
+      if (event.target.type !== monaco.editor.MouseTargetType.CONTENT_TEXT) return;
       const model = ed.getModel();
       if (!model) return;
       const word = model.getWordAtPosition(event.target.position);
       if (!word || word.word.trim().length < 2) return;
+      const language = detectLanguage(tab?.name ?? '');
+      if (language !== 'typescript' && language !== 'javascript') return;
 
       const rect = containerRef.current.getBoundingClientRect();
+      const requestId = ++hoverRequestId;
+      const clientX = event.event.browserEvent.clientX;
+      const clientY = event.event.browserEvent.clientY;
+
       hoverTimer.current = setTimeout(() => {
-        const clientX = event.event.browserEvent.clientX;
-        const clientY = event.event.browserEvent.clientY;
+        if (requestId !== hoverRequestId) return;
         setHoverLoading({
           left: clientX - rect.left + 12,
           top: clientY - rect.top + 18,
           label: 'Loading symbol info...',
         });
-        setTimeout(() => setHoverLoading(null), 800);
-      }, 180);
+      }, 350);
+
+      void (async () => {
+        try {
+          // Monaco exposes the TS worker at runtime, but the bundled typings lag behind here.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const tsApi = monaco.languages.typescript as any;
+          const workerFactory = await tsApi.getTypeScriptWorker();
+          const worker = await workerFactory(model.uri);
+          const offset = model.getOffsetAt(event.target.position!);
+          await worker.getQuickInfoAtPosition(model.uri.toString(), offset);
+        } catch {
+          // ignore hover worker failures
+        } finally {
+          if (requestId !== hoverRequestId) return;
+          clearHoverLoading();
+        }
+      })();
     });
 
     const jump = useEditorStore.getState().pendingJump;
