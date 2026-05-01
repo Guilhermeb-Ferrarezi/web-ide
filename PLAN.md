@@ -3,7 +3,7 @@
 ## Stack
 
 - **Runtime/Tooling:** Bun (package manager + runtime + test runner)
-- **Frontend:** React + Vite + Vitest + Tailwind CSS + shadcn/ui + Radix UI + Axios
+- **Frontend:** React + Vite + Vitest + Tailwind CSS + hadcn/ui + Radix UI + Axios
 - **Backend:** Bun + Fastify + TypeScript (sem build — `bun src/server.ts` direto)
 - **Git ops:** simple-git
 - **Terminal:** node-pty + xterm.js + @fastify/websocket
