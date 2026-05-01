@@ -101,3 +101,13 @@ export function resolveAppRole(
 
   return candidates.some((candidate) => terminalSuperusers.includes(candidate)) ? 'terminal_superuser' : storedRole;
 }
+
+export async function resolveCurrentAppRole(input: {
+  userId: string;
+  githubUserId: string;
+  login: string;
+  terminalSuperusers?: string[];
+}): Promise<AppRole> {
+  const storedRole = await getGlobalRoleForUser(input.userId);
+  return resolveAppRole(storedRole, input);
+}

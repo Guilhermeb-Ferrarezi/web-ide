@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { FilePlus2, FolderPlus, Pencil, RefreshCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { deleteFile, mkdir, renamePath, saveFile } from '@/api/fs';
 import { useFileTree } from '@/hooks/useFileTree';
@@ -18,11 +18,14 @@ type ContextMenuState = {
   y: number;
 };
 
-type ActionModalState =
+type InlineActionState =
   | { mode: 'create-file'; parentPath: string; value: string }
   | { mode: 'create-folder'; parentPath: string; value: string }
-  | { mode: 'rename'; node: TreeNode; value: string }
-  | { mode: 'delete'; node: TreeNode };
+  | { mode: 'rename'; node: TreeNode; value: string };
+
+type DeleteModalState = {
+  node: TreeNode;
+};
 
 function joinPath(parent: string, child: string): string {
   return parent ? `${parent}/${child}` : child;
@@ -39,7 +42,8 @@ export function FileTree({ workspace }: { workspace: string }) {
   const { openFile, activePath } = useEditor();
   const permission = useWorkspaceStore((s) => s.permission);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
-  const [actionModal, setActionModal] = useState<ActionModalState | null>(null);
+  const [inlineAction, setInlineAction] = useState<InlineActionState | null>(null);
+  const [deleteModal, setDeleteModal] = useState<DeleteModalState | null>(null);
   const readOnly = permission !== 'write';
 
   useEffect(() => {
@@ -85,13 +89,13 @@ export function FileTree({ workspace }: { workspace: string }) {
         label: 'Novo arquivo',
         icon: <FilePlus2 className="h-3.5 w-3.5" />,
         disabled: readOnly,
-        onSelect: () => openActionModal({ mode: 'create-file', parentPath: node.path, value: '' }),
+        onSelect: () => openInlineAction({ mode: 'create-file', parentPath: node.path, value: '' }),
       });
       items.push({
         label: 'Nova pasta',
         icon: <FolderPlus className="h-3.5 w-3.5" />,
         disabled: readOnly,
-        onSelect: () => openActionModal({ mode: 'create-folder', parentPath: node.path, value: '' }),
+        onSelect: () => openInlineAction({ mode: 'create-folder', parentPath: node.path, value: '' }),
       });
     }
 
@@ -99,59 +103,73 @@ export function FileTree({ workspace }: { workspace: string }) {
       label: 'Renomear',
       icon: <Pencil className="h-3.5 w-3.5" />,
       disabled: readOnly,
-      onSelect: () => openActionModal({ mode: 'rename', node, value: node.name }),
+      onSelect: () => openInlineAction({ mode: 'rename', node, value: node.name }),
     });
     items.push({
       label: node.type === 'directory' ? 'Excluir pasta' : 'Excluir arquivo',
       icon: <Trash2 className="h-3.5 w-3.5" />,
       disabled: readOnly,
-      onSelect: () => openActionModal({ mode: 'delete', node }),
+      onSelect: () => openDeleteModal(node),
     });
 
     return items;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contextMenu, readOnly, openFile]);
 
-  function openActionModal(nextState: ActionModalState) {
+  function openInlineAction(nextState: InlineActionState) {
     setContextMenu(null);
-    setActionModal(nextState);
+    setDeleteModal(null);
+    setInlineAction(nextState);
   }
 
-  async function handleCreateFile(parentPath: string, name: string) {
-    if (!name.trim()) return;
-    try {
-      const nextPath = joinPath(parentPath, name.trim());
-      await saveFile(workspace, nextPath, '', 'utf-8');
-      await refresh();
-      await openFile(nextPath);
-    } catch {
-      toast.error('Falha ao criar arquivo');
-    } finally {
-      setActionModal(null);
+  function openDeleteModal(node: TreeNode) {
+    setContextMenu(null);
+    setInlineAction(null);
+    setDeleteModal({ node });
+  }
+
+  function handleInlineValueChange(value: string) {
+    setInlineAction((current) => (current ? { ...current, value } : current));
+  }
+
+  function handleInlineCancel() {
+    setInlineAction(null);
+  }
+
+  async function handleInlineSubmit() {
+    if (!inlineAction) return;
+    const nextValue = inlineAction.value.trim();
+    if (!nextValue) {
+      setInlineAction(null);
+      return;
     }
-  }
 
-  async function handleCreateFolder(parentPath: string, name: string) {
-    if (!name.trim()) return;
     try {
-      await mkdir(workspace, joinPath(parentPath, name.trim()));
-      await refresh();
+      if (inlineAction.mode === 'create-file') {
+        const nextPath = joinPath(inlineAction.parentPath, nextValue);
+        await saveFile(workspace, nextPath, '', 'utf-8');
+        await refresh();
+        await openFile(nextPath);
+      } else if (inlineAction.mode === 'create-folder') {
+        await mkdir(workspace, joinPath(inlineAction.parentPath, nextValue));
+        await refresh();
+      } else {
+        if (nextValue === inlineAction.node.name) {
+          setInlineAction(null);
+          return;
+        }
+        await renamePath(
+          workspace,
+          inlineAction.node.path,
+          joinPath(getParentPath(inlineAction.node.path), nextValue),
+        );
+        await refresh();
+      }
     } catch {
-      toast.error('Falha ao criar pasta');
+      if (inlineAction.mode === 'create-file') toast.error('Falha ao criar arquivo');
+      else if (inlineAction.mode === 'create-folder') toast.error('Falha ao criar pasta');
+      else toast.error('Falha ao renomear');
     } finally {
-      setActionModal(null);
-    }
-  }
-
-  async function handleRename(node: TreeNode, nextName: string) {
-    if (!nextName.trim() || nextName.trim() === node.name) return setActionModal(null);
-    try {
-      await renamePath(workspace, node.path, joinPath(getParentPath(node.path), nextName.trim()));
-      await refresh();
-    } catch {
-      toast.error('Falha ao renomear');
-    } finally {
-      setActionModal(null);
+      setInlineAction(null);
     }
   }
 
@@ -162,9 +180,12 @@ export function FileTree({ workspace }: { workspace: string }) {
     } catch {
       toast.error('Falha ao excluir');
     } finally {
-      setActionModal(null);
+      setDeleteModal(null);
     }
   }
+
+  const showRootInlineInput =
+    inlineAction && inlineAction.mode !== 'rename' && inlineAction.parentPath === '';
 
   return (
     <div className="relative flex h-full flex-col">
@@ -177,7 +198,7 @@ export function FileTree({ workspace }: { workspace: string }) {
             variant="ghost"
             size="icon"
             className="h-6 w-6"
-            onClick={() => openActionModal({ mode: 'create-file', parentPath: '', value: '' })}
+            onClick={() => openInlineAction({ mode: 'create-file', parentPath: '', value: '' })}
             title={readOnly ? 'Novo arquivo indisponível em modo somente leitura' : 'Novo arquivo'}
             disabled={readOnly}
           >
@@ -187,7 +208,7 @@ export function FileTree({ workspace }: { workspace: string }) {
             variant="ghost"
             size="icon"
             className="h-6 w-6"
-            onClick={() => openActionModal({ mode: 'create-folder', parentPath: '', value: '' })}
+            onClick={() => openInlineAction({ mode: 'create-folder', parentPath: '', value: '' })}
             title={readOnly ? 'Nova pasta indisponível em modo somente leitura' : 'Nova pasta'}
             disabled={readOnly}
           >
@@ -201,10 +222,28 @@ export function FileTree({ workspace }: { workspace: string }) {
       <ScrollArea className="flex-1">
         {loading ? (
           <p className="p-3 text-xs text-muted-foreground">Carregando...</p>
-        ) : tree.length === 0 ? (
+        ) : tree.length === 0 && !showRootInlineInput ? (
           <p className="p-3 text-xs text-muted-foreground">Workspace vazio</p>
         ) : (
           <ul className="py-1">
+            {showRootInlineInput && inlineAction ? (
+              <FileTreeNode
+                key={`inline-root-${inlineAction.mode}`}
+                node={null}
+                level={0}
+                activePath={activePath}
+                onOpenFile={(p) => void openFile(p)}
+                onOpenContextMenu={(node, event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setContextMenu({ node, x: event.clientX, y: event.clientY });
+                }}
+                inlineAction={inlineAction}
+                onInlineValueChange={handleInlineValueChange}
+                onInlineSubmit={() => void handleInlineSubmit()}
+                onInlineCancel={handleInlineCancel}
+              />
+            ) : null}
             {tree.map((node) => (
               <FileTreeNode
                 key={node.path}
@@ -217,6 +256,10 @@ export function FileTree({ workspace }: { workspace: string }) {
                   event.stopPropagation();
                   setContextMenu({ node, x: event.clientX, y: event.clientY });
                 }}
+                inlineAction={inlineAction}
+                onInlineValueChange={handleInlineValueChange}
+                onInlineSubmit={() => void handleInlineSubmit()}
+                onInlineCancel={handleInlineCancel}
               />
             ))}
           </ul>
@@ -243,65 +286,31 @@ export function FileTree({ workspace }: { workspace: string }) {
           ))}
         </div>
       )}
-      {actionModal && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-md">
-            <CardHeader className="pb-4">
-              <CardTitle>
-                {actionModal.mode === 'create-file' && 'Criar novo arquivo'}
-                {actionModal.mode === 'create-folder' && 'Criar nova pasta'}
-                {actionModal.mode === 'rename' && 'Renomear item'}
-                {actionModal.mode === 'delete' &&
-                  (actionModal.node.type === 'directory' ? 'Excluir pasta' : 'Excluir arquivo')}
-              </CardTitle>
-              <CardDescription>
-                {actionModal.mode === 'create-file' && 'Defina o nome do arquivo a ser criado.'}
-                {actionModal.mode === 'create-folder' && 'Defina o nome da pasta a ser criada.'}
-                {actionModal.mode === 'rename' && 'Escolha o novo nome do item selecionado.'}
-                {actionModal.mode === 'delete' &&
-                  `Essa ação remove ${actionModal.node.type === 'directory' ? 'a pasta e todo o conteúdo' : 'o arquivo'} "${actionModal.node.name}".`}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {actionModal.mode !== 'delete' && (
-                <div className="space-y-2">
-                  <label htmlFor="file-tree-action-name" className="text-sm font-medium">
-                    Nome
-                  </label>
-                  <Input
-                    id="file-tree-action-name"
-                    value={actionModal.value}
-                    onChange={(event) =>
-                      setActionModal((current) =>
-                        current && current.mode !== 'delete'
-                          ? { ...current, value: event.target.value }
-                          : current,
-                      )
-                    }
-                    autoFocus
-                  />
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="justify-end gap-2">
-              <Button variant="outline" onClick={() => setActionModal(null)}>
-                Cancelar
-              </Button>
-              <Button
-                variant={actionModal.mode === 'delete' ? 'destructive' : 'default'}
-                onClick={() => {
-                  if (actionModal.mode === 'create-file') return void handleCreateFile(actionModal.parentPath, actionModal.value);
-                  if (actionModal.mode === 'create-folder') return void handleCreateFolder(actionModal.parentPath, actionModal.value);
-                  if (actionModal.mode === 'rename') return void handleRename(actionModal.node, actionModal.value);
-                  return void handleDelete(actionModal.node);
-                }}
-              >
-                {actionModal.mode === 'delete' ? 'Excluir' : actionModal.mode === 'rename' ? 'Salvar' : 'Criar'}
-              </Button>
-            </CardFooter>
-          </Card>
-        </div>
-      )}
+      {deleteModal &&
+        createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm">
+            <Card className="w-full max-w-md">
+              <CardHeader className="pb-4">
+                <CardTitle>
+                  {deleteModal.node.type === 'directory' ? 'Excluir pasta' : 'Excluir arquivo'}
+                </CardTitle>
+                <CardDescription>
+                  {`Essa ação remove ${deleteModal.node.type === 'directory' ? 'a pasta e todo o conteúdo' : 'o arquivo'} "${deleteModal.node.name}".`}
+                </CardDescription>
+              </CardHeader>
+              <CardContent />
+              <CardFooter className="justify-end gap-2">
+                <Button variant="outline" onClick={() => setDeleteModal(null)}>
+                  Cancelar
+                </Button>
+                <Button variant="destructive" onClick={() => void handleDelete(deleteModal.node)}>
+                  Excluir
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

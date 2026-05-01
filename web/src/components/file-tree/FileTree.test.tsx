@@ -62,11 +62,31 @@ describe('<FileTree />', () => {
     await waitFor(() => expect(screen.getByText('Workspace vazio')).toBeInTheDocument());
 
     await userEvent.click(screen.getByTitle('Novo arquivo'));
-    expect(screen.getByText('Criar novo arquivo')).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText('Nome'), 'notes.txt');
-    await userEvent.click(screen.getByRole('button', { name: 'Criar' }));
+    const input = screen.getByLabelText('Nome do arquivo');
+    await userEvent.type(input, 'notes.txt');
+    await userEvent.keyboard('{Enter}');
 
     expect(saveSpy).toHaveBeenCalledWith('repo', 'notes.txt', '', 'utf-8');
+  });
+
+  it('renomeia arquivo inline no lugar do nome atual', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      { name: '.env', path: '.env', type: 'file' },
+    ]);
+    const renameSpy = vi.spyOn(fsApi, 'renamePath').mockResolvedValue();
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('.env')).toBeInTheDocument());
+
+    fireEvent.contextMenu(screen.getByText('.env'));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Renomear' }));
+
+    const input = screen.getByDisplayValue('.env');
+    await userEvent.clear(input);
+    await userEvent.type(input, '.env.local');
+    await userEvent.keyboard('{Enter}');
+
+    expect(renameSpy).toHaveBeenCalledWith('repo', '.env', '.env.local');
   });
 
   it('abre menu de contexto em arquivo com a ação abrir', async () => {

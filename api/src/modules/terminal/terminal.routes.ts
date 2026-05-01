@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import fs from 'node:fs';
 import { findRepoBySlug } from '../repos/repo-catalog.service.ts';
 import { getRepoPermissionForUser } from '../permissions/permissions.service.ts';
+import { resolveCurrentAppRole } from '../users/users.service.ts';
 import { parseTerminalClientMessage } from './terminal.protocol.ts';
 import { createPty } from './terminal.service.ts';
 
@@ -38,6 +39,16 @@ export default async function terminalRoutes(app: FastifyInstance) {
       return;
     }
     const cwd = repo.storagePath;
+    const role = await resolveCurrentAppRole({
+      userId: user.userId,
+      githubUserId: user.githubUserId,
+      login: user.login,
+    });
+    req.session.user = {
+      ...user,
+      role,
+    };
+    await req.session.save();
 
     if (!fs.existsSync(cwd)) {
       req.log.warn({ userId: user.userId, workspace, cwd }, '[terminal] workspace path not found');
@@ -49,7 +60,7 @@ export default async function terminalRoutes(app: FastifyInstance) {
     req.log.info({ userId: user.userId, workspace, cwd }, '[terminal] spawning pty');
     let handle: ReturnType<typeof createPty>;
     try {
-      handle = createPty(cwd, user.role);
+      handle = createPty(cwd, role);
     } catch (err) {
       req.log.error({ err, userId: user.userId, workspace, cwd }, '[terminal] failed to spawn pty');
       socket.send(JSON.stringify({ type: 'error', message: 'pty_spawn_failed' }));

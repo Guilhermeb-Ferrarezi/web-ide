@@ -191,9 +191,13 @@ export default function ReposPage() {
     }
   }
 
-  async function handleUpdatePermission(repoId: string, entry: RepoPermissionEntry) {
+  async function handleUpdatePermission(
+    repoId: string,
+    entry: RepoPermissionEntry,
+    explicitPermission?: 'read' | 'write',
+  ) {
     if (!entry.login) return;
-    const nextPermission = permissionDrafts[entry.userId] ?? entry.permission;
+    const nextPermission = explicitPermission ?? permissionDrafts[entry.userId] ?? entry.permission;
     if (nextPermission === entry.permission) return;
     setShareBusy(true);
     try {
@@ -206,6 +210,10 @@ export default function ReposPage() {
       }));
       toast.success(`Permissão de @${entry.login} atualizada para ${nextPermission}`);
     } catch (err: any) {
+      setPermissionDrafts((prev) => ({
+        ...prev,
+        [entry.userId]: entry.permission,
+      }));
       toast.error(err?.response?.data?.message ?? 'Falha ao atualizar permissão');
     } finally {
       setShareBusy(false);
@@ -361,25 +369,19 @@ export default function ReposPage() {
                                     id={`permission-${entry.userId}`}
                                     className="h-9 rounded-md border bg-background px-3 text-sm"
                                     value={permissionDrafts[entry.userId] ?? entry.permission}
-                                    onChange={(e) =>
+                                    onChange={(e) => {
+                                      const nextPermission = e.target.value as 'read' | 'write';
                                       setPermissionDrafts((prev) => ({
                                         ...prev,
-                                        [entry.userId]: e.target.value as 'read' | 'write',
-                                      }))
-                                    }
+                                        [entry.userId]: nextPermission,
+                                      }));
+                                      void handleUpdatePermission(repo.id, entry, nextPermission);
+                                    }}
                                     disabled={shareBusy}
                                   >
                                     <option value="read">read</option>
                                     <option value="write">write</option>
                                   </select>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    disabled={shareBusy || (permissionDrafts[entry.userId] ?? entry.permission) === entry.permission}
-                                    onClick={() => void handleUpdatePermission(repo.id, entry)}
-                                  >
-                                    Atualizar {entry.login ?? entry.userId}
-                                  </Button>
                                   <Button
                                     size="sm"
                                     variant="ghost"

@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'node:crypto';
 import { config } from '../../config.ts';
-import { ensureUserFromGithubProfile, getGlobalRoleForUser, resolveAppRole } from '../users/users.service.ts';
+import { ensureUserFromGithubProfile, getGlobalRoleForUser, resolveAppRole, resolveCurrentAppRole } from '../users/users.service.ts';
 import { buildAuthorizeUrl, exchangeCodeForToken, fetchGithubUser } from './auth.service.ts';
 
 export async function startGithubLogin(req: FastifyRequest, reply: FastifyReply) {
@@ -65,13 +65,23 @@ export async function githubCallback(
 export async function getMe(req: FastifyRequest, reply: FastifyReply) {
   const user = req.session.user;
   if (!user) return reply.code(401).send({ error: 'unauthenticated' });
+  const role = await resolveCurrentAppRole({
+    userId: user.userId,
+    githubUserId: user.githubUserId,
+    login: user.login,
+  });
+  req.session.user = {
+    ...user,
+    role,
+  };
+  await req.session.save();
   return {
     userId: user.userId,
     login: user.login,
     name: user.name,
     email: user.email,
     avatarUrl: user.avatarUrl,
-    role: user.role,
+    role,
   };
 }
 
