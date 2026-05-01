@@ -35,7 +35,7 @@ describe('ideTheme', () => {
     const resolved = resolveShellTheme(theme);
 
     expect(resolved.mode).toBe('dark');
-    expect(resolved.tokens.background).not.toBe(DEFAULT_SHELL_THEME.dark.background);
+    expect(resolved.tokens.background).toBe(DEFAULT_SHELL_THEME.dark.background);
     expect(resolved.tokens.foreground).not.toBe(DEFAULT_SHELL_THEME.dark.foreground);
     expect(resolved.tokens.border).not.toBe(DEFAULT_SHELL_THEME.dark.border);
     expect(resolved.tokens.primary).not.toBe(DEFAULT_SHELL_THEME.dark.primary);
@@ -54,7 +54,7 @@ describe('ideTheme', () => {
     const resolved = resolveShellTheme(theme);
 
     expect(resolved.mode).toBe('light');
-    expect(resolved.tokens.background).not.toBe(DEFAULT_SHELL_THEME.light.background);
+    expect(resolved.tokens.background).toBe(DEFAULT_SHELL_THEME.light.background);
     expect(resolved.tokens.foreground).not.toBe(DEFAULT_SHELL_THEME.light.foreground);
     expect(resolved.tokens.ring).not.toBe(DEFAULT_SHELL_THEME.light.ring);
   });
@@ -97,9 +97,26 @@ describe('ideTheme', () => {
       }),
     );
 
-    expect(resolved.tokens.background).not.toBe(DEFAULT_SHELL_THEME.dark.background);
+    expect(resolved.tokens.background).toBe(DEFAULT_SHELL_THEME.dark.background);
     expect(resolved.tokens.foreground).toBe(DEFAULT_SHELL_THEME.dark.foreground);
     expect(resolved.tokens['muted-foreground']).toBe(DEFAULT_SHELL_THEME.dark['muted-foreground']);
+  });
+
+  it('keeps saturated theme backgrounds out of the shell surfaces', () => {
+    const resolved = resolveShellTheme(
+      makeTheme({
+        colors: {
+          'sideBar.background': '#24103a',
+          'panel.background': '#2b1245',
+          'button.background': '#a277ff',
+        },
+      }),
+    );
+
+    expect(resolved.tokens.background).toBe(DEFAULT_SHELL_THEME.dark.background);
+    expect(resolved.tokens.card).toBe(DEFAULT_SHELL_THEME.dark.card);
+    expect(resolved.tokens.secondary).toBe(DEFAULT_SHELL_THEME.dark.secondary);
+    expect(resolved.tokens.primary).not.toBe(DEFAULT_SHELL_THEME.dark.primary);
   });
 
   it('applies shell tokens and toggles the root mode class', () => {

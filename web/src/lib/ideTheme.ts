@@ -77,6 +77,7 @@ const MIN_USABLE_ALPHA = 0.5;
 const MIN_TEXT_CONTRAST = 4.5;
 const MIN_MUTED_TEXT_CONTRAST = 3;
 const MIN_BORDER_CONTRAST = 1.35;
+const MAX_SURFACE_SATURATION = 16;
 
 export function getShellThemeMode(theme: InstalledTheme | null): ShellThemeMode {
   if (!theme) return 'dark';
@@ -194,6 +195,12 @@ function colorLightness(input: string | undefined): number | null {
   return rgbToHsl(color).l;
 }
 
+function colorSaturation(input: string | undefined): number | null {
+  const color = parseColor(input);
+  if (!isUsableColor(color)) return null;
+  return rgbToHsl(color).s;
+}
+
 function shiftLightness(input: string | undefined, amount: number, fallback: string): string {
   const color = parseColor(input);
   if (!isUsableColor(color)) return fallback;
@@ -240,6 +247,12 @@ function getContrastRatio(foreground: string | undefined, background: string | u
   return (lighter + 0.05) / (darker + 0.05);
 }
 
+function colorToSurfaceCssValue(input: string | undefined): string | null {
+  const saturation = colorSaturation(input);
+  if (saturation === null || saturation > MAX_SURFACE_SATURATION) return null;
+  return colorToCssValue(input);
+}
+
 export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellThemeMode; tokens: ShellThemeTokens } {
   const mode = getShellThemeMode(theme);
   const defaults = DEFAULT_SHELL_THEME[mode];
@@ -259,7 +272,7 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
   const popoverColor = pickColor(colors, ['editorWidget.background', 'panel.background', 'editor.background']);
 
   const fallbackBackgroundHex = mode === 'dark' ? '#0a0a0a' : '#ffffff';
-  const background = colorToCssValue(baseBackground) ?? defaults.background;
+  const background = colorToSurfaceCssValue(baseBackground) ?? defaults.background;
   const resolvedForeground = colorToCssValue(baseForeground);
   const foregroundContrast = getContrastRatio(baseForeground, baseBackground ?? fallbackBackgroundHex);
   const foreground = resolvedForeground && (foregroundContrast === null || foregroundContrast >= MIN_TEXT_CONTRAST)
@@ -272,10 +285,15 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
     : defaults.border;
   const primary = colorToCssValue(primaryColor) ?? shiftLightness(baseBackground, mode === 'dark' ? 22 : -18, defaults.primary);
   const accent = colorToCssValue(accentColor) ?? shiftLightness(baseBackground, mode === 'dark' ? 12 : -10, defaults.accent);
-  const muted = colorToCssValue(mutedColor) ?? shiftLightness(baseBackground, mode === 'dark' ? 8 : -6, defaults.muted);
-  const secondary = shiftLightness(baseBackground, mode === 'dark' ? 10 : -8, defaults.secondary);
-  const card = shiftLightness(baseBackground, mode === 'dark' ? 2 : -2, defaults.card);
-  const popover = colorToCssValue(popoverColor) ?? card;
+  const muted = colorToSurfaceCssValue(mutedColor)
+    ?? shiftLightness(baseBackground, mode === 'dark' ? 8 : -6, defaults.muted);
+  const secondary = colorToSurfaceCssValue(baseBackground)
+    ? shiftLightness(baseBackground, mode === 'dark' ? 10 : -8, defaults.secondary)
+    : defaults.secondary;
+  const card = colorToSurfaceCssValue(baseBackground)
+    ? shiftLightness(baseBackground, mode === 'dark' ? 2 : -2, defaults.card)
+    : defaults.card;
+  const popover = colorToSurfaceCssValue(popoverColor) ?? card;
   const ring = colorToCssValue(pickColor(colors, ['focusBorder', 'button.background'])) ?? primary;
   const primaryForeground = resolvePrimaryForeground(primaryColor ?? '', defaults['primary-foreground']);
   const resolvedMutedForeground = colorToCssValue(mutedForegroundColor);
