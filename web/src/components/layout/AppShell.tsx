@@ -3,6 +3,7 @@ import { GitBranch, TerminalSquare } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { FileTree } from '@/components/file-tree/FileTree';
+import { EditorBreadcrumbs } from '@/components/editor/EditorBreadcrumbs';
 import { EditorTabs } from '@/components/editor/EditorTabs';
 import { EditorPane } from '@/components/editor/EditorPane';
 import { GitPanel } from '@/components/git/GitPanel';
@@ -63,6 +64,7 @@ export function AppShell({ workspace }: { workspace: string }) {
             <ResizablePanel defaultSize={showTerminal ? 65 : 100}>
               <div className="flex h-full flex-col">
                 <EditorTabs tabs={tabs} activePath={activePath} onSelect={setActive} onClose={closeTab} />
+                <EditorBreadcrumbs path={activeTab?.path ?? null} dirty={activeTab?.dirty} />
                 <div className="flex-1 overflow-hidden">
                   <EditorPane tab={activeTab} onChange={updateContent} onSave={save} />
                 </div>

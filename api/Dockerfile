@@ -7,7 +7,10 @@ RUN bun install --frozen-lockfile || bun install
 FROM node:22-alpine AS runtime
 WORKDIR /app
 
-RUN apk add --no-cache git bash
+RUN apk add --no-cache git bash python3 make g++ curl \
+  && npm install -g pnpm yarn
+
+COPY --from=deps /usr/local/bin/bun /usr/local/bin/bun
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json tsconfig.json ./

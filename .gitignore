@@ -10,3 +10,4 @@ coverage
 .idea
 .workspaces
 bun.lockb
+.claude
