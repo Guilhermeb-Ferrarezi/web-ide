@@ -19,22 +19,6 @@ const SAFE_MONACO_COLOR_KEYS = [
   'editorBracketMatch.border',
 ] as const;
 
-function getStableEditorColors(uiTheme: InstalledTheme['uiTheme']): Record<string, string> {
-  if (uiTheme === 'vs') {
-    return {
-      'editor.background': '#ffffff',
-      'editor.foreground': '#111827',
-      'editorGutter.background': '#ffffff',
-    };
-  }
-
-  return {
-    'editor.background': '#0f1115',
-    'editor.foreground': '#e5e7eb',
-    'editorGutter.background': '#0f1115',
-  };
-}
-
 export function buildMonacoThemeData(theme: InstalledTheme) {
   const safeColors = Object.fromEntries(
     SAFE_MONACO_COLOR_KEYS.flatMap((key) => {
@@ -47,9 +31,6 @@ export function buildMonacoThemeData(theme: InstalledTheme) {
     base: theme.uiTheme,
     inherit: true,
     rules: theme.rules,
-    colors: {
-      ...getStableEditorColors(theme.uiTheme),
-      ...safeColors,
-    },
+    colors: safeColors,
   };
 }
