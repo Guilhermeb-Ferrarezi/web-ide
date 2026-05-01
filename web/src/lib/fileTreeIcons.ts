@@ -27,6 +27,10 @@ const defaultIconTheme: ResolvedIconTheme = {
   ),
 };
 
+function getDefaultIconUrl(iconId: string): string | undefined {
+  return defaultIconTheme.iconDefinitions[iconId];
+}
+
 function getActiveIconTheme(): ResolvedIconTheme {
   const { activeIconThemeId, installedIconThemes } = useAppearanceStore.getState();
   if (activeIconThemeId === DEFAULT_ICON_THEME_ID) return defaultIconTheme;
@@ -44,9 +48,19 @@ function splitPath(path: string): { name: string; parent?: string } {
   return { name, parent };
 }
 
-function iconIdToUrl(iconTheme: ResolvedIconTheme, iconId: string | undefined, fallbackId: string): string {
+function iconIdToUrl(
+  iconTheme: ResolvedIconTheme,
+  iconId: string | undefined,
+  fallbackId: string,
+  defaultFallbackId = fallbackId,
+): string {
   const resolvedId = iconId ?? fallbackId;
-  return iconTheme.iconDefinitions[resolvedId] ?? iconTheme.iconDefinitions[fallbackId] ?? '';
+  return iconTheme.iconDefinitions[resolvedId]
+    ?? iconTheme.iconDefinitions[fallbackId]
+    ?? getDefaultIconUrl(resolvedId)
+    ?? getDefaultIconUrl(fallbackId)
+    ?? getDefaultIconUrl(defaultFallbackId)
+    ?? '';
 }
 
 function matchAssociation(
@@ -86,19 +100,19 @@ export function resolveFileIcon(path: string): string {
 
   const fileNameMatch = matchAssociation(iconTheme.fileNames, normalizedName, parent);
   if (fileNameMatch) {
-    return iconIdToUrl(iconTheme, fileNameMatch, iconTheme.file);
+    return iconIdToUrl(iconTheme, fileNameMatch, iconTheme.file, defaultIconTheme.file);
   }
 
   for (const extension of getExtensionCandidates(normalizedName)) {
     const extensionMatch = matchAssociation(iconTheme.fileExtensions, extension, parent);
     if (extensionMatch) {
-      return iconIdToUrl(iconTheme, extensionMatch, iconTheme.file);
+      return iconIdToUrl(iconTheme, extensionMatch, iconTheme.file, defaultIconTheme.file);
     }
   }
 
   const languageId = detectLanguage(normalizedName);
   const languageMatch = languageId === 'plaintext' ? undefined : iconTheme.languageIds[languageId];
-  return iconIdToUrl(iconTheme, languageMatch, iconTheme.file);
+  return iconIdToUrl(iconTheme, languageMatch, iconTheme.file, defaultIconTheme.file);
 }
 
 export function resolveFolderIcon(path: string, options?: { expanded?: boolean }): string {
@@ -116,6 +130,7 @@ export function resolveFolderIcon(path: string, options?: { expanded?: boolean }
       iconTheme,
       specificAssociation,
       options?.expanded ? iconTheme.folderExpanded : iconTheme.folder,
+      options?.expanded ? defaultIconTheme.folderExpanded : defaultIconTheme.folder,
     );
   }
 
@@ -123,6 +138,7 @@ export function resolveFolderIcon(path: string, options?: { expanded?: boolean }
     iconTheme,
     options?.expanded ? iconTheme.folderExpanded : iconTheme.folder,
     options?.expanded ? iconTheme.folderExpanded : iconTheme.folder,
+    options?.expanded ? defaultIconTheme.folderExpanded : defaultIconTheme.folder,
   );
 }
 

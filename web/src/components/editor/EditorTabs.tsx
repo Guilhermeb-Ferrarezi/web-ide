@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Blocks, X } from 'lucide-react';
 import { resolveFileIcon } from '@/lib/fileTreeIcons';
 import type { EditorTab } from '@/types';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,7 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
       {tabs.map((tab) => {
         const active = tab.path === activePath;
         const fileIcon = tab.iconUrl ?? resolveFileIcon(tab.path);
+        const showExtensionFallback = tab.kind === 'extension' && !tab.iconUrl;
         return (
           <div
             key={tab.path}
@@ -28,7 +29,16 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
               active ? 'bg-background' : 'bg-muted/30 hover:bg-muted/50',
             )}
           >
-            <img src={fileIcon} alt="" role="presentation" className="h-4 w-4 shrink-0" />
+            {showExtensionFallback ? (
+              <span
+                aria-label={tab.name}
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground"
+              >
+                <Blocks className="h-3 w-3" />
+              </span>
+            ) : (
+              <img src={fileIcon} alt="" role="presentation" className="h-4 w-4 shrink-0" />
+            )}
             <span className={cn('truncate', tab.dirty && 'italic')}>{tab.name}</span>
             {tab.isLoading && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" />}
             {tab.dirty && <span className="h-1.5 w-1.5 rounded-full bg-foreground/70" />}

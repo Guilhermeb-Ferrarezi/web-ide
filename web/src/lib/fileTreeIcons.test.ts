@@ -60,4 +60,34 @@ describe('fileTreeIcons', () => {
     expect(resolveFileIcon('package.json')).toBe('data:image/svg+xml;base64,PACKAGE');
     expect(resolveFolderIcon('src')).toBe('data:image/svg+xml;base64,FOLDER');
   });
+
+  it('falls back to material defaults when the active theme is missing base icon definitions', () => {
+    useAppearanceStore.setState({
+      installedThemes: [],
+      activeThemeId: 'default-dark',
+      installedIconThemes: [
+        {
+          id: 'broken-theme',
+          extensionId: 'broken.theme',
+          label: 'Broken Theme',
+          icons: {
+            file: 'custom-file',
+            folder: 'custom-folder',
+            folderExpanded: 'custom-folder-open',
+            fileNames: {},
+            fileExtensions: {},
+            folderNames: {},
+            folderNamesExpanded: {},
+            languageIds: {},
+            iconDefinitions: {},
+          },
+        },
+      ],
+      activeIconThemeId: 'broken-theme',
+    });
+
+    expect(resolveFileIcon('notes.unknown')).toBe(`${BASE_URL}/file.svg`);
+    expect(resolveFolderIcon('random-folder')).toBe(`${BASE_URL}/folder.svg`);
+    expect(resolveFolderIcon('random-folder', { expanded: true })).toBe(`${BASE_URL}/folder-open.svg`);
+  });
 });

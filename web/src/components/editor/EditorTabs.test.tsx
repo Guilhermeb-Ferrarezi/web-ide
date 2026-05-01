@@ -58,4 +58,30 @@ describe('<EditorTabs />', () => {
     expect(onClose).toHaveBeenCalledWith('README.md');
     expect(onSelect).not.toHaveBeenCalled();
   });
+
+  it('usa um fallback padrao para abas de extensao sem iconUrl', () => {
+    render(
+      <EditorTabs
+        tabs={[
+          {
+            path: 'Extensions/My Theme',
+            name: 'Extension: My Theme',
+            content: '',
+            originalContent: '',
+            encoding: 'utf-8',
+            mimeType: 'application/x-web-ide-extension',
+            dirty: false,
+            kind: 'extension',
+            iconUrl: null,
+          },
+        ]}
+        activePath="Extensions/My Theme"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText('Extension: My Theme')).toBeInTheDocument();
+    expect(screen.queryByRole('presentation')).not.toBeInTheDocument();
+  });
 });

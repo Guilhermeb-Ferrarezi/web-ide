@@ -153,7 +153,7 @@ function deriveCompilerOptionsFromProjectFiles(
     const resolvedPaths = Object.fromEntries(
       Object.entries(compilerOptions.paths ?? {}).map(([key, values]) => [
         key,
-        values.map((value) => resolveProjectPath(resolvedBaseUrl, value)),
+        values.map((value) => normalizeProjectPath(value)),
       ]),
     );
 

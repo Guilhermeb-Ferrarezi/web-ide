@@ -13,6 +13,7 @@ export type TreeNode = {
 const IGNORED = new Set(['.git', 'node_modules', '.DS_Store']);
 const MAX_DEPTH = 10;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
+const MAX_TYPEDEF_FILES = 5000;
 
 const TEXT_EXTENSIONS = new Set([
   'ts', 'tsx', 'js', 'jsx', 'mjs', 'cjs', 'json', 'md', 'mdx', 'txt', 'css', 'scss', 'sass', 'less',
@@ -367,11 +368,12 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
       ? rootPackageJson.workspaces.packages
       : [];
 
-  const packageRoots = [workspacePath];
+  const packageRoots: string[] = [];
   for (const pattern of workspacePatterns) {
     if (pattern.includes('*')) continue;
     packageRoots.push(path.join(workspacePath, pattern));
   }
+  packageRoots.push(workspacePath);
 
   for (const packageRoot of packageRoots) {
     const pkgJson = await readPackageJson(packageRoot);
@@ -383,6 +385,7 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
     const atTypesEntries = await fs.readdir(path.join(nodeModulesPath, '@types'), { withFileTypes: true }).catch(() => null);
     if (atTypesEntries) {
       for (const pkg of atTypesEntries) {
+        if (results.length >= MAX_TYPEDEF_FILES) break;
         if (!pkg.isDirectory()) continue;
         await walkDts(
           path.join(nodeModulesPath, '@types', pkg.name),
@@ -395,7 +398,7 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
     const allDeps = [...Object.keys(pkgJson.dependencies ?? {}), ...Object.keys(pkgJson.devDependencies ?? {})];
 
     for (const dep of allDeps) {
-      if (results.length >= 1000) break;
+      if (results.length >= MAX_TYPEDEF_FILES) break;
       const depDir = path.join(nodeModulesPath, dep);
       const depPkg = await readPackageJson(depDir);
       if (depPkg?.types || depPkg?.typings) {
