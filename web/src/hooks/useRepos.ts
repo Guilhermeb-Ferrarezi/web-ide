@@ -73,9 +73,10 @@ export function useRepos() {
   const clone = useCallback(
     async (repo: RemoteRepo, branch?: string) => {
       setCloningId(repo.id);
+      const toastId = toast.loading('Importando repositório e instalando dependências...');
       try {
         const result = await apiClone(repo.fullName, branch ?? repo.defaultBranch);
-        toast.success(`${repo.name} clonado`);
+        toast.success(`${repo.name} clonado`, { id: toastId });
         setGithubRepos((prev) => prev.map((r) => (r.id === repo.id ? { ...r, cloned: true } : r)));
         setLocalRepos((prev) =>
           prev.some((r) => r.id === result.repo.id)
@@ -84,8 +85,8 @@ export function useRepos() {
         );
       } catch (err: any) {
         const status = err?.response?.status;
-        if (status === 409) toast.warning('Repositório já está clonado');
-        else toast.error('Falha ao clonar');
+        if (status === 409) toast.warning('Repositório já está clonado', { id: toastId });
+        else toast.error('Falha ao clonar', { id: toastId });
       } finally {
         setCloningId(null);
       }

@@ -8,6 +8,7 @@ vi.mock('@/api/repos');
 vi.mock('sonner', () => ({
   toast: {
     error: vi.fn(),
+    loading: vi.fn(),
     warning: vi.fn(),
     success: vi.fn(),
   },
@@ -94,5 +95,63 @@ describe('useRepos', () => {
     });
     expect(result.current.githubRepos).toHaveLength(12);
     expect(result.current.githubRepos.at(-1)?.name).toBe('repo-12');
+  });
+
+  it('mostra toast de loading enquanto importa e finaliza com sucesso', async () => {
+    vi.spyOn(reposApi, 'listRepos').mockResolvedValue(makePayload({}));
+
+    let resolveClone: ((value: any) => void) | null = null;
+    vi.spyOn(reposApi, 'cloneRepo').mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveClone = resolve;
+        }),
+    );
+
+    const { toast } = await import('sonner');
+    vi.mocked(toast.loading).mockReturnValue('clone-toast');
+
+    const { result } = renderHook(() => useRepos());
+    await waitFor(() => expect(reposApi.listRepos).toHaveBeenCalled());
+
+    const repo = {
+      id: 1,
+      name: 'repo-1',
+      fullName: 'octocat/repo-1',
+      private: false,
+      cloneUrl: '',
+      defaultBranch: 'main',
+      updatedAt: null,
+      description: null,
+      language: null,
+      cloned: false,
+    };
+
+    let clonePromise!: Promise<void>;
+    act(() => {
+      clonePromise = result.current.clone(repo);
+    });
+
+    await waitFor(() =>
+      expect(toast.loading).toHaveBeenCalledWith('Importando repositório e instalando dependências...'),
+    );
+
+    resolveClone?.({
+      repo: {
+        id: 'local-1',
+        slug: 'repo-1',
+        githubFullName: 'octocat/repo-1',
+        permission: 'write',
+        path: '/tmp/repo-1',
+        canManage: true,
+      },
+      permission: 'write',
+    });
+
+    await act(async () => {
+      await clonePromise;
+    });
+
+    expect(toast.success).toHaveBeenCalledWith('repo-1 clonado', { id: 'clone-toast' });
   });
 });

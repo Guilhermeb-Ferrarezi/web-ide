@@ -23,7 +23,8 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   useEffect(() => {
     if (!monaco || !workspace) return;
 
-    const ts = monaco.languages.typescript;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ts = monaco.languages.typescript as any;
     const opts: Parameters<typeof ts.typescriptDefaults.setCompilerOptions>[0] = {
       moduleResolution: ts.ModuleResolutionKind.NodeJs,
       allowSyntheticDefaultImports: true,
