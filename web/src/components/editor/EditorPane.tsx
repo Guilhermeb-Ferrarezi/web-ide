@@ -209,8 +209,6 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
         const payload = await installExtension(extensionId);
         for (const theme of payload.themes) installThemeStore(theme);
         for (const iconTheme of payload.iconThemes) installIconThemeStore(iconTheme);
-        if (payload.themes[0]) setActiveTheme(payload.themes[0].id);
-        if (payload.iconThemes[0]) setActiveIconTheme(payload.iconThemes[0].id);
         toast.success(`${payload.displayName} instalada`);
       } catch (error) {
         const message = axios.isAxiosError<{ message?: string }>(error)
