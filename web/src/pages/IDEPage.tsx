@@ -61,7 +61,7 @@ export default function IDEPage() {
     void (async () => {
       try {
         const installed = await getInstalledExtensions();
-        if (!cancelled) replaceInstalled(installed);
+        if (!cancelled) replaceInstalled(installed, workspace);
       } catch {
         if (!cancelled) resetInstalled();
       }

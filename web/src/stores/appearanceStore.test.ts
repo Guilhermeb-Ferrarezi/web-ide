@@ -3,6 +3,19 @@ import { useAppearanceStore } from './appearanceStore';
 
 describe('useAppearanceStore', () => {
   beforeEach(() => {
+    const storage = new Map<string, string>();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => storage.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          storage.set(key, value);
+        },
+        removeItem: (key: string) => {
+          storage.delete(key);
+        },
+      },
+    });
     useAppearanceStore.setState({
       installedThemes: [],
       installedIconThemes: [],
@@ -44,11 +57,51 @@ describe('useAppearanceStore', () => {
         },
       ],
       iconThemes: [],
-    });
+    }, 'repo-a');
 
     expect(useAppearanceStore.getState().installedThemes).toEqual([
       expect.objectContaining({ id: 'aura.dark' }),
     ]);
+  });
+
+  it('persiste o tema ativo por workspace', () => {
+    useAppearanceStore.getState().replaceInstalled({
+      themes: [
+        {
+          id: 'aura.dark',
+          extensionId: 'DaltonMenezes.aura-theme',
+          label: 'Aura Dark',
+          uiTheme: 'vs-dark',
+          colors: {},
+          rules: [],
+        },
+      ],
+      iconThemes: [],
+    }, 'repo-a');
+
+    useAppearanceStore.getState().setActiveTheme('aura.dark', 'repo-a');
+    useAppearanceStore.setState({
+      installedThemes: [],
+      installedIconThemes: [],
+      activeThemeId: 'default-dark',
+      activeIconThemeId: 'material-default',
+    });
+
+    useAppearanceStore.getState().replaceInstalled({
+      themes: [
+        {
+          id: 'aura.dark',
+          extensionId: 'DaltonMenezes.aura-theme',
+          label: 'Aura Dark',
+          uiTheme: 'vs-dark',
+          colors: {},
+          rules: [],
+        },
+      ],
+      iconThemes: [],
+    }, 'repo-a');
+
+    expect(useAppearanceStore.getState().activeThemeId).toBe('aura.dark');
   });
 
   it('reseta extensoes instaladas e volta para os temas padrao', () => {

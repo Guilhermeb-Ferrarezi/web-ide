@@ -7,6 +7,7 @@ import { useEditor } from '@/hooks/useEditor';
 import { ExtensionDetailView, type InstalledExtensionAction } from '@/components/extensions/ExtensionDetailView';
 import { installExtension } from '@/api/extensions';
 import { detectLanguage, isImage } from '@/lib/language';
+import { buildMonacoThemeData } from '@/lib/monacoTheme';
 import { useEditorStore } from '@/stores/editorStore';
 import { DEFAULT_EDITOR_THEME_ID, useAppearanceStore } from '@/stores/appearanceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -91,12 +92,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
 
   useEffect(() => {
     if (!monaco || !activeTheme) return;
-    monaco.editor.defineTheme(activeTheme.id, {
-      base: activeTheme.uiTheme,
-      inherit: true,
-      rules: activeTheme.rules,
-      colors: activeTheme.colors,
-    });
+    monaco.editor.defineTheme(activeTheme.id, buildMonacoThemeData(activeTheme));
   }, [activeTheme, monaco]);
 
   useEffect(() => {
