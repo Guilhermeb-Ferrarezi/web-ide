@@ -4,6 +4,10 @@ import path from 'node:path';
 import { collectTypeDefs, deletePath, makeDir, readFile, readTree, renamePath, searchFiles, uploadFile, writeFile } from './fs.service.ts';
 
 const pathSchema = z.string().min(1).max(1024);
+const fileQuerySchema = z.object({
+  workspace: z.string(),
+  path: pathSchema,
+});
 
 export async function getTree(req: FastifyRequest, reply: FastifyReply) {
   const tree = await readTree(req.workspacePath!);
@@ -33,11 +37,9 @@ export async function getSearch(req: FastifyRequest, reply: FastifyReply) {
   return reply.send(results);
 }
 
-export async function getFile(
-  req: FastifyRequest<{ Querystring: { workspace: string; path: string } }>,
-  reply: FastifyReply,
-) {
-  const file = await readFile(req.workspacePath!, pathSchema.parse(req.query.path));
+export async function getFile(req: FastifyRequest, reply: FastifyReply) {
+  const query = fileQuerySchema.parse(req.query);
+  const file = await readFile(req.workspacePath!, query.path);
   return reply.send(file);
 }
 
@@ -54,11 +56,9 @@ export async function putFile(req: FastifyRequest, reply: FastifyReply) {
   return reply.send({ ok: true });
 }
 
-export async function deleteFile(
-  req: FastifyRequest<{ Querystring: { workspace: string; path: string } }>,
-  reply: FastifyReply,
-) {
-  await deletePath(req.workspacePath!, pathSchema.parse(req.query.path));
+export async function deleteFile(req: FastifyRequest, reply: FastifyReply) {
+  const query = fileQuerySchema.parse(req.query);
+  await deletePath(req.workspacePath!, query.path);
   return reply.code(204).send();
 }
 
