@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchStatus } from '@/api/git';
+import { watcherBus } from '@/lib/watcherBus';
 import type { GitStatus } from '@/types';
 
 export function useGitStatus(workspace: string | null) {
@@ -21,8 +22,15 @@ export function useGitStatus(workspace: string | null) {
 
   useEffect(() => {
     void refresh();
-    const id = setInterval(() => void refresh(), 5000);
-    return () => clearInterval(id);
+  }, [refresh]);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return watcherBus.subscribe((e) => {
+      if (e.kind !== 'fs' && e.kind !== 'git') return;
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => void refresh(), 250);
+    });
   }, [refresh]);
 
   return { status, loading, refresh };

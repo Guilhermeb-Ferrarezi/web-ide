@@ -22,6 +22,14 @@ export function getWorkspacePath(workspacesRoot: string, userId: string, repoNam
   return path.join(getUserWorkspacesDir(workspacesRoot, userId), sanitizeRepoName(repoName));
 }
 
+export function getSharedReposRoot(workspacesRoot: string): string {
+  return path.join(workspacesRoot, 'repos');
+}
+
+export function getSharedRepoPath(workspacesRoot: string, slug: string): string {
+  return path.join(getSharedReposRoot(workspacesRoot), sanitizeRepoName(slug));
+}
+
 export function resolveSafe(rootDir: string, userPath: string): string {
   const normalizedRoot = path.resolve(rootDir);
   const resolved = path.resolve(normalizedRoot, userPath);

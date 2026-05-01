@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'node:crypto';
 import { config } from '../../config.ts';
+import { ensureUserFromGithubProfile, getGlobalRoleForUser } from '../users/users.service.ts';
 import { buildAuthorizeUrl, exchangeCodeForToken, fetchGithubUser } from './auth.service.ts';
 
 export async function startGithubLogin(req: FastifyRequest, reply: FastifyReply) {
@@ -27,12 +28,21 @@ export async function githubCallback(
   try {
     const accessToken = await exchangeCodeForToken(code);
     const user = await fetchGithubUser(accessToken);
+    const localUser = await ensureUserFromGithubProfile({
+      githubUserId: user.userId,
+      login: user.login,
+      avatarUrl: user.avatarUrl,
+      accessToken,
+    });
+    const role = await getGlobalRoleForUser(localUser.id);
 
     req.session.user = {
-      userId: user.userId,
+      userId: localUser.id,
+      githubUserId: user.userId,
       login: user.login,
       accessToken,
       avatarUrl: user.avatarUrl,
+      role,
     };
     delete (req.session as any).oauthState;
     await req.session.save();
@@ -51,6 +61,7 @@ export async function getMe(req: FastifyRequest, reply: FastifyReply) {
     userId: user.userId,
     login: user.login,
     avatarUrl: user.avatarUrl,
+    role: user.role,
   };
 }
 

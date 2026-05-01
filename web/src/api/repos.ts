@@ -1,8 +1,8 @@
 import { api } from './client';
-import type { LocalRepo, RemoteRepo } from '@/types';
+import type { LocalRepo, ReposPayload } from '@/types';
 
-export async function listRemoteRepos(): Promise<RemoteRepo[]> {
-  const { data } = await api.get<RemoteRepo[]>('/repos');
+export async function listRepos(): Promise<ReposPayload> {
+  const { data } = await api.get<ReposPayload>('/repos');
   return data;
 }
 
@@ -12,7 +12,7 @@ export async function listLocalRepos(): Promise<LocalRepo[]> {
 }
 
 export async function cloneRepo(repoFullName: string, branch?: string) {
-  const { data } = await api.post<{ name: string; path: string }>('/repos/clone', { repoFullName, branch });
+  const { data } = await api.post<{ repo: LocalRepo; permission: 'read' | 'write' }>('/repos/clone', { repoFullName, branch });
   return data;
 }
 

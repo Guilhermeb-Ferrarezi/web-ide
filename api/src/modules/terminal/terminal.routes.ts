@@ -1,12 +1,14 @@
 import type { FastifyInstance } from 'fastify';
-import { config } from '../../config.ts';
-import { getWorkspacePath } from '../../utils/path.utils.ts';
+import fs from 'node:fs';
+import { findRepoBySlug } from '../repos/repo-catalog.service.ts';
+import { getRepoPermissionForUser } from '../permissions/permissions.service.ts';
 import { createPty } from './terminal.service.ts';
 
 export default async function terminalRoutes(app: FastifyInstance) {
-  app.get('/terminal', { websocket: true }, (socket, req) => {
+  app.get('/terminal', { websocket: true }, async (socket, req) => {
     const user = req.session.user;
     if (!user) {
+      req.log.warn('[terminal] unauthenticated websocket connection');
       socket.send(JSON.stringify({ type: 'error', message: 'unauthenticated' }));
       socket.close();
       return;
@@ -14,31 +16,57 @@ export default async function terminalRoutes(app: FastifyInstance) {
 
     const workspace = (req.query as { workspace?: string })?.workspace;
     if (!workspace) {
+      req.log.warn({ userId: user.userId }, '[terminal] missing workspace');
       socket.send(JSON.stringify({ type: 'error', message: 'workspace_required' }));
       socket.close();
       return;
     }
 
-    let cwd: string;
-    try {
-      cwd = getWorkspacePath(config.WORKSPACES_ROOT, user.userId, workspace);
-    } catch {
-      socket.send(JSON.stringify({ type: 'error', message: 'invalid_workspace' }));
+    const repo = await findRepoBySlug(workspace);
+    if (!repo) {
+      req.log.warn({ userId: user.userId, workspace }, '[terminal] repo not found');
+      socket.send(JSON.stringify({ type: 'error', message: 'repo_not_found' }));
+      socket.close();
+      return;
+    }
+    const permission = await getRepoPermissionForUser(repo.id, user.userId);
+    if (permission !== 'write') {
+      req.log.warn({ userId: user.userId, workspace }, '[terminal] permission denied');
+      socket.send(JSON.stringify({ type: 'error', message: 'permission_denied' }));
+      socket.close();
+      return;
+    }
+    const cwd = repo.storagePath;
+
+    if (!fs.existsSync(cwd)) {
+      req.log.warn({ userId: user.userId, workspace, cwd }, '[terminal] workspace path not found');
+      socket.send(JSON.stringify({ type: 'error', message: 'workspace_not_found' }));
       socket.close();
       return;
     }
 
-    const handle = createPty(cwd);
+    req.log.info({ userId: user.userId, workspace, cwd }, '[terminal] spawning pty');
+    let handle: ReturnType<typeof createPty>;
+    try {
+      handle = createPty(cwd);
+    } catch (err) {
+      req.log.error({ err, userId: user.userId, workspace, cwd }, '[terminal] failed to spawn pty');
+      socket.send(JSON.stringify({ type: 'error', message: 'pty_spawn_failed' }));
+      socket.close();
+      return;
+    }
+    req.log.info({ userId: user.userId, workspace, pid: handle.pty.pid }, '[terminal] pty spawned');
 
     handle.pty.onData((data) => {
       try {
         socket.send(data);
-      } catch {
-        // socket fechado
+      } catch (err) {
+        req.log.warn({ err }, '[terminal] socket.send failed');
       }
     });
 
-    handle.pty.onExit(() => {
+    handle.pty.onExit((info) => {
+      req.log.info({ info }, '[terminal] pty exited');
       try {
         socket.close();
       } catch {
@@ -66,7 +94,13 @@ export default async function terminalRoutes(app: FastifyInstance) {
       handle.pty.write(msg);
     });
 
-    socket.on('close', () => handle.kill());
-    socket.on('error', () => handle.kill());
+    socket.on('close', (code, reason) => {
+      req.log.info({ userId: user.userId, workspace, code, reason: reason.toString() }, '[terminal] socket closed');
+      handle.kill();
+    });
+    socket.on('error', (err) => {
+      req.log.warn({ err, userId: user.userId, workspace }, '[terminal] socket error');
+      handle.kill();
+    });
   });
 }

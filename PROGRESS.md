@@ -12,8 +12,8 @@ Acompanhamento de fases do [PLAN.md](./PLAN.md).
 | 4 — File System API + Árvore | ✅ Concluída | tree/read/write/delete/upload/mkdir/rename, AppShell, FileTree, Monaco com tabs e dirty state |
 | 5 — Git Panel | ✅ Concluída | status, diff, add/unstage, commit, push, pull, checkout |
 | 6 — Terminal (node-pty) | ✅ Concluída | WebSocket + xterm.js + FitAddon + ResizeObserver |
-| 7 — File Watcher (chokidar) | ⏸️ Adiada | Fora do escopo da entrega atual |
-| 8 — Testes | ⏸️ Adiada | Fora do escopo da entrega atual |
+| 7 — File Watcher (chokidar) | ✅ Concluída | WS /api/watcher, pool por workspace, bus global no front, invalidação de árvore/git/arquivo aberto |
+| 8 — Testes | ✅ Concluída | path.utils, fs.service, auth.middleware, git.service na api; useFileTree, useGitStatus, FileTree, watcherBus no web |
 
 ---
 
@@ -170,17 +170,62 @@ Acompanhamento de fases do [PLAN.md](./PLAN.md).
 
 ---
 
-## Fases 7 e 8 — Adiadas
+## Fase 7 — File Watcher (chokidar → WebSocket) ✅
 
-Decidido em **2026-04-30** parar a entrega após a Fase 6. As fases 7 (file watcher) e 8 (testes) ficam fora do escopo desta iteração.
+**Concluído em:** 2026-04-30
 
-### O que ficou de fora
+### Endpoint
+- `WS /api/watcher?workspace=` — emite eventos JSON `{ kind: 'fs', event, path }` ou `{ kind: 'git', path }`. Envia `{ kind: 'ready' }` ao conectar.
 
-**Fase 7 — File Watcher (chokidar → WebSocket)**
-- Sem invalidação reativa quando arquivos mudam externamente (terminal, git pull, etc.)
-- Mitigação atual: `useGitStatus` faz polling de 5s; `FileTree` tem botão de refresh manual
-- Quando retomar: `modules/watcher/` na api e `hooks/useWatcher.ts` no web (já planejados em PLAN.md)
+### Arquivos novos
+- **api/**: `modules/watcher/{watcher.service,watcher.routes}.ts`
+- **web/**: `hooks/useWatcher.ts`, `lib/watcherBus.ts`
 
-**Fase 8 — Testes**
-- Sem cobertura automatizada
-- Quando retomar: priorizar `path.utils.ts` (path traversal), `fs.service.ts`, `auth.middleware.ts`, `git.service.ts` na api; `useFileTree`, `useGitStatus`, `FileTree`, `GitPanel` no web
+### Decisões aplicadas
+- **Pool por workspacePath**: `Map<absPath, { watcher, listeners }>` reusa a mesma instância chokidar entre conexões; quando o último listener sai, fecha o watcher.
+- **Eventos `.git/*`** são reclassificados como `{ kind: 'git', path }` — diferencia operações git de mudanças de arquivo do usuário.
+- **Ignorados**: `node_modules`, `dist`, `build`, `.next`, `.DS_Store` (regex). `.git` é observado para detectar commits/checkouts.
+- **awaitWriteFinish**: 80ms para evitar disparos parciais durante salvamentos.
+- **Bus global no front** (`watcherBus`): IDEPage abre uma única conexão WS via `useWatcher` e emite no bus; `useFileTree`, `useGitStatus` e o reload de tab consomem do bus — evita N conexões.
+- **Polling git de 5s removido** — `useGitStatus` reage ao bus com debounce 250ms.
+- **`useFileTree` ignora `change`** (somente add/unlink/addDir/unlinkDir reorganizam a árvore) com debounce 200ms.
+- **Reload de tab aberta**: se o arquivo do tab ativo muda externamente e não está dirty, IDEPage faz `fetchFile` e atualiza `originalContent` + `content`. Se foi removido, fecha a tab.
+- **Reconexão automática**: hook tenta reconectar a cada 2s em caso de queda do WS.
+
+### Pendências
+- Sem indicador visual de "arquivo modificado externamente" quando o tab está dirty (apenas mantém local — usuário decide via Ctrl+S/discard).
+
+---
+
+## Fase 8 — Testes ✅
+
+**Concluído em:** 2026-04-30
+
+### Cobertura inicial
+
+**api (bun:test) — 46 testes:**
+- `utils/path.utils.test.ts` — sanitização de userId/repoName, `resolveSafe` com casos de path traversal (`..`, absoluto, prefixo coincidente, normalização)
+- `modules/fs/fs.service.test.ts` — readTree (ordenação, ignored, profundidade), readFile (texto/binário), writeFile/deletePath/makeDir/renamePath/uploadFile com workspace temporário (`mkdtemp`)
+- `middlewares/auth.middleware.test.ts` — 401 sem sessão, passa com sessão
+- `modules/git/git.service.test.ts` — repo git real em tmp dir: status, add, unstage, commit, log, branches, checkout
+
+**web (vitest) — 14 testes:**
+- `hooks/useFileTree.test.ts` — mock de axios, estados loading/success/error, refresh manual
+- `hooks/useGitStatus.test.ts` — mount, falha, debounce de eventos do watcher, ignora `kind: 'ready'`
+- `components/file-tree/FileTree.test.tsx` — render vazio, render com nós, refresh
+- `lib/watcherBus.test.ts` — pub/sub, unsubscribe, isolamento de erros de listener
+
+### Comandos
+- Raiz: `bun run test` (api + vitest)
+- Só api: `cd api && bun test`
+- Só web: `cd web && bun run test:vitest`
+
+### Decisões aplicadas
+- **Tests reais sempre que possível**: `fs.service` e `git.service` operam em `mkdtemp` em vez de mockar fs/simple-git — pega regressões reais de I/O e do binário git
+- **Hooks com axios mockado** via `vi.mock('@/api/...')` — testa estado/efeito sem rede
+- **Componentes**: focado em FileTree (lógica de renderização e refresh) — GitPanel deixado para iteração futura por ter mais ramificações de UI
+
+### Pendências
+- Sem testes para `repos.service`, `terminal.service`, `watcher.service` (envolvem rede/processo/IO contínuo — exigem fixtures mais elaboradas)
+- Sem testes E2E (Playwright) — fora do escopo desta iteração
+- Coverage report ainda não rodado regularmente

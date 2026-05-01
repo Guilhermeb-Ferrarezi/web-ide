@@ -22,20 +22,26 @@ function formatRelative(iso: string | null) {
 
 export default function ReposPage() {
   const { user, logout } = useAuth();
-  const { repos, loading, cloningId, clone, remove } = useRepos();
+  const { githubRepos, localRepos, loading, cloningId, clone, remove } = useRepos();
   const [query, setQuery] = useState('');
   const navigate = useNavigate();
 
-  const filtered = useMemo(() => {
+  const filteredGithub = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return repos;
-    return repos.filter(
+    if (!q) return githubRepos;
+    return githubRepos.filter(
       (r) =>
         r.name.toLowerCase().includes(q) ||
         r.fullName.toLowerCase().includes(q) ||
         r.description?.toLowerCase().includes(q),
     );
-  }, [repos, query]);
+  }, [githubRepos, query]);
+
+  const filteredLocal = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return localRepos;
+    return localRepos.filter((r) => r.slug.toLowerCase().includes(q) || r.githubFullName.toLowerCase().includes(q));
+  }, [localRepos, query]);
 
   return (
     <div className="mx-auto max-w-5xl p-6">
@@ -71,69 +77,102 @@ export default function ReposPage() {
             <Skeleton key={i} className="h-20 w-full" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
-        <p className="py-12 text-center text-muted-foreground">Nenhum repositório encontrado.</p>
       ) : (
-        <ul className="space-y-2">
-          {filtered.map((repo) => (
-            <li key={repo.id}>
-              <Card className="flex items-center justify-between gap-4 p-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate font-medium">{repo.name}</h3>
-                    {repo.private && (
-                      <Badge variant="secondary" className="gap-1">
-                        <Lock className="h-3 w-3" /> private
-                      </Badge>
-                    )}
-                    {repo.cloned && <Badge variant="outline">clonado</Badge>}
-                  </div>
-                  {repo.description && (
-                    <p className="mt-1 truncate text-sm text-muted-foreground">{repo.description}</p>
-                  )}
-                  <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
-                    {repo.language && (
-                      <span className="flex items-center gap-1">
-                        <Code2 className="h-3 w-3" /> {repo.language}
-                      </span>
-                    )}
-                    <span>{formatRelative(repo.updatedAt)}</span>
-                    <span className="font-mono">{repo.defaultBranch}</span>
-                  </div>
-                </div>
+        <div className="space-y-8">
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted-foreground">Compartilhados comigo</h2>
+              <span className="text-xs text-muted-foreground">{filteredLocal.length}</span>
+            </div>
+            {filteredLocal.length === 0 ? (
+              <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">Nenhum repositório local acessível.</p>
+            ) : (
+              <ul className="space-y-2">
+                {filteredLocal.map((repo) => (
+                  <li key={repo.id}>
+                    <Card className="flex items-center justify-between gap-4 p-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="truncate font-medium">{repo.slug}</h3>
+                          <Badge variant={repo.permission === 'write' ? 'default' : 'secondary'}>{repo.permission}</Badge>
+                        </div>
+                        <p className="mt-1 truncate text-sm text-muted-foreground">{repo.githubFullName}</p>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <Button size="sm" onClick={() => navigate(`/ide/${repo.slug}`)}>
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Abrir
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => void remove(repo)}
+                          title="Remover da minha lista"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </Card>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-                <div className="flex shrink-0 gap-2">
-                  {repo.cloned ? (
-                    <>
-                      <Button size="sm" onClick={() => navigate(`/ide/${repo.name}`)}>
-                        <ExternalLink className="mr-2 h-4 w-4" />
-                        Abrir
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => void remove(repo)}
-                        title="Remover do disco"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={cloningId === repo.id}
-                      onClick={() => void clone(repo)}
-                    >
-                      <Download className="mr-2 h-4 w-4" />
-                      {cloningId === repo.id ? 'Clonando...' : 'Clonar'}
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            </li>
-          ))}
-        </ul>
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-medium text-muted-foreground">GitHub</h2>
+              <span className="text-xs text-muted-foreground">{filteredGithub.length}</span>
+            </div>
+            {filteredGithub.length === 0 ? (
+              <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">Nenhum repositório encontrado.</p>
+            ) : (
+              <ul className="space-y-2">
+                {filteredGithub.map((repo) => (
+                  <li key={repo.id}>
+                    <Card className="flex items-center justify-between gap-4 p-4">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="truncate font-medium">{repo.name}</h3>
+                          {repo.private && (
+                            <Badge variant="secondary" className="gap-1">
+                              <Lock className="h-3 w-3" /> private
+                            </Badge>
+                          )}
+                          {repo.cloned && <Badge variant="outline">importado</Badge>}
+                        </div>
+                        {repo.description && (
+                          <p className="mt-1 truncate text-sm text-muted-foreground">{repo.description}</p>
+                        )}
+                        <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+                          {repo.language && (
+                            <span className="flex items-center gap-1">
+                              <Code2 className="h-3 w-3" /> {repo.language}
+                            </span>
+                          )}
+                          <span>{formatRelative(repo.updatedAt)}</span>
+                          <span className="font-mono">{repo.defaultBranch}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          size="sm"
+                          variant={repo.cloned ? 'secondary' : 'outline'}
+                          disabled={cloningId === repo.id}
+                          onClick={() => void clone(repo)}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          {cloningId === repo.id ? 'Importando...' : repo.cloned ? 'Adicionar acesso' : 'Importar'}
+                        </Button>
+                      </div>
+                    </Card>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
       )}
     </div>
   );

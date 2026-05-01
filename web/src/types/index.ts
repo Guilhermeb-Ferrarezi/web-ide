@@ -2,6 +2,7 @@ export type AuthUser = {
   userId: string;
   login: string;
   avatarUrl?: string;
+  role?: 'owner' | 'admin' | 'user';
 };
 
 export type RemoteRepo = {
@@ -18,8 +19,16 @@ export type RemoteRepo = {
 };
 
 export type LocalRepo = {
-  name: string;
+  id: string;
+  slug: string;
+  githubFullName: string;
+  permission: 'read' | 'write';
   path: string;
+};
+
+export type ReposPayload = {
+  githubRepos: RemoteRepo[];
+  localRepos: LocalRepo[];
 };
 
 export type TreeNode = {

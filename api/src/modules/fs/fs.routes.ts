@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
 import { requireAuth } from '../../middlewares/auth.middleware.ts';
-import { resolveWorkspace } from '../../middlewares/workspace.middleware.ts';
+import { resolveRepoAccess } from '../../middlewares/repo-access.middleware.ts';
 import {
   deleteFile,
   getFile,
@@ -15,13 +15,11 @@ import {
 export default async function fsRoutes(app: FastifyInstance) {
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
   app.addHook('preHandler', requireAuth);
-  app.addHook('preHandler', resolveWorkspace);
-
-  app.get('/fs/tree', getTree);
-  app.get('/fs/file', getFile);
-  app.put('/fs/file', putFile);
-  app.delete('/fs/file', deleteFile);
-  app.post('/fs/mkdir', postMkdir);
-  app.post('/fs/rename', postRename);
-  app.post('/fs/upload', postUpload);
+  app.get('/fs/tree', { preHandler: resolveRepoAccess('read') }, getTree);
+  app.get('/fs/file', { preHandler: resolveRepoAccess('read') }, getFile);
+  app.put('/fs/file', { preHandler: resolveRepoAccess('write') }, putFile);
+  app.delete('/fs/file', { preHandler: resolveRepoAccess('write') }, deleteFile);
+  app.post('/fs/mkdir', { preHandler: resolveRepoAccess('write') }, postMkdir);
+  app.post('/fs/rename', { preHandler: resolveRepoAccess('write') }, postRename);
+  app.post('/fs/upload', { preHandler: resolveRepoAccess('write') }, postUpload);
 }

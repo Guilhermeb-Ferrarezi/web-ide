@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { AppShell } from '@/components/layout/AppShell';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { useWatcher } from '@/hooks/useWatcher';
+import { watcherBus } from '@/lib/watcherBus';
+import { fetchFile } from '@/api/fs';
 
 export default function IDEPage() {
   const { workspace } = useParams<{ workspace: string }>();
@@ -20,6 +23,36 @@ export default function IDEPage() {
       resetEditor();
     };
   }, [workspace, setWorkspace, resetEditor]);
+
+  useWatcher(workspace ?? null, (e) => watcherBus.emit(e));
+
+  useEffect(() => {
+    if (!workspace) return;
+    return watcherBus.subscribe(async (e) => {
+      if (e.kind !== 'fs') return;
+      const { tabs } = useEditorStore.getState();
+      const tab = tabs.find((t) => t.path === e.path);
+      if (!tab || tab.dirty) return;
+      if (e.event === 'unlink') {
+        useEditorStore.getState().closeTab(e.path);
+        return;
+      }
+      if (e.event === 'change' || e.event === 'add') {
+        try {
+          const file = await fetchFile(workspace, e.path);
+          useEditorStore.setState((s) => ({
+            tabs: s.tabs.map((t) =>
+              t.path === e.path
+                ? { ...t, content: file.content, originalContent: file.content, dirty: false, encoding: file.encoding, mimeType: file.mimeType }
+                : t,
+            ),
+          }));
+        } catch {
+          // ignore
+        }
+      }
+    });
+  }, [workspace]);
 
   if (!workspace) return null;
 

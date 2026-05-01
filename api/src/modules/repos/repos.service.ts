@@ -2,7 +2,12 @@ import fs from 'node:fs/promises';
 import { simpleGit } from 'simple-git';
 import { config } from '../../config.ts';
 import { createOctokit } from '../../utils/octokit.ts';
-import { getUserWorkspacesDir, getWorkspacePath, sanitizeRepoName } from '../../utils/path.utils.ts';
+import { db } from '../../db/client.ts';
+import { repoPermissions, repos } from '../../db/schema.ts';
+import { and, eq, inArray } from 'drizzle-orm';
+import { getSharedReposRoot, sanitizeRepoName } from '../../utils/path.utils.ts';
+import { grantRepoPermission } from '../permissions/permissions.service.ts';
+import { ensureImportedRepo } from './repo-catalog.service.ts';
 
 export type RemoteRepo = {
   id: number;
@@ -18,8 +23,16 @@ export type RemoteRepo = {
 };
 
 export type LocalRepo = {
-  name: string;
+  id: string;
+  slug: string;
+  githubFullName: string;
+  permission: 'read' | 'write';
   path: string;
+};
+
+export type ReposPayload = {
+  githubRepos: RemoteRepo[];
+  localRepos: LocalRepo[];
 };
 
 export async function listRemoteRepos(accessToken: string, userId: string): Promise<RemoteRepo[]> {
@@ -30,7 +43,7 @@ export async function listRemoteRepos(accessToken: string, userId: string): Prom
     affiliation: 'owner,collaborator',
   });
 
-  const local = new Set((await listLocalRepos(userId)).map((r) => r.name));
+  const local = new Set((await listLocalRepos(userId)).map((r) => r.githubFullName));
 
   return data.map((r) => ({
     id: r.id,
@@ -42,61 +55,116 @@ export async function listRemoteRepos(accessToken: string, userId: string): Prom
     updatedAt: r.updated_at,
     description: r.description,
     language: r.language,
-    cloned: local.has(sanitizeRepoName(r.name)),
+    cloned: local.has(r.full_name),
   }));
 }
 
 export async function listLocalRepos(userId: string): Promise<LocalRepo[]> {
-  const dir = getUserWorkspacesDir(config.WORKSPACES_ROOT, userId);
-  try {
-    const entries = await fs.readdir(dir, { withFileTypes: true });
-    return entries
-      .filter((e) => e.isDirectory())
-      .map((e) => ({ name: e.name, path: `${dir}/${e.name}` }));
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw err;
-  }
+  const permissions = await db.query.repoPermissions.findMany({
+    where: eq(repoPermissions.userId, userId),
+  });
+  if (permissions.length === 0) return [];
+
+  const repoIds = permissions.map((p) => p.repoId);
+  const repoRows = await db.query.repos.findMany({
+    where: inArray(repos.id, repoIds),
+  });
+  const permissionByRepoId = new Map(permissions.map((p) => [p.repoId, p.permission]));
+
+  return repoRows.map((repo) => ({
+    id: repo.id,
+    slug: repo.slug,
+    githubFullName: repo.githubFullName,
+    permission: permissionByRepoId.get(repo.id) ?? 'read',
+    path: repo.storagePath,
+  }));
 }
 
-export async function cloneRepo(opts: {
+export async function listReposForUser(accessToken: string, userId: string): Promise<ReposPayload> {
+  const [githubRepos, localRepos] = await Promise.all([
+    listRemoteRepos(accessToken, userId),
+    listLocalRepos(userId),
+  ]);
+  return { githubRepos, localRepos };
+}
+
+export async function importRepo(opts: {
   userId: string;
   accessToken: string;
   repoFullName: string;
   branch?: string;
-}): Promise<{ name: string; path: string }> {
+}): Promise<{ repo: LocalRepo; permission: 'read' | 'write' }> {
+  const existing = await db.query.repos.findFirst({
+    where: eq(repos.githubFullName, opts.repoFullName),
+  });
+
+  if (existing) {
+    const currentPermission = await db.query.repoPermissions.findFirst({
+      where: and(eq(repoPermissions.repoId, existing.id), eq(repoPermissions.userId, opts.userId)),
+    });
+    if (!currentPermission) {
+      await grantRepoPermission({
+        repoId: existing.id,
+        userId: opts.userId,
+        permission: 'read',
+        createdByUserId: opts.userId,
+      });
+    }
+    return {
+      repo: {
+        id: existing.id,
+        slug: existing.slug,
+        githubFullName: existing.githubFullName,
+        permission: currentPermission?.permission ?? 'read',
+        path: existing.storagePath,
+      },
+      permission: currentPermission?.permission ?? 'read',
+    };
+  }
+
   const [owner, rawName] = opts.repoFullName.split('/');
   if (!owner || !rawName) throw new Error('Invalid repoFullName');
   const name = sanitizeRepoName(rawName);
-
-  const userDir = getUserWorkspacesDir(config.WORKSPACES_ROOT, opts.userId);
-  await fs.mkdir(userDir, { recursive: true });
-
-  const target = getWorkspacePath(config.WORKSPACES_ROOT, opts.userId, name);
-
-  try {
-    await fs.access(target);
-    throw new Error('Repository already cloned');
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT' && (err as Error).message !== 'Repository already cloned') {
-      throw err;
-    }
-    if ((err as Error).message === 'Repository already cloned') throw err;
-  }
-
+  await fs.mkdir(getSharedReposRoot(config.WORKSPACES_ROOT), { recursive: true });
+  const repoRecord = await ensureImportedRepo({
+    githubFullName: opts.repoFullName,
+    defaultBranch: opts.branch ?? 'main',
+    importingUserId: opts.userId,
+  });
   const authUrl = `https://x-access-token:${opts.accessToken}@github.com/${owner}/${name}.git`;
   const git = simpleGit();
   const args = opts.branch ? ['--branch', opts.branch, '--single-branch'] : [];
+  try {
+    await fs.access(repoRecord.storagePath);
+  } catch {
+    await git.clone(authUrl, repoRecord.storagePath, args);
+  }
 
-  await git.clone(authUrl, target, args);
-
-  const repoGit = simpleGit(target);
+  const repoGit = simpleGit(repoRecord.storagePath);
   await repoGit.remote(['set-url', 'origin', `https://github.com/${owner}/${name}.git`]);
+  await grantRepoPermission({
+    repoId: repoRecord.id,
+    userId: opts.userId,
+    permission: 'write',
+    createdByUserId: opts.userId,
+  });
 
-  return { name, path: target };
+  return {
+    repo: {
+      id: repoRecord.id,
+      slug: repoRecord.slug,
+      githubFullName: repoRecord.githubFullName,
+      permission: 'write',
+      path: repoRecord.storagePath,
+    },
+    permission: 'write',
+  };
 }
 
 export async function deleteLocalRepo(userId: string, repoName: string): Promise<void> {
-  const target = getWorkspacePath(config.WORKSPACES_ROOT, userId, repoName);
-  await fs.rm(target, { recursive: true, force: true });
+  const repo = await db.query.repos.findFirst({
+    where: eq(repos.slug, repoName),
+  });
+  if (!repo) return;
+  await db.delete(repoPermissions).where(and(eq(repoPermissions.repoId, repo.id), eq(repoPermissions.userId, userId)));
 }

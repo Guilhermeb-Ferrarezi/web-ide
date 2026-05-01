@@ -3,7 +3,7 @@ WORKDIR /app
 COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile || bun install
 
-FROM oven/bun:1.1-alpine AS runtime
+FROM node:22-alpine AS runtime
 WORKDIR /app
 
 RUN apk add --no-cache git python3 make g++ bash
@@ -15,4 +15,4 @@ COPY src ./src
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["bun", "src/server.ts"]
+CMD ["node", "./node_modules/tsx/dist/cli.mjs", "src/server.ts"]

@@ -1,11 +1,13 @@
 import fp from 'fastify-plugin';
 import session from '@fastify/session';
 import { config } from '../config.ts';
+import { createSessionStore } from './session-store.ts';
 
 export default fp(async (app) => {
   await app.register(session, {
     secret: config.SESSION_SECRET,
     cookieName: 'web_ide_session',
+    store: createSessionStore(),
     cookie: {
       httpOnly: true,
       sameSite: 'lax',

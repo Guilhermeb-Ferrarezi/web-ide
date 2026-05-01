@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { cloneRepo as apiClone, deleteLocalRepo as apiDelete, listRemoteRepos } from '@/api/repos';
-import type { RemoteRepo } from '@/types';
+import { cloneRepo as apiClone, deleteLocalRepo as apiDelete, listRepos } from '@/api/repos';
+import type { LocalRepo, RemoteRepo } from '@/types';
 
 export function useRepos() {
-  const [repos, setRepos] = useState<RemoteRepo[]>([]);
+  const [githubRepos, setGithubRepos] = useState<RemoteRepo[]>([]);
+  const [localRepos, setLocalRepos] = useState<LocalRepo[]>([]);
   const [loading, setLoading] = useState(true);
   const [cloningId, setCloningId] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listRemoteRepos();
-      setRepos(data);
+      const data = await listRepos();
+      setGithubRepos(data.githubRepos);
+      setLocalRepos(data.localRepos);
     } catch {
       toast.error('Falha ao carregar repositórios');
     } finally {
@@ -28,9 +30,14 @@ export function useRepos() {
     async (repo: RemoteRepo) => {
       setCloningId(repo.id);
       try {
-        await apiClone(repo.fullName, repo.defaultBranch);
+        const result = await apiClone(repo.fullName, repo.defaultBranch);
         toast.success(`${repo.name} clonado`);
-        setRepos((prev) => prev.map((r) => (r.id === repo.id ? { ...r, cloned: true } : r)));
+        setGithubRepos((prev) => prev.map((r) => (r.id === repo.id ? { ...r, cloned: true } : r)));
+        setLocalRepos((prev) =>
+          prev.some((r) => r.id === result.repo.id)
+            ? prev
+            : [...prev, result.repo].sort((a, b) => a.githubFullName.localeCompare(b.githubFullName)),
+        );
       } catch (err: any) {
         const status = err?.response?.status;
         if (status === 409) toast.warning('Repositório já está clonado');
@@ -42,15 +49,16 @@ export function useRepos() {
     [],
   );
 
-  const remove = useCallback(async (repo: RemoteRepo) => {
+  const remove = useCallback(async (repo: LocalRepo) => {
     try {
-      await apiDelete(repo.name);
-      toast.success(`${repo.name} removido`);
-      setRepos((prev) => prev.map((r) => (r.id === repo.id ? { ...r, cloned: false } : r)));
+      await apiDelete(repo.slug);
+      toast.success(`${repo.githubFullName} removido da sua lista`);
+      setLocalRepos((prev) => prev.filter((r) => r.id !== repo.id));
+      setGithubRepos((prev) => prev.map((r) => (r.fullName === repo.githubFullName ? { ...r, cloned: false } : r)));
     } catch {
       toast.error('Falha ao remover');
     }
   }, []);
 
-  return { repos, loading, cloningId, refresh, clone, remove };
+  return { githubRepos, localRepos, loading, cloningId, refresh, clone, remove };
 }

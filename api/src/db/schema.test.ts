@@ -1,0 +1,25 @@
+import { describe, expect, it } from 'bun:test';
+import { appConfigSchema } from '../config.ts';
+import { globalRoles, repoPermissions, repos, sessions, users } from './schema.ts';
+
+describe('database config', () => {
+  it('requires DATABASE_URL', () => {
+    const result = appConfigSchema.safeParse({
+      GITHUB_CLIENT_ID: 'x',
+      GITHUB_CLIENT_SECRET: 'y',
+      GITHUB_CALLBACK_URL: 'http://localhost:3000/api/auth/github/callback',
+      SESSION_SECRET: '12345678901234567890123456789012',
+      FRONTEND_URL: 'http://localhost:5173',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('declares shared repo tables', () => {
+    expect(users.githubUserId.name).toBe('github_user_id');
+    expect(repos.githubFullName.name).toBe('github_full_name');
+    expect(repoPermissions.permission.name).toBe('permission');
+    expect(globalRoles.role.name).toBe('role');
+    expect(sessions.id.name).toBe('id');
+  });
+});
