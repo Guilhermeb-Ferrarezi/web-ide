@@ -15,6 +15,8 @@ declare module '@fastify/session' {
       userId: string;
       githubUserId: string;
       login: string;
+      name?: string;
+      email?: string | null;
       accessToken: string;
       avatarUrl?: string;
       role: 'owner' | 'admin' | 'user';

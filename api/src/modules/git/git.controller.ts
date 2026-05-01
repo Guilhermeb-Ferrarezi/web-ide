@@ -39,8 +39,12 @@ export async function postUnstage(req: FastifyRequest, reply: FastifyReply) {
 const commitSchema = z.object({ workspace: z.string(), message: z.string().min(1) });
 export async function postCommit(req: FastifyRequest, reply: FastifyReply) {
   const body = commitSchema.parse(req.body);
-  const result = await gitService.commit(req.workspacePath!, body.message);
-  return reply.send({ ok: true, commit: result.commit });
+  try {
+    const result = await gitService.commit(req.workspacePath!, body.message, req.session.user);
+    return reply.send({ ok: true, commit: result.commit });
+  } catch (err) {
+    return reply.code(422).send({ error: 'commit_failed', message: (err as Error).message });
+  }
 }
 
 export async function postPush(req: FastifyRequest, reply: FastifyReply) {

@@ -4,6 +4,30 @@ function git(workspacePath: string): SimpleGit {
   return simpleGit({ baseDir: workspacePath });
 }
 
+export type GitCommitAuthor = {
+  githubUserId?: string;
+  login?: string;
+  name?: string;
+  email?: string | null;
+};
+
+function buildCommitEmail(author?: GitCommitAuthor): string | null {
+  if (author?.email && author.email.trim()) return author.email.trim();
+  if (author?.githubUserId && author?.login) {
+    return `${author.githubUserId}+${author.login}@users.noreply.github.com`;
+  }
+  return null;
+}
+
+async function ensureCommitIdentity(g: SimpleGit, author?: GitCommitAuthor) {
+  const name = author?.name?.trim() || author?.login?.trim();
+  const email = buildCommitEmail(author);
+  if (!name || !email) return;
+  await g.addConfig('user.name', name);
+  await g.addConfig('user.email', email);
+  await g.addConfig('commit.gpgsign', 'false');
+}
+
 export type GitFileStatus = {
   path: string;
   index: string;
@@ -74,8 +98,10 @@ export async function unstageFiles(workspacePath: string, files: string[]) {
   await git(workspacePath).reset(['HEAD', '--', ...files]);
 }
 
-export async function commit(workspacePath: string, message: string) {
-  return git(workspacePath).commit(message);
+export async function commit(workspacePath: string, message: string, author?: GitCommitAuthor) {
+  const g = git(workspacePath);
+  await ensureCommitIdentity(g, author);
+  return g.commit(message);
 }
 
 export async function push(workspacePath: string, accessToken: string) {

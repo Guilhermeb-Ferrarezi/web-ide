@@ -40,6 +40,8 @@ export async function githubCallback(
       userId: localUser.id,
       githubUserId: user.userId,
       login: user.login,
+      name: user.name,
+      email: user.email,
       accessToken,
       avatarUrl: user.avatarUrl,
       role,
@@ -60,6 +62,8 @@ export async function getMe(req: FastifyRequest, reply: FastifyReply) {
   return {
     userId: user.userId,
     login: user.login,
+    name: user.name,
+    email: user.email,
     avatarUrl: user.avatarUrl,
     role: user.role,
   };

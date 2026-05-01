@@ -77,8 +77,8 @@ export function GitPanel({ workspace }: Props) {
       setMessage('');
       toast.success('Commit criado');
       await refresh();
-    } catch {
-      toast.error('Falha no commit (há arquivos staged?)');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Falha no commit');
     } finally {
       setBusy(null);
     }
