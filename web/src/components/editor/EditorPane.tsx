@@ -23,6 +23,7 @@ type Props = {
 export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
+  const [resolvedThemeId, setResolvedThemeId] = useState<'vs' | 'vs-dark' | 'hc-black' | string>('vs-dark');
   const pendingJump = useEditorStore((s) => s.pendingJump);
   const setPendingJump = useEditorStore((s) => s.setPendingJump);
   const monaco = useMonaco();
@@ -91,8 +92,18 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   }, [monaco, workspace]);
 
   useEffect(() => {
-    if (!monaco || !activeTheme) return;
+    if (!activeTheme) {
+      setResolvedThemeId('vs-dark');
+      return;
+    }
+
+    if (!monaco) {
+      setResolvedThemeId(activeTheme.uiTheme);
+      return;
+    }
+
     monaco.editor.defineTheme(activeTheme.id, buildMonacoThemeData(activeTheme));
+    setResolvedThemeId(activeTheme.id);
   }, [activeTheme, monaco]);
 
   useEffect(() => {
@@ -252,7 +263,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
       key={tab.path}
       height="100%"
       path={`file:///${tab.path}`}
-      theme={activeTheme?.id ?? 'vs-dark'}
+      theme={resolvedThemeId}
       language={detectLanguage(tab.name)}
       value={tab.content}
       onChange={(v) => onChange(tab.path, v ?? '')}

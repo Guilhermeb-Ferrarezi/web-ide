@@ -1,20 +1,28 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { EditorPane } from './EditorPane';
 import { useAppearanceStore } from '@/stores/appearanceStore';
 import type { ExtensionDetail } from '@/types';
 
 const editorSpy = vi.fn();
+const defineThemeSpy = vi.fn();
+let monacoMock: { editor: { defineTheme: typeof defineThemeSpy } } | null = null;
 
 vi.mock('@monaco-editor/react', () => ({
   default: (props: any) => {
     editorSpy(props);
     return <div data-testid="monaco-editor" />;
   },
-  useMonaco: () => null,
+  useMonaco: () => monacoMock,
 }));
 
 describe('<EditorPane />', () => {
+  beforeEach(() => {
+    editorSpy.mockReset();
+    defineThemeSpy.mockReset();
+    monacoMock = null;
+  });
+
   it('passa o editor como readOnly quando a workspace nao tem permissao de escrita', () => {
     render(
       <EditorPane
@@ -41,7 +49,7 @@ describe('<EditorPane />', () => {
     );
   });
 
-  it('usa o tema ativo configurado na appearance store', () => {
+  it('mantem o tema base ate o Monaco carregar o tema customizado', () => {
     useAppearanceStore.setState({
       installedThemes: [
         {
@@ -76,9 +84,62 @@ describe('<EditorPane />', () => {
 
     expect(editorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
+        theme: 'vs-dark',
+      }),
+    );
+  });
+
+  it('define e ativa o tema customizado quando o Monaco esta pronto', () => {
+    monacoMock = {
+      editor: {
+        defineTheme: defineThemeSpy,
+      },
+    };
+
+    useAppearanceStore.setState({
+      installedThemes: [
+        {
+          id: 'github.github-vscode-theme-dark',
+          extensionId: 'GitHub.github-vscode-theme',
+          label: 'GitHub Dark',
+          uiTheme: 'vs-dark',
+          colors: { 'editor.selectionBackground': '#264f78' },
+          rules: [],
+        },
+      ],
+      activeThemeId: 'github.github-vscode-theme-dark',
+      installedIconThemes: [],
+      activeIconThemeId: 'material-default',
+    });
+
+    render(
+      <EditorPane
+        tab={{
+          path: 'README.md',
+          name: 'README.md',
+          content: '# docs',
+          originalContent: '# docs',
+          encoding: 'utf-8',
+          mimeType: 'text/markdown',
+          dirty: false,
+        }}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(defineThemeSpy).toHaveBeenCalledWith(
+      'github.github-vscode-theme-dark',
+      expect.objectContaining({ base: 'vs-dark' }),
+    );
+    expect(editorSpy).toHaveBeenLastCalledWith(
+      expect.objectContaining({
         theme: 'github.github-vscode-theme-dark',
       }),
     );
+
+    monacoMock = null;
+    defineThemeSpy.mockReset();
   });
 
   it('renderiza detalhe de extensao como view customizada em vez do Monaco', () => {
