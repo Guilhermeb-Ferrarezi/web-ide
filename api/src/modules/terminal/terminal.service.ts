@@ -1,4 +1,5 @@
 import { spawn, type IPty } from 'node-pty';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -19,6 +20,7 @@ export type TerminalAccess = {
 };
 
 const DEFAULT_PATH = '/usr/local/bin:/usr/bin:/bin';
+const DEFAULT_HOME = '/tmp/web-ide-terminal-home';
 
 export function resolveTerminalAccess(
   cwd: string,
@@ -38,14 +40,18 @@ export function resolveTerminalAccess(
   return {
     restricted,
     shell,
-    args: restricted ? ['--noprofile', '--norc', '-i', restrictedShellPath] : [],
+    args: restricted ? ['--noprofile', '--norc', restrictedShellPath] : [],
     env: {
       ...process.env,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
       PATH: DEFAULT_PATH,
-      HOME: cwd,
+      HOME: DEFAULT_HOME,
+      HISTFILE: '/dev/null',
+      HISTSIZE: '0',
+      HISTFILESIZE: '0',
       SHELL: shell,
+      TERMINAL_WORKSPACE_ROOT: cwd,
       TERMINAL_ACCESS_MODE: restricted ? 'restricted' : 'unrestricted',
     },
   };
@@ -53,6 +59,7 @@ export function resolveTerminalAccess(
 
 export function createPty(cwd: string, role: TerminalRole): PtyHandle {
   const access = resolveTerminalAccess(cwd, role);
+  fs.mkdirSync(access.env.HOME, { recursive: true });
   const pty = spawn(access.shell, access.args, {
     name: 'xterm-256color',
     cols: 80,

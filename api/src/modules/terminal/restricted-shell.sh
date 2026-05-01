@@ -83,7 +83,8 @@ terminal_print_shortcuts() {
 }
 
 terminal_prompt() {
-  local current="${PWD#$HOME}"
+  local workspace_root="${TERMINAL_WORKSPACE_ROOT:-$PWD}"
+  local current="${PWD#$workspace_root}"
   if [[ "$current" == "$PWD" ]]; then
     printf 'web-ide:%s$ ' "$PWD"
     return
@@ -102,21 +103,18 @@ terminal_cd_target_allowed() {
   local workspace_root
   local resolved_target
 
-  workspace_root="$(cd "${HOME:-$PWD}" && pwd -P)" || return 1
+  workspace_root="$(cd "${TERMINAL_WORKSPACE_ROOT:-$PWD}" && pwd -P)" || return 1
   resolved_target="$(cd "$target" 2>/dev/null && pwd -P)" || return 1
 
   [[ "$resolved_target" == "$workspace_root" || "$resolved_target" == "$workspace_root"/* ]]
 }
 
-cd "${HOME:-$PWD}" || exit 1
-if [[ -t 0 ]]; then
-  bind 'set enable-bracketed-paste off'
-fi
+cd "${TERMINAL_WORKSPACE_ROOT:-$PWD}" || exit 1
 
 while true; do
   terminal_prompt
 
-  IFS= read -e -r line || exit 0
+  IFS= read -r line || exit 0
 
   if [[ -z "${line// }" ]]; then
     continue
@@ -132,7 +130,7 @@ while true; do
   if [[ "$line" == "cd" || "$line" == cd\ * ]]; then
     target="${line#cd }"
     if [[ "$line" == "cd" ]]; then
-      target="${HOME:-$PWD}"
+      target="${TERMINAL_WORKSPACE_ROOT:-$PWD}"
     fi
     if ! terminal_cd_target_allowed "$target"; then
       printf '[terminal] blocked path outside workspace: %s\n' "$target"

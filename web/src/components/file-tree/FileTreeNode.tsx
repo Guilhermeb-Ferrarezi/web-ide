@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { ChevronRight } from 'lucide-react';
 import type { TreeNode } from '@/types';
 import { cn } from '@/lib/utils';
@@ -9,9 +9,10 @@ type Props = {
   level: number;
   activePath?: string | null;
   onOpenFile: (path: string) => void;
+  onOpenContextMenu: (node: TreeNode, event: MouseEvent<HTMLElement>) => void;
 };
 
-export function FileTreeNode({ node, level, activePath, onOpenFile }: Props) {
+export function FileTreeNode({ node, level, activePath, onOpenFile, onOpenContextMenu }: Props) {
   const [open, setOpen] = useState(level === 0);
   const isActive = activePath === node.path;
 
@@ -23,6 +24,7 @@ export function FileTreeNode({ node, level, activePath, onOpenFile }: Props) {
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
+          onContextMenu={(event) => onOpenContextMenu(node, event)}
           className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-sm hover:bg-accent"
           style={{ paddingLeft: 4 + level * 12 }}
         >
@@ -39,6 +41,7 @@ export function FileTreeNode({ node, level, activePath, onOpenFile }: Props) {
                 level={level + 1}
                 activePath={activePath}
                 onOpenFile={onOpenFile}
+                onOpenContextMenu={onOpenContextMenu}
               />
             ))}
           </ul>
@@ -54,6 +57,7 @@ export function FileTreeNode({ node, level, activePath, onOpenFile }: Props) {
       <button
         type="button"
         onClick={() => onOpenFile(node.path)}
+        onContextMenu={(event) => onOpenContextMenu(node, event)}
         className={cn(
           'flex w-full items-center gap-1 rounded px-1 py-0.5 text-sm hover:bg-accent',
           isActive && 'bg-accent',

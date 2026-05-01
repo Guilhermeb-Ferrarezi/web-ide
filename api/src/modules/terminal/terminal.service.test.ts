@@ -12,12 +12,14 @@ describe('resolveTerminalAccess', () => {
     expect(access.args).toEqual([
       '--noprofile',
       '--norc',
-      '-i',
       '/tmp/restricted-shell.sh',
     ]);
     expect(access.env.PATH).toBe('/usr/local/bin:/usr/bin:/bin');
     expect(access.env.TERM).toBe('xterm-256color');
-    expect(access.env.HOME).toBe('/workspace/demo');
+    expect(access.env.HOME).toBe('/tmp/web-ide-terminal-home');
+    expect(access.env.HISTFILE).toBe('/dev/null');
+    expect(access.env.HISTSIZE).toBe('0');
+    expect(access.env.TERMINAL_WORKSPACE_ROOT).toBe('/workspace/demo');
   });
 
   it('allows unrestricted shell for terminal_superuser', () => {
@@ -58,7 +60,6 @@ describe('resolveTerminalAccess', () => {
     expect(access.args).toEqual([
       '--noprofile',
       '--norc',
-      '-i',
       '/tmp/restricted-shell.sh',
     ]);
   });

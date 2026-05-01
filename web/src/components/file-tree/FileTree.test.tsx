@@ -1,15 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FileTree } from './FileTree';
 import * as fsApi from '@/api/fs';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 vi.mock('@/api/fs');
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
+const openFile = vi.fn();
+
 vi.mock('@/hooks/useEditor', () => ({
   useEditor: () => ({
-    openFile: vi.fn(),
+    openFile,
     activePath: null,
   }),
 }));
@@ -17,6 +20,7 @@ vi.mock('@/hooks/useEditor', () => ({
 describe('<FileTree />', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
   });
 
   it('renderiza estado vazio', async () => {
@@ -48,5 +52,33 @@ describe('<FileTree />', () => {
     const btn = screen.getByTitle('Recarregar');
     await userEvent.click(btn);
     await waitFor(() => expect(spy).toHaveBeenCalledTimes(2));
+  });
+
+  it('cria arquivo pela barra superior', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([]);
+    const saveSpy = vi.spyOn(fsApi, 'saveFile').mockResolvedValue();
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('notes.txt');
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('Workspace vazio')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByTitle('Novo arquivo'));
+
+    expect(promptSpy).toHaveBeenCalled();
+    expect(saveSpy).toHaveBeenCalledWith('repo', 'notes.txt', '', 'utf-8');
+  });
+
+  it('abre menu de contexto em arquivo com a ação abrir', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      { name: 'README.md', path: 'README.md', type: 'file' },
+    ]);
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('README.md')).toBeInTheDocument());
+
+    fireEvent.contextMenu(screen.getByText('README.md'));
+
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Abrir arquivo' }));
+    expect(openFile).toHaveBeenCalledWith('README.md');
   });
 });

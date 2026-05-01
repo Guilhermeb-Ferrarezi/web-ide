@@ -1,4 +1,4 @@
-FROM oven/bun:1.1-alpine AS deps
+FROM oven/bun:1.3.11-alpine AS deps
 WORKDIR /app
 RUN apk add --no-cache python3 make g++ bash eza
 COPY package.json bun.lockb* ./
@@ -8,7 +8,8 @@ FROM node:22-alpine AS runtime
 WORKDIR /app
 
 RUN apk add --no-cache git bash python3 make g++ curl \
-  && corepack enable
+  && corepack enable \
+  && npm install -g node-gyp
 
 COPY --from=deps /usr/local/bin/bun /usr/local/bin/bun
 
