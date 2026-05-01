@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { EditorPane } from './EditorPane';
 import { useAppearanceStore } from '@/stores/appearanceStore';
+import type { ExtensionDetail } from '@/types';
 
 const editorSpy = vi.fn();
 
@@ -78,5 +79,50 @@ describe('<EditorPane />', () => {
         theme: 'github.github-vscode-theme-dark',
       }),
     );
+  });
+
+  it('renderiza detalhe de extensao como view customizada em vez do Monaco', () => {
+    const extensionDetail: ExtensionDetail = {
+      extension: {
+        id: 'DaltonMenezes.aura-theme',
+        name: 'aura-theme',
+        namespace: 'DaltonMenezes',
+        displayName: 'Aura Theme',
+        description: 'A beautiful dark theme for Visual Studio Code',
+        version: '2.1.2',
+        iconUrl: 'https://example.com/aura.png',
+        downloadCount: 100,
+        averageRating: 5,
+        verified: true,
+      },
+      readme: '# Aura Theme\n\nA beautiful dark theme for Visual Studio Code',
+      resources: [{ label: 'Repository', url: 'https://github.com/daltonmenezes/aura-theme' }],
+      categories: ['Themes'],
+      publishedAt: '2024-10-04T03:33:27.439016Z',
+      updatedAt: '2024-10-04T03:33:27.439016Z',
+    };
+
+    render(
+      <EditorPane
+        tab={{
+          path: 'Extensions/Aura Theme',
+          name: 'Extension: Aura Theme',
+          content: extensionDetail.readme ?? '',
+          originalContent: extensionDetail.readme ?? '',
+          encoding: 'utf-8',
+          mimeType: 'application/x-web-ide-extension',
+          dirty: false,
+          kind: 'extension',
+          iconUrl: extensionDetail.extension.iconUrl,
+          extensionDetail,
+        }}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Aura Theme' })).toBeInTheDocument();
+    expect(screen.getByText('Marketplace')).toBeInTheDocument();
+    expect(screen.queryByTestId('monaco-editor')).not.toBeInTheDocument();
   });
 });

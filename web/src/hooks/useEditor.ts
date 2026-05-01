@@ -29,6 +29,7 @@ export function useEditor() {
           encoding: file.encoding,
           mimeType: file.mimeType,
           dirty: false,
+          kind: 'file',
         });
       } catch {
         toast.error('Falha ao abrir arquivo');
@@ -40,7 +41,7 @@ export function useEditor() {
   const save = useCallback(
     async (filePath: string) => {
       const tab = useEditorStore.getState().tabs.find((t) => t.path === filePath);
-      if (!workspace || !tab || permission !== 'write') return;
+      if (!workspace || !tab || tab.kind === 'extension' || permission !== 'write') return;
       try {
         await saveFile(workspace, tab.path, tab.content, tab.encoding);
         markSaved(filePath);

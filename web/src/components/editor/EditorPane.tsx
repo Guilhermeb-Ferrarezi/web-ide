@@ -1,12 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Editor, { useMonaco, type OnMount } from '@monaco-editor/react';
 import type { EditorTab } from '@/types';
 import { fetchProjectFiles, fetchTypes } from '@/api/fs';
 import { useEditor } from '@/hooks/useEditor';
+import { ExtensionDetailView, type InstalledExtensionAction } from '@/components/extensions/ExtensionDetailView';
+import { installExtension } from '@/api/extensions';
 import { detectLanguage, isImage } from '@/lib/language';
 import { useEditorStore } from '@/stores/editorStore';
 import { DEFAULT_EDITOR_THEME_ID, useAppearanceStore } from '@/stores/appearanceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { toast } from 'sonner';
 
 type Props = {
   tab: EditorTab | null;
@@ -17,13 +20,20 @@ type Props = {
 
 export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const [installingId, setInstallingId] = useState<string | null>(null);
   const pendingJump = useEditorStore((s) => s.pendingJump);
   const setPendingJump = useEditorStore((s) => s.setPendingJump);
   const monaco = useMonaco();
   const workspace = useWorkspaceStore((s) => s.workspace);
   const { openFile } = useEditor();
   const installedThemes = useAppearanceStore((s) => s.installedThemes);
+  const installedIconThemes = useAppearanceStore((s) => s.installedIconThemes);
   const activeThemeId = useAppearanceStore((s) => s.activeThemeId);
+  const activeIconThemeId = useAppearanceStore((s) => s.activeIconThemeId);
+  const installThemeStore = useAppearanceStore((s) => s.installTheme);
+  const installIconThemeStore = useAppearanceStore((s) => s.installIconTheme);
+  const setActiveTheme = useAppearanceStore((s) => s.setActiveTheme);
+  const setActiveIconTheme = useAppearanceStore((s) => s.setActiveIconTheme);
   const activeTheme = activeThemeId === DEFAULT_EDITOR_THEME_ID
     ? null
     : installedThemes.find((theme) => theme.id === activeThemeId) ?? null;
@@ -92,7 +102,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     function handle(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (tab && !readOnly) onSave(tab.path);
+        if (tab?.kind !== 'extension' && tab && !readOnly) onSave(tab.path);
       }
     }
     window.addEventListener('keydown', handle);
@@ -167,6 +177,53 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
         Selecione um arquivo na árvore
       </div>
+    );
+  }
+
+  if (tab.kind === 'extension' && tab.extensionDetail) {
+    const extensionId = tab.extensionDetail.extension.id;
+    const installedTheme = installedThemes.find((theme) => theme.extensionId === extensionId) ?? null;
+    const installedIconTheme = installedIconThemes.find((theme) => theme.extensionId === extensionId) ?? null;
+    let installedAction: InstalledExtensionAction | null = null;
+
+    if (installedTheme) {
+      installedAction = {
+        applyLabel: 'Set Color Theme',
+        active: activeThemeId === installedTheme.id,
+        onApply: () => setActiveTheme(installedTheme.id),
+      };
+    } else if (installedIconTheme) {
+      installedAction = {
+        applyLabel: 'Set File Icon Theme',
+        active: activeIconThemeId === installedIconTheme.id,
+        onApply: () => setActiveIconTheme(installedIconTheme.id),
+      };
+    }
+
+    async function handleInstall() {
+      setInstallingId(extensionId);
+      try {
+        const payload = await installExtension(extensionId);
+        for (const theme of payload.themes) installThemeStore(theme);
+        for (const iconTheme of payload.iconThemes) installIconThemeStore(iconTheme);
+        if (payload.themes[0]) setActiveTheme(payload.themes[0].id);
+        if (payload.iconThemes[0]) setActiveIconTheme(payload.iconThemes[0].id);
+        toast.success(`${payload.displayName} instalada`);
+      } catch {
+        toast.error('Falha ao instalar extensão');
+      } finally {
+        setInstallingId(null);
+      }
+    }
+
+    return (
+      <ExtensionDetailView
+        detail={tab.extensionDetail}
+        installing={installingId === extensionId}
+        canInstall={!installedTheme && !installedIconTheme}
+        installedAction={installedAction}
+        onInstall={() => void handleInstall()}
+      />
     );
   }
 

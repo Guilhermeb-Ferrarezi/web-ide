@@ -116,6 +116,9 @@ export type EditorTab = {
   encoding: 'utf-8' | 'base64';
   mimeType: string;
   dirty: boolean;
+  kind?: 'file' | 'extension';
+  iconUrl?: string | null;
+  extensionDetail?: ExtensionDetail | null;
 };
 
 export type MonacoThemeRule = {

@@ -16,7 +16,7 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
     <div className="flex h-9 items-stretch overflow-x-auto border-b bg-muted/30">
       {tabs.map((tab) => {
         const active = tab.path === activePath;
-        const fileIcon = resolveFileIcon(tab.path);
+        const fileIcon = tab.iconUrl ?? resolveFileIcon(tab.path);
         return (
           <div
             key={tab.path}
