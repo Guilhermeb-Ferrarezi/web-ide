@@ -129,12 +129,12 @@ describe('<EditorPane />', () => {
     );
 
     expect(defineThemeSpy).toHaveBeenCalledWith(
-      'github.github-vscode-theme-dark',
+      'ext-github-github-vscode-theme-dark',
       expect.objectContaining({ base: 'vs-dark' }),
     );
     expect(editorSpy).toHaveBeenLastCalledWith(
       expect.objectContaining({
-        theme: 'github.github-vscode-theme-dark',
+        theme: 'ext-github-github-vscode-theme-dark',
       }),
     );
 

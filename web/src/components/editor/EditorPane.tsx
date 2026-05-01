@@ -7,7 +7,7 @@ import { useEditor } from '@/hooks/useEditor';
 import { ExtensionDetailView, type InstalledExtensionAction } from '@/components/extensions/ExtensionDetailView';
 import { installExtension } from '@/api/extensions';
 import { detectLanguage, isImage } from '@/lib/language';
-import { buildMonacoThemeData } from '@/lib/monacoTheme';
+import { buildMonacoThemeData, getMonacoThemeName } from '@/lib/monacoTheme';
 import { useEditorStore } from '@/stores/editorStore';
 import { DEFAULT_EDITOR_THEME_ID, useAppearanceStore } from '@/stores/appearanceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -102,8 +102,9 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
       return;
     }
 
-    monaco.editor.defineTheme(activeTheme.id, buildMonacoThemeData(activeTheme));
-    setResolvedThemeId(activeTheme.id);
+    const monacoThemeName = getMonacoThemeName(activeTheme);
+    monaco.editor.defineTheme(monacoThemeName, buildMonacoThemeData(activeTheme));
+    setResolvedThemeId(monacoThemeName);
   }, [activeTheme, monaco]);
 
   useEffect(() => {

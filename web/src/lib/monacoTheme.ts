@@ -53,3 +53,13 @@ export function buildMonacoThemeData(theme: InstalledTheme) {
     },
   };
 }
+
+export function getMonacoThemeName(theme: InstalledTheme): string {
+  const normalized = theme.id
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
+  return `ext-${normalized || 'theme'}`;
+}

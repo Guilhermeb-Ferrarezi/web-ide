@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMonacoThemeData } from './monacoTheme';
+import { buildMonacoThemeData, getMonacoThemeName } from './monacoTheme';
 import type { InstalledTheme } from '@/types';
 
 function makeTheme(input: Partial<InstalledTheme>): InstalledTheme {
@@ -49,5 +49,13 @@ describe('buildMonacoThemeData', () => {
 
     expect(result.colors['editor.background']).toBe('#ffffff');
     expect(result.colors['editor.foreground']).toBe('#1f2937');
+  });
+
+  it('sanitizes extension theme ids before using them in Monaco', () => {
+    const theme = makeTheme({
+      id: 'DaltonMenezes.aura-theme.Aura Dark (Soft Text)',
+    });
+
+    expect(getMonacoThemeName(theme)).toBe('ext-daltonmenezes-aura-theme-aura-dark-soft-text');
   });
 });
