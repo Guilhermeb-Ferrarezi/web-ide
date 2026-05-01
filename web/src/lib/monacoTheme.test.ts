@@ -30,13 +30,13 @@ describe('buildMonacoThemeData', () => {
 
     expect(result.base).toBe('vs-dark');
     expect(result.rules).toEqual(theme.rules);
-    expect(result.colors['editor.background']).toBeUndefined();
-    expect(result.colors['editor.foreground']).toBeUndefined();
+    expect(result.colors['editor.background']).toBe('#161b22');
+    expect(result.colors['editor.foreground']).toBe('#c9d1d9');
     expect(result.colors['editor.selectionBackground']).toBe('#a277ff55');
     expect(result.colors['sideBar.background']).toBeUndefined();
   });
 
-  it('does not override the base light editor background', () => {
+  it('uses a stable light editor background', () => {
     const theme = makeTheme({
       uiTheme: 'vs',
       colors: {
@@ -47,7 +47,7 @@ describe('buildMonacoThemeData', () => {
 
     const result = buildMonacoThemeData(theme);
 
-    expect(result.colors['editor.background']).toBeUndefined();
-    expect(result.colors['editor.foreground']).toBeUndefined();
+    expect(result.colors['editor.background']).toBe('#ffffff');
+    expect(result.colors['editor.foreground']).toBe('#1f2937');
   });
 });
