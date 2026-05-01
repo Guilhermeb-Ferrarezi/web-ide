@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { GitBranch, TerminalSquare } from 'lucide-react';
+import { FileSearch, GitBranch, TerminalSquare } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -8,6 +8,7 @@ import { EditorBreadcrumbs } from '@/components/editor/EditorBreadcrumbs';
 import { EditorTabs } from '@/components/editor/EditorTabs';
 import { EditorPane } from '@/components/editor/EditorPane';
 import { GitPanel } from '@/components/git/GitPanel';
+import { CodeSearchPanel } from '@/components/shared/CodeSearchPanel';
 import { TerminalPane } from '@/components/terminal/TerminalPane';
 import { StatusBar } from './StatusBar';
 import { useEditor } from '@/hooks/useEditor';
@@ -15,7 +16,7 @@ import { useGitStatus } from '@/hooks/useGitStatus';
 import { cn } from '@/lib/utils';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
-type SidePanel = 'files' | 'git';
+type SidePanel = 'files' | 'search' | 'git';
 
 export function AppShell({ workspace }: { workspace: string }) {
   const { tabs, activePath, setActive, closeTab, updateContent, save } = useEditor();
@@ -52,6 +53,15 @@ export function AppShell({ workspace }: { workspace: string }) {
           <Button
             variant="ghost"
             size="icon"
+            className={cn('h-8 w-8', side === 'search' && 'bg-accent')}
+            onClick={() => setSide('search')}
+            title="Buscar código"
+          >
+            <FileSearch className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             className={cn('relative h-8 w-8', side === 'git' && 'bg-accent')}
             onClick={() => setSide('git')}
             title="Git"
@@ -77,7 +87,9 @@ export function AppShell({ workspace }: { workspace: string }) {
         </div>
 
         <ResizablePanel defaultSize={22} minSize={14} maxSize={45} className="border-r">
-          {side === 'files' ? <FileTree workspace={workspace} /> : <GitPanel workspace={workspace} readOnly={permission !== 'write'} />}
+          {side === 'files' ? <FileTree workspace={workspace} /> : null}
+          {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
+          {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
         </ResizablePanel>
         <ResizableHandle />
 

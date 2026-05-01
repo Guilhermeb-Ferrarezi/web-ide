@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { FileContent, TreeNode } from '@/types';
+import type { CodeSearchResult, FileContent, TreeNode } from '@/types';
 
 export async function fetchTree(workspace: string): Promise<TreeNode[]> {
   const { data } = await api.get<TreeNode[]>('/fs/tree', { params: { workspace } });
@@ -8,6 +8,11 @@ export async function fetchTree(workspace: string): Promise<TreeNode[]> {
 
 export async function fetchFile(workspace: string, path: string): Promise<FileContent> {
   const { data } = await api.get<FileContent>('/fs/file', { params: { workspace, path } });
+  return data;
+}
+
+export async function searchFiles(workspace: string, query: string): Promise<CodeSearchResult[]> {
+  const { data } = await api.get<CodeSearchResult[]>('/fs/search', { params: { workspace, query } });
   return data;
 }
 

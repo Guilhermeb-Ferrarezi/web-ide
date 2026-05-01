@@ -49,6 +49,10 @@ vi.mock('@/components/git/GitPanel', () => ({
   GitPanel: () => <div>git-panel</div>,
 }));
 
+vi.mock('@/components/shared/CodeSearchPanel', () => ({
+  CodeSearchPanel: () => <div>code-search-panel</div>,
+}));
+
 vi.mock('@/components/terminal/TerminalPane', () => ({
   TerminalPane: () => <div>terminal-pane</div>,
 }));

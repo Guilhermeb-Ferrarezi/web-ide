@@ -1,13 +1,24 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import path from 'node:path';
-import { deletePath, makeDir, readFile, readTree, renamePath, uploadFile, writeFile } from './fs.service.ts';
+import { deletePath, makeDir, readFile, readTree, renamePath, searchFiles, uploadFile, writeFile } from './fs.service.ts';
 
 const pathSchema = z.string().min(1).max(1024);
 
 export async function getTree(req: FastifyRequest, reply: FastifyReply) {
   const tree = await readTree(req.workspacePath!);
   return reply.send(tree);
+}
+
+const searchQuerySchema = z.object({
+  workspace: z.string(),
+  query: z.string().trim().min(1).max(200),
+});
+
+export async function getSearch(req: FastifyRequest, reply: FastifyReply) {
+  const query = searchQuerySchema.parse(req.query);
+  const results = await searchFiles(req.workspacePath!, query.query);
+  return reply.send(results);
 }
 
 export async function getFile(

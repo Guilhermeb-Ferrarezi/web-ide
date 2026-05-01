@@ -67,6 +67,17 @@ export type FileContent = {
   mimeType: string;
 };
 
+export type CodeSearchMatch = {
+  line: number;
+  column: number;
+  preview: string;
+};
+
+export type CodeSearchResult = {
+  path: string;
+  matches: CodeSearchMatch[];
+};
+
 export type GitFileStatus = {
   path: string;
   index: string;

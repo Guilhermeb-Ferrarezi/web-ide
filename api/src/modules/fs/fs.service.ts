@@ -88,6 +88,17 @@ export type FileContent =
   | { encoding: 'utf-8'; content: string; size: number; mimeType: string }
   | { encoding: 'base64'; content: string; size: number; mimeType: string };
 
+export type SearchMatch = {
+  line: number;
+  column: number;
+  preview: string;
+};
+
+export type SearchResult = {
+  path: string;
+  matches: SearchMatch[];
+};
+
 function guessMime(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   const map: Record<string, string> = {
@@ -141,4 +152,64 @@ export async function uploadFile(workspacePath: string, relPath: string, buffer:
   const fullPath = resolveSafe(workspacePath, relPath);
   await fs.mkdir(path.dirname(fullPath), { recursive: true });
   await fs.writeFile(fullPath, buffer);
+}
+
+async function searchDir(
+  workspacePath: string,
+  query: string,
+  depth: number,
+  relPath = '',
+  results: SearchResult[] = [],
+): Promise<SearchResult[]> {
+  if (depth <= 0) return results;
+  const fullDir = relPath ? resolveSafe(workspacePath, relPath) : workspacePath;
+  const entries = await fs.readdir(fullDir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    if (IGNORED.has(entry.name)) continue;
+    const childRel = path.posix.join(relPath, entry.name);
+    const fullPath = path.join(fullDir, entry.name);
+
+    if (entry.isDirectory()) {
+      await searchDir(workspacePath, query, depth - 1, childRel, results);
+      continue;
+    }
+
+    if (!entry.isFile()) continue;
+
+    const stat = await fs.stat(fullPath);
+    if (stat.size > MAX_FILE_SIZE) continue;
+
+    const buf = await fs.readFile(fullPath);
+    if (!isProbablyText(entry.name, buf)) continue;
+
+    const content = buf.toString('utf-8');
+    const lines = content.split(/\r?\n/);
+    const matches: SearchMatch[] = [];
+
+    for (let index = 0; index < lines.length; index += 1) {
+      const line = lines[index] ?? '';
+      const column = line.toLowerCase().indexOf(query);
+      if (column === -1) continue;
+      matches.push({
+        line: index + 1,
+        column: column + 1,
+        preview: line.trim() || line,
+      });
+      if (matches.length >= 20) break;
+    }
+
+    if (matches.length > 0) {
+      results.push({ path: childRel, matches });
+      if (results.length >= 100) break;
+    }
+  }
+
+  return results;
+}
+
+export async function searchFiles(workspacePath: string, rawQuery: string): Promise<SearchResult[]> {
+  const query = rawQuery.trim().toLowerCase();
+  if (!query) return [];
+  return searchDir(workspacePath, query, MAX_DEPTH);
 }

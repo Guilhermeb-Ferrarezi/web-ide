@@ -5,6 +5,7 @@ import os from 'node:os';
 import {
   readTree,
   readFile,
+  searchFiles,
   writeFile,
   deletePath,
   makeDir,
@@ -103,6 +104,23 @@ describe('readFile / writeFile', () => {
     const big = Buffer.alloc(6 * 1024 * 1024);
     await fs.writeFile(path.join(workspace, 'big.bin'), big);
     await expect(readFile(workspace, 'big.bin')).rejects.toThrow();
+  });
+});
+
+describe('searchFiles', () => {
+  it('retorna arquivos e linhas com correspondências de texto', async () => {
+    await writeFile(workspace, 'src/a.ts', 'const hello = "world";\nconsole.log(hello);');
+    await writeFile(workspace, 'README.md', 'hello docs');
+    const results = await searchFiles(workspace, 'hello');
+    expect(results.map((entry) => entry.path)).toEqual(['README.md', 'src/a.ts']);
+    expect(results[0]?.matches[0]?.line).toBe(1);
+    expect(results[1]?.matches[0]?.preview).toContain('const hello');
+  });
+
+  it('ignora arquivos binários', async () => {
+    await fs.writeFile(path.join(workspace, 'img.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    const results = await searchFiles(workspace, 'png');
+    expect(results).toEqual([]);
   });
 });
 
