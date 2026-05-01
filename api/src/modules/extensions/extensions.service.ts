@@ -1,10 +1,5 @@
-import fs from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-
-const execFileAsync = promisify(execFile);
+import { unzipSync } from 'fflate';
 
 type OpenVsxSearchResponse = {
   extensions?: Array<{
@@ -127,6 +122,8 @@ type ExtensionManifest = {
     productIconThemes?: unknown[];
   };
 };
+
+type ArchiveEntries = Record<string, Uint8Array>;
 
 function stripJsonComments(input: string): string {
   return input
@@ -257,19 +254,18 @@ async function getExtensionVersion(extensionId: string): Promise<OpenVsxExtensio
   return (await response.json()) as OpenVsxExtensionVersionResponse;
 }
 
-async function listArchiveEntries(archivePath: string): Promise<string[]> {
-  const { stdout } = await execFileAsync('bsdtar', ['-tf', archivePath]);
-  return stdout.split('\n').map((line) => line.trim()).filter(Boolean);
+function listArchiveEntries(entries: ArchiveEntries): string[] {
+  return Object.keys(entries);
 }
 
-async function readArchiveFile(archivePath: string, internalPath: string, encoding: BufferEncoding = 'utf-8'): Promise<string> {
-  const { stdout } = await execFileAsync('bsdtar', ['-xOf', archivePath, internalPath], { encoding });
-  return stdout;
+function readArchiveBinary(entries: ArchiveEntries, internalPath: string): Buffer {
+  const content = entries[internalPath];
+  if (!content) throw new Error(`Arquivo da extensão não encontrado: ${internalPath}`);
+  return Buffer.from(content);
 }
 
-async function readArchiveBinary(archivePath: string, internalPath: string): Promise<Buffer> {
-  const { stdout } = await execFileAsync('bsdtar', ['-xOf', archivePath, internalPath], { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024 });
-  return stdout as Buffer;
+function readArchiveFile(entries: ArchiveEntries, internalPath: string, encoding: BufferEncoding = 'utf-8'): string {
+  return readArchiveBinary(entries, internalPath).toString(encoding);
 }
 
 function resolveArchivePath(rootPath: string, relativePath: string): string {
@@ -359,87 +355,74 @@ export async function installExtension(extensionId: string): Promise<InstalledEx
   const extension = await findExtension(extensionId);
   if (!extension) throw new Error('Extensão não encontrada');
 
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'web-ide-ext-'));
-  const archivePath = path.join(tempDir, `${extensionId}.vsix`);
+  const response = await fetch(extension.downloadUrl, { headers: { 'User-Agent': 'web-ide' } });
+  if (!response.ok) throw new Error('Falha ao baixar extensão');
 
-  try {
-    const response = await fetch(extension.downloadUrl, { headers: { 'User-Agent': 'web-ide' } });
-    if (!response.ok) throw new Error('Falha ao baixar extensão');
-    await fs.writeFile(archivePath, Buffer.from(await response.arrayBuffer()));
+  const archive = unzipSync(new Uint8Array(await response.arrayBuffer()));
+  const entries = listArchiveEntries(archive);
+  const packageJsonPath = entries.find((entry) => entry.endsWith('extension/package.json'));
+  if (!packageJsonPath) throw new Error('Manifesto da extensão não encontrado');
 
-    const entries = await listArchiveEntries(archivePath);
-    const packageJsonPath = entries.find((entry) => entry.endsWith('extension/package.json'));
-    if (!packageJsonPath) throw new Error('Manifesto da extensão não encontrado');
+  const manifest = JSON.parse(readArchiveFile(archive, packageJsonPath));
+  const contributes = manifest.contributes ?? {};
+  const themes = Array.isArray(contributes.themes) ? contributes.themes : [];
+  const iconThemes = Array.isArray(contributes.iconThemes) ? contributes.iconThemes : [];
 
-    const manifest = JSON.parse(await readArchiveFile(archivePath, packageJsonPath));
-    const contributes = manifest.contributes ?? {};
-    const themes = Array.isArray(contributes.themes) ? contributes.themes : [];
-    const iconThemes = Array.isArray(contributes.iconThemes) ? contributes.iconThemes : [];
+  const installedThemes = themes.map((theme: { id?: string; label?: string; path: string; uiTheme?: string }) => {
+    const themePath = resolveArchivePath(packageJsonPath, theme.path);
+    const rawTheme = parseJsonc<Record<string, unknown>>(readArchiveFile(archive, themePath));
+    return {
+      id: `${extension.id}.${theme.id ?? theme.label ?? path.basename(theme.path, path.extname(theme.path))}`,
+      extensionId: extension.id,
+      label: theme.label ?? theme.id ?? extension.displayName,
+      uiTheme: mapUiTheme(theme.uiTheme),
+      colors: (rawTheme.colors as Record<string, string> | undefined) ?? {},
+      rules: convertTokenColors(rawTheme.tokenColors),
+    } satisfies InstalledTheme;
+  });
 
-    const installedThemes = await Promise.all(
-      themes.map(async (theme: { id?: string; label?: string; path: string; uiTheme?: string }) => {
-        const themePath = resolveArchivePath(packageJsonPath, theme.path);
-        const rawTheme = parseJsonc<Record<string, unknown>>(await readArchiveFile(archivePath, themePath));
-        return {
-          id: `${extension.id}.${theme.id ?? theme.label ?? path.basename(theme.path, path.extname(theme.path))}`,
-          extensionId: extension.id,
-          label: theme.label ?? theme.id ?? extension.displayName,
-          uiTheme: mapUiTheme(theme.uiTheme),
-          colors: (rawTheme.colors as Record<string, string> | undefined) ?? {},
-          rules: convertTokenColors(rawTheme.tokenColors),
-        } satisfies InstalledTheme;
+  const installedIconThemes = iconThemes.map((theme: { id?: string; label?: string; path: string }) => {
+    const iconThemePath = resolveArchivePath(packageJsonPath, theme.path);
+    const rawTheme = parseJsonc<Record<string, unknown>>(readArchiveFile(archive, iconThemePath));
+    const rawDefinitions = (rawTheme.iconDefinitions as Record<string, { iconPath?: string }> | undefined) ?? {};
+
+    const iconDefinitions = Object.fromEntries(
+      Object.entries(rawDefinitions).map(([id, definition]) => {
+        const iconPath = definition.iconPath;
+        if (!iconPath) return [id, ''] as const;
+        const archiveIconPath = resolveArchivePath(iconThemePath, iconPath);
+        const iconBuffer = readArchiveBinary(archive, archiveIconPath);
+        const dataUrl = `data:${mimeFromPath(iconPath)};base64,${iconBuffer.toString('base64')}`;
+        return [id, dataUrl] as const;
       }),
     );
-
-    const installedIconThemes = await Promise.all(
-      iconThemes.map(async (theme: { id?: string; label?: string; path: string }) => {
-        const iconThemePath = resolveArchivePath(packageJsonPath, theme.path);
-        const rawTheme = parseJsonc<Record<string, unknown>>(await readArchiveFile(archivePath, iconThemePath));
-        const rawDefinitions = (rawTheme.iconDefinitions as Record<string, { iconPath?: string }> | undefined) ?? {};
-
-        const iconDefinitions = Object.fromEntries(
-          await Promise.all(
-            Object.entries(rawDefinitions).map(async ([id, definition]) => {
-              const iconPath = definition.iconPath;
-              if (!iconPath) return [id, ''] as const;
-              const archiveIconPath = resolveArchivePath(iconThemePath, iconPath);
-              const iconBuffer = await readArchiveBinary(archivePath, archiveIconPath);
-              const dataUrl = `data:${mimeFromPath(iconPath)};base64,${iconBuffer.toString('base64')}`;
-              return [id, dataUrl] as const;
-            }),
-          ),
-        );
-
-        return {
-          id: `${extension.id}.${theme.id ?? theme.label ?? path.basename(theme.path, path.extname(theme.path))}`,
-          extensionId: extension.id,
-          label: theme.label ?? theme.id ?? extension.displayName,
-          icons: {
-            file: (rawTheme.file as string | undefined) ?? 'file',
-            folder: (rawTheme.folder as string | undefined) ?? 'folder',
-            folderExpanded: (rawTheme.folderExpanded as string | undefined) ?? ((rawTheme.folder as string | undefined) ?? 'folder'),
-            fileNames: (rawTheme.fileNames as Record<string, string> | undefined) ?? {},
-            fileExtensions: (rawTheme.fileExtensions as Record<string, string> | undefined) ?? {},
-            folderNames: (rawTheme.folderNames as Record<string, string> | undefined) ?? {},
-            folderNamesExpanded: (rawTheme.folderNamesExpanded as Record<string, string> | undefined) ?? {},
-            languageIds: (rawTheme.languageIds as Record<string, string> | undefined) ?? {},
-            iconDefinitions,
-          },
-        } satisfies InstalledIconTheme;
-      }),
-    );
-
-    if (installedThemes.length === 0 && installedIconThemes.length === 0) {
-      throw new Error('A extensão não contém temas instaláveis');
-    }
 
     return {
+      id: `${extension.id}.${theme.id ?? theme.label ?? path.basename(theme.path, path.extname(theme.path))}`,
       extensionId: extension.id,
-      displayName: extension.displayName,
-      themes: installedThemes,
-      iconThemes: installedIconThemes,
-    };
-  } finally {
-    await fs.rm(tempDir, { recursive: true, force: true });
+      label: theme.label ?? theme.id ?? extension.displayName,
+      icons: {
+        file: (rawTheme.file as string | undefined) ?? 'file',
+        folder: (rawTheme.folder as string | undefined) ?? 'folder',
+        folderExpanded: (rawTheme.folderExpanded as string | undefined) ?? ((rawTheme.folder as string | undefined) ?? 'folder'),
+        fileNames: (rawTheme.fileNames as Record<string, string> | undefined) ?? {},
+        fileExtensions: (rawTheme.fileExtensions as Record<string, string> | undefined) ?? {},
+        folderNames: (rawTheme.folderNames as Record<string, string> | undefined) ?? {},
+        folderNamesExpanded: (rawTheme.folderNamesExpanded as Record<string, string> | undefined) ?? {},
+        languageIds: (rawTheme.languageIds as Record<string, string> | undefined) ?? {},
+        iconDefinitions,
+      },
+    } satisfies InstalledIconTheme;
+  });
+
+  if (installedThemes.length === 0 && installedIconThemes.length === 0) {
+    throw new Error('A extensão não contém temas instaláveis');
   }
+
+  return {
+    extensionId: extension.id,
+    displayName: extension.displayName,
+    themes: installedThemes,
+    iconThemes: installedIconThemes,
+  };
 }
