@@ -6,11 +6,17 @@ export PATH="/usr/bin:/bin"
 export HISTFILE=/dev/null
 
 readonly TERMINAL_ALLOWED_COMMANDS="pwd cd ls eza tree cat less more head tail grep rg find fd stat file du df echo printf clear mkdir rmdir touch cp mv rm sed awk cut sort uniq wc xargs git bun bunx npm npx pnpm yarn"
+readonly TERMINAL_ALLOWED_GIT_SUBCOMMANDS="status diff log show branch switch checkout restore add reset commit stash grep blame rev-parse rev-list ls-files"
 
-terminal_is_allowed() {
+terminal_extract_base() {
   local raw="$1"
   local base="${raw%%[[:space:]]*}"
-  base="${base##*/}"
+  printf '%s' "${base##*/}"
+}
+
+terminal_is_allowed() {
+  local base
+  base="$(terminal_extract_base "$1")"
 
   if [[ -z "$base" ]]; then
     return 0
@@ -22,8 +28,57 @@ terminal_is_allowed() {
   esac
 }
 
+terminal_extract_git_subcommand() {
+  local raw="$1"
+  local rest="${raw#git }"
+  local token
+
+  read -r -a parts <<< "$rest"
+
+  for ((i = 0; i < ${#parts[@]}; i++)); do
+    token="${parts[$i]}"
+    case "$token" in
+      -c|--git-dir|--work-tree|--namespace|--exec-path|--super-prefix|--config-env)
+        ((i++))
+        continue
+        ;;
+      --paginate|--no-pager|--no-replace-objects|--bare)
+        continue
+        ;;
+      -*)
+        continue
+        ;;
+      *)
+        printf '%s' "$token"
+        return 0
+        ;;
+    esac
+  done
+
+  return 1
+}
+
+terminal_git_subcommand_allowed() {
+  local subcommand
+  subcommand="$(terminal_extract_git_subcommand "$1")" || return 0
+
+  case " ${TERMINAL_ALLOWED_GIT_SUBCOMMANDS} " in
+    *" ${subcommand} "*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 terminal_has_forbidden_syntax() {
   [[ "$1" =~ [\;\|\&\<\>\`\$\(\)\{\}] ]]
+}
+
+terminal_print_shortcuts() {
+  printf '%s\n' \
+    'Atalhos do terminal:' \
+    '  Ctrl+Shift+C  copiar seleção' \
+    '  Ctrl+Shift+V  colar' \
+    '  Ctrl+L        limpar terminal' \
+    '  Ctrl+C        interromper processo atual'
 }
 
 terminal_prompt() {
@@ -66,8 +121,18 @@ while true; do
     continue
   fi
 
+  if [[ "$line" == "shortcuts" ]]; then
+    terminal_print_shortcuts
+    continue
+  fi
+
   if ! terminal_is_allowed "$line"; then
     printf '[terminal] blocked command: %s\n' "${line%%[[:space:]]*}"
+    continue
+  fi
+
+  if [[ "$(terminal_extract_base "$line")" == "git" ]] && ! terminal_git_subcommand_allowed "$line"; then
+    printf '[terminal] blocked git subcommand: %s\n' "$(terminal_extract_git_subcommand "$line")"
     continue
   fi
 
