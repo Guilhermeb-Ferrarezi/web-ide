@@ -2,7 +2,7 @@
 
 set -u
 
-export PATH="/usr/bin:/bin"
+export PATH="/usr/local/bin:/usr/bin:/bin"
 export HISTFILE=/dev/null
 
 readonly TERMINAL_ALLOWED_COMMANDS="pwd cd ls eza tree cat less more head tail grep rg find fd stat file du df echo printf clear mkdir rmdir touch cp mv rm sed awk cut sort uniq wc xargs git bun bunx npm npx pnpm yarn"
@@ -75,6 +75,7 @@ terminal_has_forbidden_syntax() {
 terminal_print_shortcuts() {
   printf '%s\n' \
     'Atalhos do terminal:' \
+    '  Seta para cima  último comando' \
     '  Ctrl+Shift+C  copiar seleção' \
     '  Ctrl+Shift+V  colar' \
     '  Ctrl+L        limpar terminal' \
@@ -96,16 +97,32 @@ terminal_prompt() {
   printf 'web-ide:~%s$ ' "$current"
 }
 
+terminal_cd_target_allowed() {
+  local target="$1"
+  local workspace_root
+  local resolved_target
+
+  workspace_root="$(cd "${HOME:-$PWD}" && pwd -P)" || return 1
+  resolved_target="$(cd "$target" 2>/dev/null && pwd -P)" || return 1
+
+  [[ "$resolved_target" == "$workspace_root" || "$resolved_target" == "$workspace_root"/* ]]
+}
+
 cd "${HOME:-$PWD}" || exit 1
+if [[ -t 0 ]]; then
+  bind 'set enable-bracketed-paste off'
+fi
 
 while true; do
   terminal_prompt
 
-  IFS= read -r line || exit 0
+  IFS= read -e -r line || exit 0
 
   if [[ -z "${line// }" ]]; then
     continue
   fi
+
+  history -s "$line"
 
   if terminal_has_forbidden_syntax "$line"; then
     printf '[terminal] blocked syntax: shell composition is disabled\n'
@@ -116,6 +133,10 @@ while true; do
     target="${line#cd }"
     if [[ "$line" == "cd" ]]; then
       target="${HOME:-$PWD}"
+    fi
+    if ! terminal_cd_target_allowed "$target"; then
+      printf '[terminal] blocked path outside workspace: %s\n' "$target"
+      continue
     fi
     cd "$target" 2>/dev/null || printf 'cd: no such file or directory: %s\n' "$target"
     continue

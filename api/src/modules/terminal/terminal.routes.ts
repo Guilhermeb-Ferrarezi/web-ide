@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import fs from 'node:fs';
 import { findRepoBySlug } from '../repos/repo-catalog.service.ts';
 import { getRepoPermissionForUser } from '../permissions/permissions.service.ts';
+import { parseTerminalClientMessage } from './terminal.protocol.ts';
 import { createPty } from './terminal.service.ts';
 
 export default async function terminalRoutes(app: FastifyInstance) {
@@ -76,22 +77,22 @@ export default async function terminalRoutes(app: FastifyInstance) {
 
     socket.on('message', (raw: Buffer) => {
       const msg = raw.toString();
-      if (msg.startsWith('{')) {
+      const parsed = parseTerminalClientMessage(msg);
+      if (parsed.type === 'resize') {
+        handle.pty.resize(parsed.cols, parsed.rows);
+        return;
+      }
+      if (parsed.type === 'input' || parsed.type === 'raw') {
+        handle.pty.write(parsed.data);
+        return;
+      }
+      if (parsed.type === 'ping') {
         try {
-          const parsed = JSON.parse(msg);
-          if (parsed.type === 'resize') {
-            handle.pty.resize(parsed.cols, parsed.rows);
-            return;
-          }
-          if (parsed.type === 'input') {
-            handle.pty.write(parsed.data);
-            return;
-          }
+          socket.send(JSON.stringify({ type: 'pong' }));
         } catch {
-          // não é JSON — trata como input bruto
+          // ignore keepalive send failures
         }
       }
-      handle.pty.write(msg);
     });
 
     socket.on('close', (code: number, reason: Buffer) => {

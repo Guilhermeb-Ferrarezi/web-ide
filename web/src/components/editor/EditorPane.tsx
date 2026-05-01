@@ -5,21 +5,22 @@ import { detectLanguage, isImage } from '@/lib/language';
 
 type Props = {
   tab: EditorTab | null;
+  readOnly?: boolean;
   onChange: (path: string, content: string) => void;
   onSave: (path: string) => void;
 };
 
-export function EditorPane({ tab, onChange, onSave }: Props) {
+export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   useEffect(() => {
     function handle(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (tab) onSave(tab.path);
+        if (tab && !readOnly) onSave(tab.path);
       }
     }
     window.addEventListener('keydown', handle);
     return () => window.removeEventListener('keydown', handle);
-  }, [tab, onSave]);
+  }, [tab, readOnly, onSave]);
 
   if (!tab) {
     return (
@@ -63,6 +64,7 @@ export function EditorPane({ tab, onChange, onSave }: Props) {
         scrollBeyondLastLine: false,
         wordWrap: 'on',
         automaticLayout: true,
+        readOnly,
       }}
     />
   );

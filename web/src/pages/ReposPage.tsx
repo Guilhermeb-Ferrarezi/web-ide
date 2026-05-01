@@ -1,16 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Code2, Download, ExternalLink, Lock, LogOut, Search, Share2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useRepos } from '@/hooks/useRepos';
-import { grantRepoAccess, listRepoPermissions, revokeRepoAccess } from '@/api/repos';
+import { grantRepoAccess, listRepoPermissions, revokeRepoAccess, searchShareUsers } from '@/api/repos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import type { RepoPermissionEntry } from '@/types';
+import type { RepoPermissionEntry, ShareUserCandidate } from '@/types';
+
+const REPOS_PAGE_SIZE = 10;
 
 function formatRelative(iso: string | null) {
   if (!iso) return '';
@@ -32,6 +34,12 @@ export default function ReposPage() {
   const [sharePermission, setSharePermission] = useState<'read' | 'write'>('read');
   const [shareBusy, setShareBusy] = useState(false);
   const [permissionsByRepo, setPermissionsByRepo] = useState<Record<string, RepoPermissionEntry[]>>({});
+  const [shareCandidates, setShareCandidates] = useState<ShareUserCandidate[]>([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [visibleLocalCount, setVisibleLocalCount] = useState(REPOS_PAGE_SIZE);
+  const [visibleGithubCount, setVisibleGithubCount] = useState(REPOS_PAGE_SIZE);
+  const localSentinelRef = useRef<HTMLDivElement | null>(null);
+  const githubSentinelRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -45,6 +53,46 @@ export default function ReposPage() {
       }
     })();
   }, [sharingRepoId]);
+
+  useEffect(() => {
+    if (!sharingRepoId) {
+      setShareCandidates([]);
+      setSearchingUsers(false);
+      return;
+    }
+
+    const query = shareLogin.trim().replace(/^@/, '');
+    if (query.length < 2) {
+      setShareCandidates([]);
+      setSearchingUsers(false);
+      return;
+    }
+
+    let cancelled = false;
+    setSearchingUsers(true);
+
+    const timeoutId = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const data = await searchShareUsers(sharingRepoId, query);
+          if (!cancelled) setShareCandidates(data);
+        } catch (err: any) {
+          if (!cancelled) {
+            setShareCandidates([]);
+            toast.error(err?.response?.data?.message ?? 'Falha ao buscar usuarios');
+          }
+        } finally {
+          if (!cancelled) setSearchingUsers(false);
+        }
+      })();
+    }, 200);
+
+    return () => {
+      cancelled = true;
+      setSearchingUsers(false);
+      window.clearTimeout(timeoutId);
+    };
+  }, [shareLogin, sharingRepoId]);
 
   const filteredGithub = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -63,6 +111,40 @@ export default function ReposPage() {
     return localRepos.filter((r) => r.slug.toLowerCase().includes(q) || r.githubFullName.toLowerCase().includes(q));
   }, [localRepos, query]);
 
+  useEffect(() => {
+    setVisibleLocalCount(REPOS_PAGE_SIZE);
+  }, [query, localRepos]);
+
+  useEffect(() => {
+    setVisibleGithubCount(REPOS_PAGE_SIZE);
+  }, [query, githubRepos]);
+
+  useEffect(() => {
+    const node = localSentinelRef.current;
+    if (!node || visibleLocalCount >= filteredLocal.length) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries[0]?.isIntersecting) return;
+      setVisibleLocalCount((count) => Math.min(count + REPOS_PAGE_SIZE, filteredLocal.length));
+    });
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [filteredLocal.length, visibleLocalCount]);
+
+  useEffect(() => {
+    const node = githubSentinelRef.current;
+    if (!node || visibleGithubCount >= filteredGithub.length) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries[0]?.isIntersecting) return;
+      setVisibleGithubCount((count) => Math.min(count + REPOS_PAGE_SIZE, filteredGithub.length));
+    });
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [filteredGithub.length, visibleGithubCount]);
+
   async function handleGrant(repoId: string) {
     const login = shareLogin.trim().replace(/^@/, '');
     if (!login) return toast.warning('Informe o login do GitHub');
@@ -73,6 +155,7 @@ export default function ReposPage() {
       setPermissionsByRepo((prev) => ({ ...prev, [repoId]: data }));
       setShareLogin('');
       setSharePermission('read');
+      setShareCandidates([]);
       toast.success(`Acesso concedido para @${login}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'Falha ao compartilhar');
@@ -140,7 +223,7 @@ export default function ReposPage() {
               <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">Nenhum repositório local acessível.</p>
             ) : (
               <ul className="space-y-2">
-                {filteredLocal.map((repo) => (
+                {filteredLocal.slice(0, visibleLocalCount).map((repo) => (
                   <li key={repo.id}>
                     <Card className="flex items-center justify-between gap-4 p-4">
                       <div className="min-w-0 flex-1">
@@ -178,11 +261,44 @@ export default function ReposPage() {
                     {sharingRepoId === repo.id && (
                       <Card className="mt-2 space-y-3 p-4">
                         <div className="flex flex-col gap-2 md:flex-row">
-                          <Input
-                            value={shareLogin}
-                            onChange={(e) => setShareLogin(e.target.value)}
-                            placeholder="login do GitHub"
-                          />
+                          <div className="relative flex-1">
+                            <Input
+                              value={shareLogin}
+                              onChange={(e) => setShareLogin(e.target.value)}
+                              placeholder="login do GitHub"
+                            />
+                            {(searchingUsers || shareCandidates.length > 0) && (
+                              <div className="absolute z-10 mt-2 max-h-64 w-full overflow-auto rounded-md border bg-background shadow-md">
+                                {shareCandidates.map((candidate) => (
+                                  <button
+                                    key={candidate.userId}
+                                    type="button"
+                                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-accent"
+                                    onClick={() => {
+                                      setShareLogin(candidate.login);
+                                      setShareCandidates([]);
+                                    }}
+                                  >
+                                    {candidate.avatarUrl ? (
+                                      <img
+                                        src={candidate.avatarUrl}
+                                        alt={candidate.login}
+                                        className="h-8 w-8 rounded-full border"
+                                      />
+                                    ) : (
+                                      <div className="h-8 w-8 rounded-full border bg-muted" />
+                                    )}
+                                    <div className="min-w-0">
+                                      <p className="truncate text-sm font-medium">@{candidate.login}</p>
+                                    </div>
+                                  </button>
+                                ))}
+                                {searchingUsers && (
+                                  <p className="px-3 py-2 text-sm text-muted-foreground">Buscando usuarios...</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                           <select
                             className="h-10 rounded-md border bg-background px-3 text-sm"
                             value={sharePermission}
@@ -224,6 +340,7 @@ export default function ReposPage() {
                 ))}
               </ul>
             )}
+            {visibleLocalCount < filteredLocal.length && <div ref={localSentinelRef} className="h-4" aria-hidden="true" />}
           </section>
 
           <section>
@@ -235,7 +352,7 @@ export default function ReposPage() {
               <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">Nenhum repositório encontrado.</p>
             ) : (
               <ul className="space-y-2">
-                {filteredGithub.map((repo) => (
+                {filteredGithub.slice(0, visibleGithubCount).map((repo) => (
                   <li key={repo.id}>
                     <Card className="flex items-center justify-between gap-4 p-4">
                       <div className="min-w-0 flex-1">
@@ -278,6 +395,7 @@ export default function ReposPage() {
                 ))}
               </ul>
             )}
+            {visibleGithubCount < filteredGithub.length && <div ref={githubSentinelRef} className="h-4" aria-hidden="true" />}
           </section>
         </div>
       )}

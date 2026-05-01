@@ -1,4 +1,4 @@
-import { count, eq } from 'drizzle-orm';
+import { asc, count, eq, ilike } from 'drizzle-orm';
 import { db } from '../../db/client.ts';
 import { config } from '../../config.ts';
 import { globalRoles, users } from '../../db/schema.ts';
@@ -61,6 +61,28 @@ export async function findUserByLogin(login: string) {
   return db.query.users.findFirst({
     where: eq(users.login, login),
   });
+}
+
+export async function searchUsersByLogin(query: string, limit = 8) {
+  const normalized = query.trim().replace(/^@/, '');
+  if (!normalized) return [];
+
+  const rows = await db.query.users.findMany({
+    where: ilike(users.login, `%${normalized}%`),
+    columns: {
+      id: true,
+      login: true,
+      avatarUrl: true,
+    },
+    orderBy: [asc(users.login)],
+    limit,
+  });
+
+  return rows.map((row) => ({
+    userId: row.id,
+    login: row.login,
+    avatarUrl: row.avatarUrl,
+  }));
 }
 
 export function resolveAppRole(

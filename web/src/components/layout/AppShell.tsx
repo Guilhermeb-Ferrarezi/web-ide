@@ -11,11 +11,13 @@ import { TerminalPane } from '@/components/terminal/TerminalPane';
 import { StatusBar } from './StatusBar';
 import { useEditor } from '@/hooks/useEditor';
 import { cn } from '@/lib/utils';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 type SidePanel = 'files' | 'git';
 
 export function AppShell({ workspace }: { workspace: string }) {
   const { tabs, activePath, setActive, closeTab, updateContent, save } = useEditor();
+  const permission = useWorkspaceStore((s) => s.permission);
   const activeTab = tabs.find((t) => t.path === activePath) ?? null;
   const [side, setSide] = useState<SidePanel>('files');
   const [showTerminal, setShowTerminal] = useState(true);
@@ -66,7 +68,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 <EditorTabs tabs={tabs} activePath={activePath} onSelect={setActive} onClose={closeTab} />
                 <EditorBreadcrumbs path={activeTab?.path ?? null} dirty={activeTab?.dirty} />
                 <div className="flex-1 overflow-hidden">
-                  <EditorPane tab={activeTab} onChange={updateContent} onSave={save} />
+                  <EditorPane tab={activeTab} readOnly={permission !== 'write'} onChange={updateContent} onSave={save} />
                 </div>
               </div>
             </ResizablePanel>

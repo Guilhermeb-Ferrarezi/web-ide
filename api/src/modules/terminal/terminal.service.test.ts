@@ -12,9 +12,10 @@ describe('resolveTerminalAccess', () => {
     expect(access.args).toEqual([
       '--noprofile',
       '--norc',
+      '-i',
       '/tmp/restricted-shell.sh',
     ]);
-    expect(access.env.PATH).toBe('/usr/bin:/bin');
+    expect(access.env.PATH).toBe('/usr/local/bin:/usr/bin:/bin');
     expect(access.env.TERM).toBe('xterm-256color');
     expect(access.env.HOME).toBe('/workspace/demo');
   });
@@ -57,6 +58,7 @@ describe('resolveTerminalAccess', () => {
     expect(access.args).toEqual([
       '--noprofile',
       '--norc',
+      '-i',
       '/tmp/restricted-shell.sh',
     ]);
   });

@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { LocalRepo, RepoPermissionEntry, ReposPayload } from '@/types';
+import type { LocalRepo, RepoPermissionEntry, ReposPayload, ShareUserCandidate } from '@/types';
 
 export async function listRepos(): Promise<ReposPayload> {
   const { data } = await api.get<ReposPayload>('/repos');
@@ -27,6 +27,13 @@ export async function listRepoPermissions(repoId: string): Promise<RepoPermissio
 
 export async function grantRepoAccess(repoId: string, login: string, permission: 'read' | 'write') {
   await api.post(`/repos/${repoId}/permissions`, { login, permission });
+}
+
+export async function searchShareUsers(repoId: string, query: string): Promise<ShareUserCandidate[]> {
+  const { data } = await api.get<ShareUserCandidate[]>(`/repos/${repoId}/share-users`, {
+    params: { query },
+  });
+  return data;
 }
 
 export async function revokeRepoAccess(repoId: string, userId: string) {

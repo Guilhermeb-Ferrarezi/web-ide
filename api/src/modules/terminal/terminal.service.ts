@@ -38,7 +38,7 @@ export function resolveTerminalAccess(
   return {
     restricted,
     shell,
-    args: restricted ? ['--noprofile', '--norc', restrictedShellPath] : [],
+    args: restricted ? ['--noprofile', '--norc', '-i', restrictedShellPath] : [],
     env: {
       ...process.env,
       TERM: 'xterm-256color',

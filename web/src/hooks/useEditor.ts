@@ -6,6 +6,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 export function useEditor() {
   const workspace = useWorkspaceStore((s) => s.workspace);
+  const permission = useWorkspaceStore((s) => s.permission);
   const { tabs, activePath, openTab, closeTab, setActive, updateContent, markSaved } = useEditorStore();
 
   const openFile = useCallback(
@@ -33,7 +34,7 @@ export function useEditor() {
   const save = useCallback(
     async (filePath: string) => {
       const tab = useEditorStore.getState().tabs.find((t) => t.path === filePath);
-      if (!workspace || !tab) return;
+      if (!workspace || !tab || permission !== 'write') return;
       try {
         await saveFile(workspace, tab.path, tab.content, tab.encoding);
         markSaved(filePath);
@@ -41,8 +42,16 @@ export function useEditor() {
         toast.error('Falha ao salvar');
       }
     },
-    [workspace, markSaved],
+    [workspace, permission, markSaved],
   );
 
-  return { tabs, activePath, openFile, closeTab, setActive, updateContent, save };
+  const updateContentIfWritable = useCallback(
+    (path: string, content: string) => {
+      if (permission !== 'write') return;
+      updateContent(path, content);
+    },
+    [permission, updateContent],
+  );
+
+  return { tabs, activePath, openFile, closeTab, setActive, updateContent: updateContentIfWritable, save };
 }

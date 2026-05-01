@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAuth } from '../../middlewares/auth.middleware.ts';
-import { deleteRepoPermission, getRepoPermissions, postRepoPermission } from './permissions.controller.ts';
+import { deleteRepoPermission, getRepoPermissions, getShareUsers, postRepoPermission } from './permissions.controller.ts';
 import { canManageRepo } from './permissions.service.ts';
 
 async function requireRepoManager(req: any, reply: any) {
@@ -14,6 +14,7 @@ async function requireRepoManager(req: any, reply: any) {
 
 export default async function permissionsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireAuth);
+  app.get('/repos/:repoId/share-users', { preHandler: requireRepoManager }, getShareUsers);
   app.get('/repos/:repoId/permissions', { preHandler: requireRepoManager }, getRepoPermissions);
   app.post('/repos/:repoId/permissions', { preHandler: requireRepoManager }, postRepoPermission);
   app.delete('/repos/:repoId/permissions/:userId', { preHandler: requireRepoManager }, deleteRepoPermission);

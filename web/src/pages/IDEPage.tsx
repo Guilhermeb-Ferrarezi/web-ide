@@ -8,21 +8,42 @@ import { useEditorStore } from '@/stores/editorStore';
 import { useWatcher } from '@/hooks/useWatcher';
 import { watcherBus } from '@/lib/watcherBus';
 import { fetchFile } from '@/api/fs';
+import { listLocalRepos } from '@/api/repos';
 
 export default function IDEPage() {
   const { workspace } = useParams<{ workspace: string }>();
   const navigate = useNavigate();
   const setWorkspace = useWorkspaceStore((s) => s.setWorkspace);
+  const setPermission = useWorkspaceStore((s) => s.setPermission);
   const resetEditor = useEditorStore((s) => s.reset);
 
   useEffect(() => {
     setWorkspace(workspace ?? null);
+    setPermission(null);
     resetEditor();
     return () => {
       setWorkspace(null);
+      setPermission(null);
       resetEditor();
     };
-  }, [workspace, setWorkspace, resetEditor]);
+  }, [workspace, setWorkspace, setPermission, resetEditor]);
+
+  useEffect(() => {
+    if (!workspace) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const repos = await listLocalRepos();
+        const repo = repos.find((entry) => entry.slug === workspace);
+        if (!cancelled) setPermission(repo?.permission ?? null);
+      } catch {
+        if (!cancelled) setPermission(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace, setPermission]);
 
   useWatcher(workspace ?? null, (e) => watcherBus.emit(e));
 

@@ -4,11 +4,15 @@ import { db } from '../../db/client.ts';
 import { repoPermissions } from '../../db/schema.ts';
 import { eq } from 'drizzle-orm';
 import { grantRepoPermission, removeRepoPermission } from './permissions.service.ts';
-import { findUserByLogin } from '../users/users.service.ts';
+import { findUserByLogin, searchUsersByLogin } from '../users/users.service.ts';
 
 const paramsSchema = z.object({
   repoId: z.string().uuid(),
   userId: z.string().uuid().optional(),
+});
+
+const searchUsersQuerySchema = z.object({
+  query: z.string().default(''),
 });
 
 const bodySchema = z
@@ -59,6 +63,13 @@ export async function postRepoPermission(req: FastifyRequest, reply: FastifyRepl
     createdByUserId: req.session.user!.userId,
   });
   return reply.send({ ok: true });
+}
+
+export async function getShareUsers(req: FastifyRequest, reply: FastifyReply) {
+  paramsSchema.parse(req.params);
+  const { query } = searchUsersQuerySchema.parse(req.query);
+  const users = await searchUsersByLogin(query);
+  return reply.send(users);
 }
 
 export async function deleteRepoPermission(req: FastifyRequest, reply: FastifyReply) {

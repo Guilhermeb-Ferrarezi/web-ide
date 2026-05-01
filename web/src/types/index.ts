@@ -33,6 +33,12 @@ export type RepoPermissionEntry = {
   permission: 'read' | 'write';
 };
 
+export type ShareUserCandidate = {
+  userId: string;
+  login: string;
+  avatarUrl: string | null;
+};
+
 export type ReposPayload = {
   githubRepos: RemoteRepo[];
   localRepos: LocalRepo[];

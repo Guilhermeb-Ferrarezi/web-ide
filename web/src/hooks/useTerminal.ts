@@ -4,6 +4,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { buildWorkspaceWsUrl } from '@/lib/ws';
+import { parseTerminalSocketPayload, TERMINAL_KEEPALIVE_INTERVAL_MS } from '@/lib/terminalProtocol';
 
 function safeFit(fit: FitAddon, container: HTMLElement): boolean {
   if (container.clientWidth === 0 || container.clientHeight === 0) return false;
@@ -28,6 +29,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     let ws: WebSocket | null = null;
     let ro: ResizeObserver | null = null;
     let rafId: number | null = null;
+    let keepaliveId: number | null = null;
 
     const term_ = new Terminal({
       fontSize: 13,
@@ -69,24 +71,26 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     ws.onopen = () => {
       if (disposed || !term) return;
       ws!.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+      keepaliveId = window.setInterval(() => {
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'ping' }));
+        }
+      }, TERMINAL_KEEPALIVE_INTERVAL_MS);
     };
     ws.onmessage = (e) => {
       if (disposed || !term) return;
       const data = typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data);
-      if (data.startsWith('{')) {
-        try {
-          const parsed = JSON.parse(data) as { type?: string; message?: string };
-          if (parsed.type === 'error') {
-            console.error('[terminal] websocket error', parsed.message);
-          }
-        } catch {
-          // ignore parse failures
-        }
+      const { text, control } = parseTerminalSocketPayload(data);
+      if (control?.type === 'error') {
+        console.error('[terminal] websocket error', control.message);
+        return;
       }
-      term.write(data);
+      if (control) return;
+      if (text !== null) term.write(text);
     };
     ws.onclose = () => {
       if (disposed || !term) return;
+      if (keepaliveId !== null) window.clearInterval(keepaliveId);
       term.write('\r\n[conexão encerrada]\r\n');
     };
     ws.onerror = () => {
@@ -109,6 +113,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     return () => {
       disposed = true;
       if (rafId !== null) cancelAnimationFrame(rafId);
+      if (keepaliveId !== null) window.clearInterval(keepaliveId);
       dataDispose.dispose();
       ro?.disconnect();
       try { ws?.close(); } catch { /* ignore */ }
