@@ -7,7 +7,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 export function useEditor() {
   const workspace = useWorkspaceStore((s) => s.workspace);
   const permission = useWorkspaceStore((s) => s.permission);
-  const { tabs, activePath, openTab, closeTab, setActive, updateContent, markSaved, setPendingJump } = useEditorStore();
+  const { tabs, activePath, openTab, upsertTab, closeTab, setActive, updateContent, markSaved, setPendingJump } = useEditorStore();
 
   const openFile = useCallback(
     async (filePath: string, jump?: EditorJump) => {
@@ -18,10 +18,22 @@ export function useEditor() {
         setActive(filePath);
         return;
       }
+      const name = filePath.split('/').pop() ?? filePath;
+      openTab({
+        path: filePath,
+        name,
+        content: '',
+        originalContent: '',
+        encoding: 'utf-8',
+        mimeType: 'text/plain',
+        dirty: false,
+        kind: 'file',
+        isLoading: true,
+        loadingLabel: 'Abrindo arquivo...',
+      });
       try {
         const file = await fetchFile(workspace, filePath);
-        const name = filePath.split('/').pop() ?? filePath;
-        openTab({
+        upsertTab({
           path: filePath,
           name,
           content: file.content,
@@ -30,12 +42,15 @@ export function useEditor() {
           mimeType: file.mimeType,
           dirty: false,
           kind: 'file',
+          isLoading: false,
+          loadingLabel: null,
         });
       } catch {
+        closeTab(filePath);
         toast.error('Falha ao abrir arquivo');
       }
     },
-    [workspace, openTab, setActive, setPendingJump],
+    [workspace, openTab, upsertTab, closeTab, setActive, setPendingJump],
   );
 
   const save = useCallback(

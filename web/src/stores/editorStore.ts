@@ -8,6 +8,7 @@ type EditorState = {
   activePath: string | null;
   pendingJump: EditorJump | null;
   openTab: (tab: EditorTab) => void;
+  upsertTab: (tab: EditorTab) => void;
   closeTab: (path: string) => void;
   setActive: (path: string) => void;
   updateContent: (path: string, content: string) => void;
@@ -25,6 +26,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (exists) return set({ activePath: tab.path });
     set((s) => ({ tabs: [...s.tabs, tab], activePath: tab.path }));
   },
+  upsertTab: (tab) =>
+    set((s) => {
+      const index = s.tabs.findIndex((existing) => existing.path === tab.path);
+      if (index === -1) {
+        return { tabs: [...s.tabs, tab], activePath: tab.path };
+      }
+      const tabs = s.tabs.slice();
+      tabs[index] = tab;
+      return { tabs, activePath: tab.path };
+    }),
   closeTab: (path) =>
     set((s) => {
       const tabs = s.tabs.filter((t) => t.path !== path);

@@ -5,6 +5,7 @@ import { getExtensionDetail, searchExtensions } from '@/api/extensions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppearanceStore } from '@/stores/appearanceStore';
@@ -99,7 +100,8 @@ export function ExtensionsPanel() {
   const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(null);
   const installedThemes = useAppearanceStore((state) => state.installedThemes);
   const installedIconThemes = useAppearanceStore((state) => state.installedIconThemes);
-  const openTab = useEditorStore((state) => state.openTab);
+  const upsertTab = useEditorStore((state) => state.upsertTab);
+  const closeTab = useEditorStore((state) => state.closeTab);
 
   const installedEntries = useMemo<InstalledEntry[]>(() => {
     const themeEntries = installedThemes.map((theme) => ({
@@ -186,9 +188,26 @@ export function ExtensionsPanel() {
 
   async function handleSelect(extensionId: string) {
     setSelectedExtensionId(extensionId);
+    const previewEntry = [...installedItems, ...popularItems, ...recommendedItems].find((item) => item.extensionId === extensionId);
+    const displayName = previewEntry?.displayName ?? extensionId;
+    const tabPath = `Extensions/${displayName}`;
+    upsertTab({
+      path: tabPath,
+      name: `Extension: ${displayName}`,
+      content: '',
+      originalContent: '',
+      encoding: 'utf-8',
+      mimeType: 'application/x-web-ide-extension',
+      dirty: false,
+      kind: 'extension',
+      iconUrl: previewEntry?.iconUrl,
+      extensionDetail: null,
+      isLoading: true,
+      loadingLabel: 'Carregando extensão...',
+    });
     try {
       const detail = await getExtensionDetail(extensionId);
-      openTab({
+      upsertTab({
         path: `Extensions/${detail.extension.displayName}`,
         name: `Extension: ${detail.extension.displayName}`,
         content: detail.readme ?? '',
@@ -199,8 +218,14 @@ export function ExtensionsPanel() {
         kind: 'extension',
         iconUrl: detail.extension.iconUrl,
         extensionDetail: detail,
+        isLoading: false,
+        loadingLabel: null,
       });
+      if (tabPath !== `Extensions/${detail.extension.displayName}`) {
+        closeTab(tabPath);
+      }
     } catch {
+      closeTab(tabPath);
       toast.error('Falha ao carregar detalhe da extensão');
     }
   }
@@ -243,26 +268,37 @@ export function ExtensionsPanel() {
       </div>
 
       <ScrollArea className="flex-1">
-        <SidebarSection
-          title="Installed"
-          count={installedItems.length}
-          items={installedItems}
-          selectedId={selectedExtensionId}
-          onSelect={handleSelect}
-        />
-        <SidebarSection
-          title="Popular"
-          items={popularItems}
-          selectedId={selectedExtensionId}
-          onSelect={handleSelect}
-        />
-        <SidebarSection
-          title="Recommended"
-          count={recommendedItems.length > 0 ? recommendedItems.length : undefined}
-          items={recommendedItems}
-          selectedId={selectedExtensionId}
-          onSelect={handleSelect}
-        />
+        {searching && results.length === 0 ? (
+          <div className="space-y-3 p-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+            <Skeleton className="h-14 w-full" />
+          </div>
+        ) : (
+          <>
+            <SidebarSection
+              title="Installed"
+              count={installedItems.length}
+              items={installedItems}
+              selectedId={selectedExtensionId}
+              onSelect={handleSelect}
+            />
+            <SidebarSection
+              title="Popular"
+              items={popularItems}
+              selectedId={selectedExtensionId}
+              onSelect={handleSelect}
+            />
+            <SidebarSection
+              title="Recommended"
+              count={recommendedItems.length > 0 ? recommendedItems.length : undefined}
+              items={recommendedItems}
+              selectedId={selectedExtensionId}
+              onSelect={handleSelect}
+            />
+          </>
+        )}
       </ScrollArea>
     </div>
   );

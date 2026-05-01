@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { AppShell } from '@/components/layout/AppShell';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useEditorStore } from '@/stores/editorStore';
@@ -22,12 +23,16 @@ export default function IDEPage() {
   const resetEditor = useEditorStore((s) => s.reset);
   const replaceInstalled = useAppearanceStore((s) => s.replaceInstalled);
   const resetInstalled = useAppearanceStore((s) => s.resetInstalled);
+  const [loadingPermission, setLoadingPermission] = useState(true);
+  const [loadingExtensions, setLoadingExtensions] = useState(true);
 
   useEffect(() => {
     setWorkspace(workspace ?? null);
     setPermission(null);
     resetEditor();
     resetInstalled();
+    setLoadingPermission(true);
+    setLoadingExtensions(true);
     return () => {
       setWorkspace(null);
       setPermission(null);
@@ -40,12 +45,15 @@ export default function IDEPage() {
     if (!workspace) return;
     let cancelled = false;
     void (async () => {
+      setLoadingPermission(true);
       try {
         const repos = await listLocalRepos();
         const repo = repos.find((entry) => entry.slug === workspace);
         if (!cancelled) setPermission(repo?.permission ?? null);
       } catch {
         if (!cancelled) setPermission(null);
+      } finally {
+        if (!cancelled) setLoadingPermission(false);
       }
     })();
     return () => {
@@ -59,11 +67,14 @@ export default function IDEPage() {
     if (!workspace) return;
     let cancelled = false;
     void (async () => {
+      setLoadingExtensions(true);
       try {
         const installed = await getInstalledExtensions();
         if (!cancelled) replaceInstalled(installed, workspace);
       } catch {
         if (!cancelled) resetInstalled();
+      } finally {
+        if (!cancelled) setLoadingExtensions(false);
       }
     })();
     return () => {
@@ -101,6 +112,8 @@ export default function IDEPage() {
 
   if (!workspace) return null;
 
+  const booting = loadingPermission || loadingExtensions;
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-10 items-center gap-2 border-b px-3">
@@ -116,7 +129,41 @@ export default function IDEPage() {
         )}
       </header>
       <div className="flex-1 overflow-hidden">
-        <AppShell workspace={workspace} />
+        {booting ? (
+          <div className="flex h-full flex-col bg-background">
+            <div className="grid h-full grid-cols-[40px_280px_minmax(0,1fr)]">
+              <div className="border-r bg-muted/20 p-2">
+                <div className="flex h-full flex-col items-center gap-2">
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                  <Skeleton className="h-8 w-8 rounded-md" />
+                </div>
+              </div>
+              <div className="border-r p-3">
+                <Skeleton className="mb-3 h-4 w-32" />
+                <Skeleton className="mb-2 h-8 w-full" />
+                <Skeleton className="mb-2 h-8 w-11/12" />
+                <Skeleton className="mb-2 h-8 w-10/12" />
+              </div>
+              <div className="flex flex-col p-3">
+                <Skeleton className="mb-2 h-9 w-full" />
+                <Skeleton className="mb-2 h-8 w-56" />
+                <div className="flex-1 rounded-xl border bg-card/50 p-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Skeleton className="h-3 w-3 rounded-full" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                  <Skeleton className="mb-2 h-4 w-72" />
+                  <Skeleton className="mb-2 h-4 w-64" />
+                  <Skeleton className="mb-2 h-4 w-80" />
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <AppShell workspace={workspace} />
+        )}
       </div>
     </div>
   );

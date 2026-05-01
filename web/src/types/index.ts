@@ -119,6 +119,8 @@ export type EditorTab = {
   kind?: 'file' | 'extension';
   iconUrl?: string | null;
   extensionDetail?: ExtensionDetail | null;
+  isLoading?: boolean;
+  loadingLabel?: string | null;
 };
 
 export type MonacoThemeRule = {

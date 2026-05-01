@@ -30,6 +30,7 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
           >
             <img src={fileIcon} alt="" role="presentation" className="h-4 w-4 shrink-0" />
             <span className={cn('truncate', tab.dirty && 'italic')}>{tab.name}</span>
+            {tab.isLoading && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" />}
             {tab.dirty && <span className="h-1.5 w-1.5 rounded-full bg-foreground/70" />}
             <button
               type="button"
