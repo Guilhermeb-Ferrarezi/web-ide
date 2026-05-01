@@ -18,7 +18,7 @@ export type TerminalAccess = {
   env: Record<string, string>;
 };
 
-const DEFAULT_PATH = '/usr/bin:/bin';
+const DEFAULT_PATH = '/usr/local/bin:/usr/bin:/bin';
 
 export function resolveTerminalAccess(
   cwd: string,
