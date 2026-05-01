@@ -24,6 +24,36 @@ type OpenVsxSearchResponse = {
   }>;
 };
 
+type OpenVsxExtensionVersionResponse = {
+  files?: {
+    download?: string;
+    manifest?: string;
+    readme?: string;
+    changelog?: string;
+    icon?: string;
+  };
+  version?: string;
+  timestamp?: string;
+  verified?: boolean;
+  downloadCount?: number;
+  displayName?: string;
+  description?: string;
+  categories?: string[];
+  homepage?: string;
+  repository?: string | { url?: string };
+  bugs?: string | { url?: string };
+  namespace?: string;
+  name?: string;
+  namespaceDisplayName?: string;
+  publishedBy?: {
+    loginName?: string;
+    fullName?: string;
+    avatarUrl?: string;
+    homepage?: string;
+    provider?: string;
+  };
+};
+
 type MarketplaceExtension = {
   id: string;
   name: string;
@@ -139,6 +169,12 @@ async function fetchJson<T>(url: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+async function fetchText(url: string): Promise<string> {
+  const response = await fetch(url, { headers: { 'User-Agent': 'web-ide' } });
+  if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  return await response.text();
+}
+
 async function findExtension(extensionId: string): Promise<(MarketplaceExtension & { downloadUrl: string }) | null> {
   const data = await fetchJson<OpenVsxSearchResponse>(
     `https://open-vsx.org/api/-/search?query=${encodeURIComponent(extensionId)}&size=20`,
@@ -161,6 +197,19 @@ async function findExtension(extensionId: string): Promise<(MarketplaceExtension
     timestamp: match.timestamp,
     downloadUrl: match.files.download,
   };
+}
+
+async function getExtensionVersion(extensionId: string): Promise<OpenVsxExtensionVersionResponse | null> {
+  const [namespace, name] = extensionId.split('.');
+  if (!namespace || !name) return null;
+
+  const response = await fetch(`https://open-vsx.org/api/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}/latest`, {
+    headers: { 'User-Agent': 'web-ide' },
+  });
+
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`Failed to fetch extension metadata: ${response.status}`);
+  return (await response.json()) as OpenVsxExtensionVersionResponse;
 }
 
 async function listArchiveEntries(archivePath: string): Promise<string[]> {
@@ -205,57 +254,53 @@ export async function searchExtensions(query: string): Promise<MarketplaceExtens
 }
 
 export async function getExtensionDetail(extensionId: string): Promise<ExtensionDetailPayload> {
-  const extension = await findExtension(extensionId);
-  if (!extension) throw new Error('Extensão não encontrada');
+  const [extension, versionData] = await Promise.all([
+    findExtension(extensionId),
+    getExtensionVersion(extensionId),
+  ]);
+  if (!extension || !versionData) throw new Error('Extensão não encontrada');
 
-  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'web-ide-ext-detail-'));
-  const archivePath = path.join(tempDir, `${extensionId}.vsix`);
+  const readme = versionData.files?.readme ? await fetchText(versionData.files.readme) : null;
+  const repositoryUrl =
+    typeof versionData.repository === 'string'
+      ? versionData.repository
+      : typeof versionData.repository?.url === 'string'
+        ? versionData.repository.url
+        : null;
+  const issuesUrl =
+    typeof versionData.bugs === 'string'
+      ? versionData.bugs
+      : typeof versionData.bugs?.url === 'string'
+        ? versionData.bugs.url
+        : null;
+  const homepageUrl = typeof versionData.homepage === 'string' ? versionData.homepage : null;
+  const publisherHomepage = versionData.publishedBy?.homepage ?? null;
 
-  try {
-    const response = await fetch(extension.downloadUrl, { headers: { 'User-Agent': 'web-ide' } });
-    if (!response.ok) throw new Error('Falha ao baixar extensão');
-    await fs.writeFile(archivePath, Buffer.from(await response.arrayBuffer()));
+  const resources = [
+    repositoryUrl ? { label: 'Repository', url: repositoryUrl } : null,
+    issuesUrl ? { label: 'Issues', url: issuesUrl } : null,
+    homepageUrl ? { label: extension.namespace, url: homepageUrl } : null,
+    publisherHomepage ? { label: versionData.publishedBy?.fullName ?? extension.namespace, url: publisherHomepage } : null,
+    { label: 'Marketplace', url: `https://open-vsx.org/extension/${extension.namespace}/${extension.name}` },
+  ].filter(Boolean) as Array<{ label: string; url: string }>;
 
-    const entries = await listArchiveEntries(archivePath);
-    const packageJsonPath = entries.find((entry) => entry.endsWith('extension/package.json'));
-    if (!packageJsonPath) throw new Error('Manifesto da extensão não encontrado');
-
-    const manifest = JSON.parse(await readArchiveFile(archivePath, packageJsonPath));
-    const readmePath = entries.find((entry) => /extension\/readme\.md$/i.test(entry)) ?? null;
-    const readme = readmePath ? await readArchiveFile(archivePath, readmePath) : null;
-
-    const repositoryUrl =
-      typeof manifest.repository === 'string'
-        ? manifest.repository
-        : typeof manifest.repository?.url === 'string'
-          ? manifest.repository.url
-          : null;
-    const issuesUrl =
-      typeof manifest.bugs === 'string'
-        ? manifest.bugs
-        : typeof manifest.bugs?.url === 'string'
-          ? manifest.bugs.url
-          : null;
-    const homepageUrl = typeof manifest.homepage === 'string' ? manifest.homepage : null;
-
-    const resources = [
-      repositoryUrl ? { label: 'Repository', url: repositoryUrl } : null,
-      issuesUrl ? { label: 'Issues', url: issuesUrl } : null,
-      homepageUrl ? { label: extension.namespace, url: homepageUrl } : null,
-      { label: 'Marketplace', url: `https://open-vsx.org/extension/${extension.namespace}/${extension.name}` },
-    ].filter(Boolean) as Array<{ label: string; url: string }>;
-
-    return {
-      extension,
-      readme,
-      resources,
-      categories: Array.isArray(manifest.categories) ? manifest.categories : [],
-      publishedAt: extension.timestamp ?? null,
-      updatedAt: extension.timestamp ?? null,
-    };
-  } finally {
-    await fs.rm(tempDir, { recursive: true, force: true });
-  }
+  return {
+    extension: {
+      ...extension,
+      displayName: versionData.displayName ?? extension.displayName,
+      description: versionData.description ?? extension.description,
+      version: versionData.version ?? extension.version,
+      iconUrl: versionData.files?.icon ?? extension.iconUrl,
+      downloadCount: versionData.downloadCount ?? extension.downloadCount,
+      verified: versionData.verified ?? extension.verified,
+      timestamp: versionData.timestamp ?? extension.timestamp,
+    },
+    readme,
+    resources,
+    categories: Array.isArray(versionData.categories) ? versionData.categories : [],
+    publishedAt: versionData.timestamp ?? extension.timestamp ?? null,
+    updatedAt: versionData.timestamp ?? extension.timestamp ?? null,
+  };
 }
 
 export async function installExtension(extensionId: string): Promise<InstalledExtensionPayload> {
