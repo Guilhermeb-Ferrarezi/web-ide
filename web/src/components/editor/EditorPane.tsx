@@ -64,6 +64,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
         scrollBeyondLastLine: false,
         wordWrap: 'on',
         automaticLayout: true,
+        fixedOverflowWidgets: true,
         readOnly,
       }}
     />

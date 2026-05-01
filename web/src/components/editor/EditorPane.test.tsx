@@ -33,7 +33,7 @@ describe('<EditorPane />', () => {
     expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
     expect(editorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        options: expect.objectContaining({ readOnly: true }),
+        options: expect.objectContaining({ readOnly: true, fixedOverflowWidgets: true }),
       }),
     );
   });
