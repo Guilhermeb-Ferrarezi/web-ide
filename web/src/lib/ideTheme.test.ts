@@ -70,6 +70,38 @@ describe('ideTheme', () => {
     expect(resolved.tokens).toEqual(DEFAULT_SHELL_THEME.dark);
   });
 
+  it('ignores transparent shell colors from installed themes', () => {
+    const resolved = resolveShellTheme(
+      makeTheme({
+        colors: {
+          'sideBar.background': '#15121c00',
+          'sideBar.foreground': '#f6f0ff00',
+          'panel.border': '#332c4000',
+        },
+      }),
+    );
+
+    expect(resolved.tokens.background).toBe(DEFAULT_SHELL_THEME.dark.background);
+    expect(resolved.tokens.foreground).toBe(DEFAULT_SHELL_THEME.dark.foreground);
+    expect(resolved.tokens.border).toBe(DEFAULT_SHELL_THEME.dark.border);
+  });
+
+  it('falls back when foreground contrast against the background is too low', () => {
+    const resolved = resolveShellTheme(
+      makeTheme({
+        colors: {
+          'sideBar.background': '#15121c',
+          'sideBar.foreground': '#1a1720',
+          'descriptionForeground': '#1d1924',
+        },
+      }),
+    );
+
+    expect(resolved.tokens.background).not.toBe(DEFAULT_SHELL_THEME.dark.background);
+    expect(resolved.tokens.foreground).toBe(DEFAULT_SHELL_THEME.dark.foreground);
+    expect(resolved.tokens['muted-foreground']).toBe(DEFAULT_SHELL_THEME.dark['muted-foreground']);
+  });
+
   it('applies shell tokens and toggles the root mode class', () => {
     const mode = applyShellTheme(
       makeTheme({

@@ -73,6 +73,11 @@ export const DEFAULT_SHELL_THEME: Record<ShellThemeMode, ShellThemeTokens> = {
 
 type RgbColor = { r: number; g: number; b: number; a?: number };
 
+const MIN_USABLE_ALPHA = 0.5;
+const MIN_TEXT_CONTRAST = 4.5;
+const MIN_MUTED_TEXT_CONTRAST = 3;
+const MIN_BORDER_CONTRAST = 1.35;
+
 export function getShellThemeMode(theme: InstalledTheme | null): ShellThemeMode {
   if (!theme) return 'dark';
   return theme.uiTheme === 'vs' ? 'light' : 'dark';
@@ -132,6 +137,10 @@ function parseColor(input: string | undefined): RgbColor | null {
   return parseHexColor(input) ?? parseRgbString(input);
 }
 
+function isUsableColor(color: RgbColor | null): color is RgbColor {
+  return !!color && (color.a === undefined || color.a >= MIN_USABLE_ALPHA);
+}
+
 function rgbToHsl(color: RgbColor): { h: number; s: number; l: number } {
   const r = color.r / 255;
   const g = color.g / 255;
@@ -175,19 +184,19 @@ function hslToCssValue(hsl: { h: number; s: number; l: number }): string {
 
 function colorToCssValue(input: string | undefined): string | null {
   const color = parseColor(input);
-  if (!color) return null;
+  if (!isUsableColor(color)) return null;
   return hslToCssValue(rgbToHsl(color));
 }
 
 function colorLightness(input: string | undefined): number | null {
   const color = parseColor(input);
-  if (!color) return null;
+  if (!isUsableColor(color)) return null;
   return rgbToHsl(color).l;
 }
 
 function shiftLightness(input: string | undefined, amount: number, fallback: string): string {
   const color = parseColor(input);
-  if (!color) return fallback;
+  if (!isUsableColor(color)) return fallback;
   const hsl = rgbToHsl(color);
   return hslToCssValue({ ...hsl, l: clamp(hsl.l + amount, 0, 100) });
 }
@@ -204,6 +213,31 @@ function resolvePrimaryForeground(primary: string, fallback: string): string {
   const lightness = colorLightness(primary);
   if (lightness === null) return fallback;
   return lightness > 52 ? DEFAULT_SHELL_THEME.light.foreground : DEFAULT_SHELL_THEME.dark.foreground;
+}
+
+function luminanceChannel(value: number): number {
+  const normalized = value / 255;
+  return normalized <= 0.03928
+    ? normalized / 12.92
+    : ((normalized + 0.055) / 1.055) ** 2.4;
+}
+
+function getContrastRatio(foreground: string | undefined, background: string | undefined): number | null {
+  const fg = parseColor(foreground);
+  const bg = parseColor(background);
+
+  if (!isUsableColor(fg) || !isUsableColor(bg)) return null;
+
+  const fgLuminance = 0.2126 * luminanceChannel(fg.r)
+    + 0.7152 * luminanceChannel(fg.g)
+    + 0.0722 * luminanceChannel(fg.b);
+  const bgLuminance = 0.2126 * luminanceChannel(bg.r)
+    + 0.7152 * luminanceChannel(bg.g)
+    + 0.0722 * luminanceChannel(bg.b);
+  const lighter = Math.max(fgLuminance, bgLuminance);
+  const darker = Math.min(fgLuminance, bgLuminance);
+
+  return (lighter + 0.05) / (darker + 0.05);
 }
 
 export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellThemeMode; tokens: ShellThemeTokens } {
@@ -224,9 +258,18 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
   const mutedForegroundColor = pickColor(colors, ['descriptionForeground', 'list.inactiveSelectionForeground', 'editorLineNumber.foreground']);
   const popoverColor = pickColor(colors, ['editorWidget.background', 'panel.background', 'editor.background']);
 
+  const fallbackBackgroundHex = mode === 'dark' ? '#0a0a0a' : '#ffffff';
   const background = colorToCssValue(baseBackground) ?? defaults.background;
-  const foreground = colorToCssValue(baseForeground) ?? defaults.foreground;
-  const border = colorToCssValue(borderColor) ?? defaults.border;
+  const resolvedForeground = colorToCssValue(baseForeground);
+  const foregroundContrast = getContrastRatio(baseForeground, baseBackground ?? fallbackBackgroundHex);
+  const foreground = resolvedForeground && (foregroundContrast === null || foregroundContrast >= MIN_TEXT_CONTRAST)
+    ? resolvedForeground
+    : defaults.foreground;
+  const resolvedBorder = colorToCssValue(borderColor);
+  const borderContrast = getContrastRatio(borderColor, baseBackground ?? fallbackBackgroundHex);
+  const border = resolvedBorder && (borderContrast === null || borderContrast >= MIN_BORDER_CONTRAST)
+    ? resolvedBorder
+    : defaults.border;
   const primary = colorToCssValue(primaryColor) ?? shiftLightness(baseBackground, mode === 'dark' ? 22 : -18, defaults.primary);
   const accent = colorToCssValue(accentColor) ?? shiftLightness(baseBackground, mode === 'dark' ? 12 : -10, defaults.accent);
   const muted = colorToCssValue(mutedColor) ?? shiftLightness(baseBackground, mode === 'dark' ? 8 : -6, defaults.muted);
@@ -235,6 +278,15 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
   const popover = colorToCssValue(popoverColor) ?? card;
   const ring = colorToCssValue(pickColor(colors, ['focusBorder', 'button.background'])) ?? primary;
   const primaryForeground = resolvePrimaryForeground(primaryColor ?? '', defaults['primary-foreground']);
+  const resolvedMutedForeground = colorToCssValue(mutedForegroundColor);
+  const mutedForegroundContrast = getContrastRatio(
+    mutedForegroundColor,
+    mutedColor ?? baseBackground ?? fallbackBackgroundHex,
+  );
+  const mutedForeground = resolvedMutedForeground
+    && (mutedForegroundContrast === null || mutedForegroundContrast >= MIN_MUTED_TEXT_CONTRAST)
+    ? resolvedMutedForeground
+    : defaults['muted-foreground'];
 
   return {
     mode,
@@ -250,7 +302,7 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
       secondary,
       'secondary-foreground': foreground,
       muted,
-      'muted-foreground': colorToCssValue(mutedForegroundColor) ?? defaults['muted-foreground'],
+      'muted-foreground': mutedForeground,
       accent,
       'accent-foreground': foreground,
       destructive: defaults.destructive,
