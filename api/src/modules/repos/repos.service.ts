@@ -1,4 +1,7 @@
 import fs from 'node:fs/promises';
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+import path from 'node:path';
 import { simpleGit } from 'simple-git';
 import { config } from '../../config.ts';
 import { createOctokit } from '../../utils/octokit.ts';
@@ -8,6 +11,95 @@ import { and, asc, eq, inArray } from 'drizzle-orm';
 import { getSharedReposRoot, sanitizeRepoName } from '../../utils/path.utils.ts';
 import { grantRepoPermission } from '../permissions/permissions.service.ts';
 import { ensureImportedRepo } from './repo-catalog.service.ts';
+
+const execAsync = promisify(exec);
+
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function detectPackageManager(dir: string): Promise<string | null> {
+  if (!(await fileExists(path.join(dir, 'package.json')))) return null;
+  if (await fileExists(path.join(dir, 'bun.lock'))) return 'bun';
+  if (await fileExists(path.join(dir, 'bun.lockb'))) return 'bun';
+  if (await fileExists(path.join(dir, 'pnpm-lock.yaml'))) return 'pnpm';
+  if (await fileExists(path.join(dir, 'yarn.lock'))) return 'yarn';
+  return 'npm';
+}
+
+async function getWorkspacePatterns(dir: string): Promise<string[]> {
+  try {
+    const raw = await fs.readFile(path.join(dir, 'package.json'), 'utf-8');
+    const pkg = JSON.parse(raw);
+    if (Array.isArray(pkg.workspaces)) return pkg.workspaces;
+    if (Array.isArray(pkg.workspaces?.packages)) return pkg.workspaces.packages;
+  } catch {}
+  return [];
+}
+
+function matchesWorkspacePattern(relDir: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => {
+    if (pattern.endsWith('/**')) {
+      const prefix = pattern.slice(0, -3);
+      return relDir === prefix || relDir.startsWith(prefix + '/');
+    }
+    if (pattern.endsWith('/*')) {
+      const prefix = pattern.slice(0, -2);
+      const parts = relDir.split('/');
+      const prefixParts = prefix.split('/');
+      return parts.length === prefixParts.length + 1 && relDir.startsWith(prefix + '/');
+    }
+    return relDir === pattern;
+  });
+}
+
+async function findIndependentPackages(rootDir: string, workspacePatterns: string[], depth = 0): Promise<string[]> {
+  if (depth > 3) return [];
+  const results: string[] = [];
+  const entries = await fs.readdir(rootDir, { withFileTypes: true }).catch(() => null);
+  if (!entries) return [];
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+    const subDir = path.join(rootDir, entry.name);
+    const relDir = path.relative(rootDir, subDir);
+    if (await fileExists(path.join(subDir, 'package.json'))) {
+      if (!matchesWorkspacePattern(relDir, workspacePatterns)) {
+        results.push(subDir);
+      }
+    }
+    results.push(...(await findIndependentPackages(subDir, workspacePatterns, depth + 1)));
+  }
+  return results;
+}
+
+const INSTALL_COMMANDS: Record<string, string> = {
+  bun: 'bun install',
+  pnpm: 'pnpm install --ignore-scripts',
+  yarn: 'yarn install --ignore-scripts',
+  npm: 'npm install --ignore-scripts',
+};
+
+async function installAt(dir: string): Promise<void> {
+  const pm = await detectPackageManager(dir);
+  if (!pm) return;
+  await execAsync(INSTALL_COMMANDS[pm], { cwd: dir, timeout: 120_000 });
+}
+
+async function installDependencies(dir: string): Promise<void> {
+  await installAt(dir);
+
+  const workspacePatterns = await getWorkspacePatterns(dir);
+  const independentPkgs = await findIndependentPackages(dir, workspacePatterns);
+  for (const pkgDir of independentPkgs) {
+    await installAt(pkgDir);
+  }
+}
 
 export type RemoteRepo = {
   id: number;
@@ -225,10 +317,16 @@ export async function importRepo(opts: {
   const authUrl = `https://x-access-token:${opts.accessToken}@github.com/${owner}/${name}.git`;
   const git = simpleGit();
   const args = opts.branch ? ['--branch', opts.branch, '--single-branch'] : [];
+  let cloned = false;
   try {
     await fs.access(repoRecord.storagePath);
   } catch {
     await git.clone(authUrl, repoRecord.storagePath, args);
+    cloned = true;
+  }
+
+  if (cloned) {
+    await installDependencies(repoRecord.storagePath);
   }
 
   const repoGit = simpleGit(repoRecord.storagePath);
