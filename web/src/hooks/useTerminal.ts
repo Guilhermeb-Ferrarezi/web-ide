@@ -5,7 +5,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
 import { buildWorkspaceWsUrl } from '@/lib/ws';
 
-function safeFit(term: Terminal, fit: FitAddon, container: HTMLElement): boolean {
+function safeFit(fit: FitAddon, container: HTMLElement): boolean {
   if (container.clientWidth === 0 || container.clientHeight === 0) return false;
   try {
     const proposed = fit.proposeDimensions();
@@ -45,7 +45,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
 
     const tryFit = () => {
       if (disposed || !term || !fit) return;
-      if (!safeFit(term, fit, container)) {
+      if (!safeFit(fit, container)) {
         rafId = requestAnimationFrame(tryFit);
         return;
       }
@@ -100,7 +100,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
 
     ro = new ResizeObserver(() => {
       if (disposed || !term || !fit) return;
-      if (safeFit(term, fit, container) && ws?.readyState === WebSocket.OPEN) {
+      if (safeFit(fit, container) && ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
       }
     });

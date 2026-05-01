@@ -19,11 +19,11 @@ export function buildWorkspaceWsUrl({
   endpoint,
   workspace,
   location = window.location,
-  dev = import.meta.env.DEV,
+  dev = String(import.meta.env.DEV) === 'true',
 }: BuildWorkspaceWsUrlOptions): string {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const currentOrigin = `${protocol}//${location.host}`;
-  const explicitWsBaseUrl = typeof wsBaseUrl === 'string' && wsBaseUrl.length > 0;
+  const explicitWsBaseUrl = Boolean(wsBaseUrl && wsBaseUrl.length > 0);
   const base = trimTrailingSlash(wsBaseUrl ?? apiBaseUrl);
   const suffix = `/${endpoint}?workspace=${encodeURIComponent(workspace)}`;
 
