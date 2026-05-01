@@ -12,8 +12,8 @@ export function ThemeRuntime() {
   const mode = getShellThemeMode(activeTheme);
 
   useEffect(() => {
-    applyShellTheme(activeTheme);
-  }, [activeTheme]);
+    applyShellTheme(null);
+  }, []);
 
   return <Toaster richColors position="top-right" theme={mode} />;
 }
