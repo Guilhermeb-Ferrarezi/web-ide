@@ -130,8 +130,15 @@ export default function IDEPage() {
                   className={`h-2.5 w-2.5 rounded-full ${permission === 'write' ? 'bg-green-500' : 'bg-yellow-500'}`}
                 />
               </TooltipTrigger>
-              <TooltipContent>
-                {permission === 'write' ? 'Pode alterar' : 'Somente leitura'}
+              <TooltipContent className="flex flex-col gap-1.5 p-2">
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  <span>Pode alterar</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-yellow-500" />
+                  <span>Somente leitura</span>
+                </div>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>

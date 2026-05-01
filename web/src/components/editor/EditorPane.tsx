@@ -22,6 +22,11 @@ type Props = {
   onSave: (path: string) => void;
 };
 
+type MonacoProjectContext = {
+  projectFiles: EditorProjectFile[];
+  typeLibs: Array<{ virtualPath: string; content: string }>;
+};
+
 type TsConfigLike = {
   compilerOptions?: {
     baseUrl?: string;
@@ -189,9 +194,23 @@ function deriveCompilerOptionsFromProjectFiles(
   }
 }
 
+function collectModulePathMappings(typeLibs: Array<{ virtualPath: string; content: string }>) {
+  const mappings: Record<string, string[]> = {};
+
+  for (const entry of typeLibs) {
+    const match = entry.virtualPath.match(/^(?<prefix>.*node_modules\/)(?<module>(?:@[^/]+\/)?[^/]+)\/__monaco__\.d\.ts$/);
+    const moduleName = match?.groups?.module;
+    if (!moduleName) continue;
+    mappings[moduleName] = [entry.virtualPath];
+  }
+
+  return mappings;
+}
+
 export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const [projectContext, setProjectContext] = useState<MonacoProjectContext | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [resolvedThemeId, setResolvedThemeId] = useState<'vs' | 'vs-dark' | 'hc-black' | string>('vs-dark');
   const [preparingEditor, setPreparingEditor] = useState(true);
@@ -215,6 +234,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
 
   useEffect(() => {
     if (!workspace) {
+      setProjectContext(null);
       setPreparingEditor(true);
       return;
     }
@@ -229,52 +249,12 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     let cancelled = false;
     void Promise.all([fetchTypes(workspace), fetchProjectFiles(workspace)]).then(([types, projectFiles]) => {
       if (cancelled) return;
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const ts = monaco.languages.typescript as any;
-      const projectCompilerOptions = deriveCompilerOptionsFromProjectFiles(projectFiles, tab?.path);
-      const jsxMode = projectCompilerOptions.jsx === 'react'
-        ? ts.JsxEmit.React
-        : projectCompilerOptions.jsx === 'preserve'
-          ? ts.JsxEmit.Preserve
-          : ts.JsxEmit.ReactJSX;
-      const opts: Parameters<typeof ts.typescriptDefaults.setCompilerOptions>[0] = {
-        module: ts.ModuleKind.ESNext,
-        moduleResolution: ts.ModuleResolutionKind.Bundler ?? ts.ModuleResolutionKind.NodeJs,
-        allowSyntheticDefaultImports: true,
-        esModuleInterop: true,
-        jsx: jsxMode,
-        jsxImportSource: projectCompilerOptions.jsxImportSource,
-        strict: false,
-        noEmit: true,
-        skipLibCheck: true,
-        allowNonTsExtensions: true,
-        allowImportingTsExtensions: projectCompilerOptions.allowImportingTsExtensions,
-        allowJs: true,
-        resolveJsonModule: projectCompilerOptions.resolveJsonModule,
-        verbatimModuleSyntax: projectCompilerOptions.verbatimModuleSyntax,
-        target: ts.ScriptTarget.ES2022,
-        baseUrl: projectCompilerOptions.baseUrl,
-        types: Array.from(new Set([
-          ...projectCompilerOptions.types,
-          'react',
-          'react-dom',
-        ])),
-        paths: {
-          ...projectCompilerOptions.paths,
-          react: ['node_modules/@types/react/index.d.ts', 'web/node_modules/@types/react/index.d.ts'],
-          'react/jsx-runtime': ['node_modules/@types/react/jsx-runtime.d.ts', 'web/node_modules/@types/react/jsx-runtime.d.ts'],
-          'react/jsx-dev-runtime': ['node_modules/@types/react/jsx-dev-runtime.d.ts', 'web/node_modules/@types/react/jsx-dev-runtime.d.ts'],
-          'react-dom': ['node_modules/@types/react-dom/index.d.ts', 'web/node_modules/@types/react-dom/index.d.ts'],
-        },
-      };
-      ts.typescriptDefaults.setCompilerOptions(opts);
-      ts.javascriptDefaults.setCompilerOptions(opts);
-      ts.typescriptDefaults.setEagerModelSync(true);
-      ts.javascriptDefaults.setEagerModelSync(true);
-
       const hasReactJsxRuntime = types.some((entry) => entry.virtualPath.includes('@types/react/jsx-runtime.d.ts'));
       const typeLibs = hasReactJsxRuntime ? types : [...types, ...FALLBACK_REACT_TYPE_LIBS];
+
+      setProjectContext({ projectFiles, typeLibs });
 
       for (const { virtualPath, content } of typeLibs) {
         const uri = monaco.Uri.parse(`file:///${virtualPath}`);
@@ -299,7 +279,58 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [monaco, workspace, tab?.path]);
+  }, [monaco, workspace]);
+
+  useEffect(() => {
+    if (!monaco || !projectContext) {
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ts = monaco.languages.typescript as any;
+    const projectCompilerOptions = deriveCompilerOptionsFromProjectFiles(projectContext.projectFiles, tab?.path);
+    const jsxMode = projectCompilerOptions.jsx === 'react'
+      ? ts.JsxEmit.React
+      : projectCompilerOptions.jsx === 'preserve'
+        ? ts.JsxEmit.Preserve
+        : ts.JsxEmit.ReactJSX;
+    const modulePathMappings = collectModulePathMappings(projectContext.typeLibs);
+    const opts: Parameters<typeof ts.typescriptDefaults.setCompilerOptions>[0] = {
+      module: ts.ModuleKind.ESNext,
+      moduleResolution: ts.ModuleResolutionKind.Bundler ?? ts.ModuleResolutionKind.NodeJs,
+      allowSyntheticDefaultImports: true,
+      esModuleInterop: true,
+      jsx: jsxMode,
+      jsxImportSource: projectCompilerOptions.jsxImportSource,
+      strict: false,
+      noEmit: true,
+      skipLibCheck: true,
+      allowNonTsExtensions: true,
+      allowImportingTsExtensions: projectCompilerOptions.allowImportingTsExtensions,
+      allowJs: true,
+      resolveJsonModule: projectCompilerOptions.resolveJsonModule,
+      verbatimModuleSyntax: projectCompilerOptions.verbatimModuleSyntax,
+      target: ts.ScriptTarget.ES2022,
+      baseUrl: projectCompilerOptions.baseUrl,
+      types: Array.from(new Set([
+        ...projectCompilerOptions.types,
+        'react',
+        'react-dom',
+      ])),
+      paths: {
+        ...modulePathMappings,
+        ...projectCompilerOptions.paths,
+        react: ['node_modules/@types/react/index.d.ts', 'web/node_modules/@types/react/index.d.ts'],
+        'react/jsx-runtime': ['node_modules/@types/react/jsx-runtime.d.ts', 'web/node_modules/@types/react/jsx-runtime.d.ts'],
+        'react/jsx-dev-runtime': ['node_modules/@types/react/jsx-dev-runtime.d.ts', 'web/node_modules/@types/react/jsx-dev-runtime.d.ts'],
+        'react-dom': ['node_modules/@types/react-dom/index.d.ts', 'web/node_modules/@types/react-dom/index.d.ts'],
+      },
+    };
+    ts.typescriptDefaults.setCompilerOptions(opts);
+    ts.javascriptDefaults.setCompilerOptions(opts);
+    ts.typescriptDefaults.setEagerModelSync(true);
+    ts.javascriptDefaults.setEagerModelSync(true);
+  }, [monaco, projectContext, tab?.path]);
 
   useEffect(() => {
     if (!activeTheme) {

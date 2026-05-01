@@ -340,6 +340,11 @@ async function walkDts(
   }
 }
 
+function buildMonacoTypedModuleShim(entrypoint: string) {
+  const normalized = entrypoint.replace(/\\/g, '/').replace(/\.d\.ts$/, '');
+  return `export * from './${normalized}';\nexport { default } from './${normalized}';\n`;
+}
+
 export async function collectTypeDefs(workspacePath: string): Promise<{ virtualPath: string; content: string }[]> {
   const results: { virtualPath: string; content: string }[] = [];
   const declaredModules = new Set<string>();
@@ -350,6 +355,25 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
       return JSON.parse(await fs.readFile(path.join(pkgDir, 'package.json'), 'utf-8')) as PackageJsonLike;
     } catch {
       return null;
+    }
+  }
+
+  async function addTypedModuleShim(packageRoot: string, packagePrefix: string, moduleName: string, typesEntry: string) {
+    const normalizedEntry = typesEntry.replace(/\\/g, '/').replace(/^\.\//, '');
+    const shimPath = `${packagePrefix}node_modules/${moduleName}/__monaco__.d.ts`;
+    if (results.some((entry) => entry.virtualPath === shimPath)) return;
+
+    results.push({
+      virtualPath: shimPath,
+      content: buildMonacoTypedModuleShim(normalizedEntry),
+    });
+
+    const packageJsonContent = await fs.readFile(path.join(packageRoot, 'package.json'), 'utf-8').catch(() => null);
+    if (packageJsonContent !== null) {
+      results.push({
+        virtualPath: `${packagePrefix}node_modules/${moduleName}/package.json`,
+        content: packageJsonContent,
+      });
     }
   }
 
@@ -406,6 +430,7 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
       const depPkg = await readPackageJson(depDir);
       if (depPkg?.types || depPkg?.typings) {
         typedModules.add(dep);
+        await addTypedModuleShim(depDir, packagePrefix, dep, depPkg.types ?? depPkg.typings!);
         await walkDts(depDir, `${packagePrefix}node_modules/${dep}`, results);
         continue;
       }

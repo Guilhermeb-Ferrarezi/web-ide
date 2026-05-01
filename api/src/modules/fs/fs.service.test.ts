@@ -151,6 +151,7 @@ describe('collectTypeDefs', () => {
     const types = await collectTypeDefs(workspace);
 
     expect(types.some((entry) => entry.virtualPath.endsWith('react-router-dom/dist/index.d.ts'))).toBe(true);
+    expect(types.some((entry) => entry.virtualPath.endsWith('react-router-dom/__monaco__.d.ts'))).toBe(true);
     expect(types.some((entry) => entry.virtualPath.includes('__generated__/react-router-dom.d.ts'))).toBe(false);
   });
 
