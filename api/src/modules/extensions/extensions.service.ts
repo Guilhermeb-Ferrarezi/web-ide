@@ -213,17 +213,17 @@ async function getExtensionVersion(extensionId: string): Promise<OpenVsxExtensio
 }
 
 async function listArchiveEntries(archivePath: string): Promise<string[]> {
-  const { stdout } = await execFileAsync('unzip', ['-Z1', archivePath]);
+  const { stdout } = await execFileAsync('bsdtar', ['-tf', archivePath]);
   return stdout.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
 async function readArchiveFile(archivePath: string, internalPath: string, encoding: BufferEncoding = 'utf-8'): Promise<string> {
-  const { stdout } = await execFileAsync('unzip', ['-p', archivePath, internalPath], { encoding });
+  const { stdout } = await execFileAsync('bsdtar', ['-xOf', archivePath, internalPath], { encoding });
   return stdout;
 }
 
 async function readArchiveBinary(archivePath: string, internalPath: string): Promise<Buffer> {
-  const { stdout } = await execFileAsync('unzip', ['-p', archivePath, internalPath], { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024 });
+  const { stdout } = await execFileAsync('bsdtar', ['-xOf', archivePath, internalPath], { encoding: 'buffer', maxBuffer: 10 * 1024 * 1024 });
   return stdout as Buffer;
 }
 

@@ -95,7 +95,7 @@ describe('<EditorPane />', () => {
         averageRating: 5,
         verified: true,
       },
-      readme: '# Aura Theme\n\nA beautiful dark theme for Visual Studio Code',
+      readme: '<p align="center"><img src="https://example.com/banner.png" alt="Aura Banner" /></p>\n\n# Aura Theme\n\nA beautiful dark theme for Visual Studio Code',
       resources: [{ label: 'Repository', url: 'https://github.com/daltonmenezes/aura-theme' }],
       categories: ['Themes'],
       publishedAt: '2024-10-04T03:33:27.439016Z',
@@ -123,6 +123,8 @@ describe('<EditorPane />', () => {
 
     expect(screen.getByRole('heading', { name: 'Aura Theme' })).toBeInTheDocument();
     expect(screen.getByText('Marketplace')).toBeInTheDocument();
+    expect(screen.getByAltText('Aura Banner')).toBeInTheDocument();
+    expect(screen.queryByText('<p align="center">')).not.toBeInTheDocument();
     expect(screen.queryByTestId('monaco-editor')).not.toBeInTheDocument();
   });
 });

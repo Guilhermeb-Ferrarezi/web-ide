@@ -1,4 +1,7 @@
 import { ExternalLink, ShieldCheck, Star } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { ExtensionDetail } from '@/types';
@@ -35,52 +38,47 @@ function MarkdownBlock({
     return <p className="text-sm text-muted-foreground">No details available for this extension.</p>;
   }
 
-  const lines = content.split('\n');
-  const blocks: Array<{ type: 'h1' | 'h2' | 'li' | 'p'; text: string }> = [];
-  const normalizedTitle = title?.trim().toLowerCase();
-
-  for (const line of lines) {
-    const text = line.trim();
-    if (!text) continue;
-    if (text.startsWith('### ')) {
-      blocks.push({ type: 'h2', text: text.slice(4) });
-      continue;
-    }
-    if (text.startsWith('## ')) {
-      blocks.push({ type: 'h2', text: text.slice(3) });
-      continue;
-    }
-    if (text.startsWith('# ')) {
-      const headingText = text.slice(2);
-      if (headingText.trim().toLowerCase() === normalizedTitle) continue;
-      blocks.push({ type: 'h1', text: headingText });
-      continue;
-    }
-    if (text.startsWith('- ') || text.startsWith('* ')) {
-      blocks.push({ type: 'li', text: text.slice(2) });
-      continue;
-    }
-    blocks.push({ type: 'p', text });
-  }
+  const normalizedTitle = title?.trim().toLowerCase() ?? '';
+  const sanitizedContent = content.replace(/<!--[\s\S]*?-->/g, '');
 
   return (
-    <div className="space-y-4">
-      {blocks.map((block, index) => {
-        if (block.type === 'h1') {
-          return <h2 key={index} className="text-4xl font-semibold tracking-tight">{block.text}</h2>;
-        }
-        if (block.type === 'h2') {
-          return <h3 key={index} className="border-b pb-3 text-2xl font-semibold tracking-tight">{block.text}</h3>;
-        }
-        if (block.type === 'li') {
-          return (
-            <li key={index} className="ml-5 list-disc text-base leading-7 text-foreground/90">
-              {block.text}
-            </li>
-          );
-        }
-        return <p key={index} className="text-base leading-7 text-foreground/90">{block.text}</p>;
-      })}
+    <div className="space-y-4 text-base leading-7 text-foreground/90">
+      <ReactMarkdown
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
+        components={{
+          h1: ({ children }) => {
+            const text = String(children).trim().toLowerCase();
+            if (text === normalizedTitle) return null;
+            return <h2 className="text-4xl font-semibold tracking-tight">{children}</h2>;
+          },
+          h2: ({ children }) => <h3 className="border-b pb-3 text-2xl font-semibold tracking-tight">{children}</h3>,
+          h3: ({ children }) => <h4 className="text-xl font-semibold tracking-tight">{children}</h4>,
+          p: ({ children }) => <p className="text-base leading-7 text-foreground/90">{children}</p>,
+          ul: ({ children }) => <ul className="ml-5 list-disc space-y-2">{children}</ul>,
+          ol: ({ children }) => <ol className="ml-5 list-decimal space-y-2">{children}</ol>,
+          li: ({ children }) => <li className="text-base leading-7 text-foreground/90">{children}</li>,
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">
+              {children}
+            </a>
+          ),
+          img: ({ src, alt }) => (
+            <img
+              src={src ?? ''}
+              alt={alt ?? ''}
+              className="my-6 max-w-full rounded-xl border object-contain"
+            />
+          ),
+          code: ({ children }) => (
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-sm">{children}</code>
+          ),
+          pre: ({ children }) => (
+            <pre className="overflow-x-auto rounded-xl border bg-muted/30 p-4 font-mono text-sm">{children}</pre>
+          ),
+        }}
+      >
+        {sanitizedContent}
+      </ReactMarkdown>
     </div>
   );
 }

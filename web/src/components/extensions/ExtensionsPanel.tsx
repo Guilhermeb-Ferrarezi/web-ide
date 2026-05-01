@@ -215,25 +215,29 @@ export function ExtensionsPanel() {
           </button>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search Extensions in Marketplace"
-            className="h-9 border-border/80 bg-muted/20 pl-9 pr-12 text-sm"
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') void handleSearch();
-            }}
-          />
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search Extensions in Marketplace"
+              className="h-9 border-border/80 bg-muted/20 pl-9 text-sm"
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') void handleSearch();
+              }}
+            />
+          </div>
           <Button
             type="button"
-            size="sm"
+            size="icon"
             variant="ghost"
-            className="absolute right-1 top-1/2 h-7 -translate-y-1/2 px-2 text-xs"
+            className="h-9 w-9 shrink-0"
             onClick={() => void handleSearch()}
+            aria-label="Buscar extensões"
+            title="Buscar extensões"
           >
-            Buscar extensões
+            <Search className="h-4 w-4" />
           </Button>
         </div>
       </div>
