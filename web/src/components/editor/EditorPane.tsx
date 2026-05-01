@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Editor, { useMonaco, type OnMount } from '@monaco-editor/react';
 import axios from 'axios';
-import type { EditorTab } from '@/types';
+import type { EditorProjectFile, EditorTab } from '@/types';
 import { fetchProjectFiles, fetchTypes } from '@/api/fs';
 import { useEditor } from '@/hooks/useEditor';
 import { ExtensionDetailView, type InstalledExtensionAction } from '@/components/extensions/ExtensionDetailView';
@@ -20,6 +20,15 @@ type Props = {
   readOnly?: boolean;
   onChange: (path: string, content: string) => void;
   onSave: (path: string) => void;
+};
+
+type TsConfigLike = {
+  compilerOptions?: {
+    baseUrl?: string;
+    paths?: Record<string, string[]>;
+    jsx?: 'react-jsx' | 'react-jsxdev' | 'react' | 'preserve';
+    jsxImportSource?: string;
+  };
 };
 
 const FALLBACK_REACT_TYPE_LIBS = [
@@ -80,6 +89,90 @@ declare module 'react/jsx-dev-runtime' {
   },
 ] as const;
 
+function normalizeProjectPath(input: string): string {
+  return input.replace(/^\.?\//, '').replace(/\\/g, '/');
+}
+
+function dirnamePosix(filePath: string): string {
+  const normalized = normalizeProjectPath(filePath);
+  const idx = normalized.lastIndexOf('/');
+  return idx === -1 ? '' : normalized.slice(0, idx);
+}
+
+function resolveProjectPath(baseDir: string, relativePath: string): string {
+  const normalizedBase = normalizeProjectPath(baseDir);
+  const normalizedRelative = normalizeProjectPath(relativePath);
+  const input = normalizedBase ? `${normalizedBase}/${normalizedRelative}` : normalizedRelative;
+  const parts = input.split('/');
+  const resolved: string[] = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') {
+      resolved.pop();
+      continue;
+    }
+    resolved.push(part);
+  }
+  return resolved.join('/');
+}
+
+function stripJsonComments(input: string): string {
+  return input
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/,\s*([}\]])/g, '$1');
+}
+
+function deriveCompilerOptionsFromProjectFiles(
+  projectFiles: EditorProjectFile[],
+  activePath: string | undefined,
+) {
+  const tsconfigEntries = projectFiles
+    .filter((file) => file.path.endsWith('tsconfig.json'))
+    .sort((a, b) => b.path.length - a.path.length);
+
+  const matchingConfig = tsconfigEntries.find((entry) => {
+    const rootDir = dirnamePosix(entry.path);
+    return activePath ? activePath.startsWith(rootDir ? `${rootDir}/` : '') : rootDir === '';
+  }) ?? tsconfigEntries[0];
+
+  if (!matchingConfig) {
+    return {
+      baseUrl: 'file:///',
+      paths: { '@/*': ['src/*'] },
+      jsx: 'react-jsx' as const,
+      jsxImportSource: 'react',
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(stripJsonComments(matchingConfig.content)) as TsConfigLike;
+    const compilerOptions = parsed.compilerOptions ?? {};
+    const configRoot = dirnamePosix(matchingConfig.path);
+    const resolvedBaseUrl = resolveProjectPath(configRoot, compilerOptions.baseUrl ?? '.');
+    const resolvedPaths = Object.fromEntries(
+      Object.entries(compilerOptions.paths ?? {}).map(([key, values]) => [
+        key,
+        values.map((value) => resolveProjectPath(resolvedBaseUrl, value)),
+      ]),
+    );
+
+    return {
+      baseUrl: `file:///${resolvedBaseUrl}`,
+      paths: Object.keys(resolvedPaths).length > 0 ? resolvedPaths : { '@/*': ['src/*'] },
+      jsx: compilerOptions.jsx ?? ('react-jsx' as const),
+      jsxImportSource: compilerOptions.jsxImportSource ?? 'react',
+    };
+  } catch {
+    return {
+      baseUrl: 'file:///',
+      paths: { '@/*': ['src/*'] },
+      jsx: 'react-jsx' as const,
+      jsxImportSource: 'react',
+    };
+  }
+}
+
 export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -117,38 +210,44 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
 
     setPreparingEditor(true);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const ts = monaco.languages.typescript as any;
-    const opts: Parameters<typeof ts.typescriptDefaults.setCompilerOptions>[0] = {
-      moduleResolution: ts.ModuleResolutionKind.Bundler ?? ts.ModuleResolutionKind.NodeJs,
-      allowSyntheticDefaultImports: true,
-      esModuleInterop: true,
-      jsx: ts.JsxEmit.ReactJSX,
-      jsxImportSource: 'react',
-      strict: false,
-      noEmit: true,
-      skipLibCheck: true,
-      allowNonTsExtensions: true,
-      allowJs: true,
-      target: ts.ScriptTarget.ES2022,
-      baseUrl: 'file:///',
-      types: ['react', 'react-dom'],
-      paths: {
-        '@/*': ['src/*'],
-        react: ['node_modules/@types/react/index.d.ts'],
-        'react/jsx-runtime': ['node_modules/@types/react/jsx-runtime.d.ts'],
-        'react/jsx-dev-runtime': ['node_modules/@types/react/jsx-dev-runtime.d.ts'],
-        'react-dom': ['node_modules/@types/react-dom/index.d.ts'],
-      },
-    };
-    ts.typescriptDefaults.setCompilerOptions(opts);
-    ts.javascriptDefaults.setCompilerOptions(opts);
-    ts.typescriptDefaults.setEagerModelSync(true);
-    ts.javascriptDefaults.setEagerModelSync(true);
-
     let cancelled = false;
     void Promise.all([fetchTypes(workspace), fetchProjectFiles(workspace)]).then(([types, projectFiles]) => {
       if (cancelled) return;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const ts = monaco.languages.typescript as any;
+      const projectCompilerOptions = deriveCompilerOptionsFromProjectFiles(projectFiles, tab?.path);
+      const jsxMode = projectCompilerOptions.jsx === 'react'
+        ? ts.JsxEmit.React
+        : projectCompilerOptions.jsx === 'preserve'
+          ? ts.JsxEmit.Preserve
+          : ts.JsxEmit.ReactJSX;
+      const opts: Parameters<typeof ts.typescriptDefaults.setCompilerOptions>[0] = {
+        moduleResolution: ts.ModuleResolutionKind.Bundler ?? ts.ModuleResolutionKind.NodeJs,
+        allowSyntheticDefaultImports: true,
+        esModuleInterop: true,
+        jsx: jsxMode,
+        jsxImportSource: projectCompilerOptions.jsxImportSource,
+        strict: false,
+        noEmit: true,
+        skipLibCheck: true,
+        allowNonTsExtensions: true,
+        allowJs: true,
+        target: ts.ScriptTarget.ES2022,
+        baseUrl: projectCompilerOptions.baseUrl,
+        types: ['react', 'react-dom'],
+        paths: {
+          ...projectCompilerOptions.paths,
+          react: ['node_modules/@types/react/index.d.ts', 'web/node_modules/@types/react/index.d.ts'],
+          'react/jsx-runtime': ['node_modules/@types/react/jsx-runtime.d.ts', 'web/node_modules/@types/react/jsx-runtime.d.ts'],
+          'react/jsx-dev-runtime': ['node_modules/@types/react/jsx-dev-runtime.d.ts', 'web/node_modules/@types/react/jsx-dev-runtime.d.ts'],
+          'react-dom': ['node_modules/@types/react-dom/index.d.ts', 'web/node_modules/@types/react-dom/index.d.ts'],
+        },
+      };
+      ts.typescriptDefaults.setCompilerOptions(opts);
+      ts.javascriptDefaults.setCompilerOptions(opts);
+      ts.typescriptDefaults.setEagerModelSync(true);
+      ts.javascriptDefaults.setEagerModelSync(true);
 
       const hasReactJsxRuntime = types.some((entry) => entry.virtualPath.includes('@types/react/jsx-runtime.d.ts'));
       const typeLibs = hasReactJsxRuntime ? types : [...types, ...FALLBACK_REACT_TYPE_LIBS];
@@ -176,7 +275,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [monaco, workspace]);
+  }, [monaco, workspace, tab?.path]);
 
   useEffect(() => {
     if (!activeTheme) {

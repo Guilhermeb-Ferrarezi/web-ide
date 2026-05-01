@@ -112,6 +112,14 @@ export type EditorProjectFile = {
   content: string;
 };
 
+type PackageJsonLike = {
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  workspaces?: string[] | { packages?: string[] };
+  types?: string;
+  typings?: string;
+};
+
 function guessMime(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   const map: Record<string, string> = {
@@ -332,33 +340,69 @@ async function walkDts(
 }
 
 export async function collectTypeDefs(workspacePath: string): Promise<{ virtualPath: string; content: string }[]> {
-  const nodeModulesPath = path.join(workspacePath, 'node_modules');
   const results: { virtualPath: string; content: string }[] = [];
+  const declaredModules = new Set<string>();
 
-  const atTypesEntries = await fs.readdir(path.join(nodeModulesPath, '@types'), { withFileTypes: true }).catch(() => null);
-  if (atTypesEntries) {
-    for (const pkg of atTypesEntries) {
-      if (!pkg.isDirectory()) continue;
-      await walkDts(
-        path.join(nodeModulesPath, '@types', pkg.name),
-        `node_modules/@types/${pkg.name}`,
-        results,
-      );
+  async function readPackageJson(pkgDir: string): Promise<PackageJsonLike | null> {
+    try {
+      return JSON.parse(await fs.readFile(path.join(pkgDir, 'package.json'), 'utf-8')) as PackageJsonLike;
+    } catch {
+      return null;
     }
   }
 
-  let allDeps: string[] = [];
-  try {
-    const pkgJson = JSON.parse(await fs.readFile(path.join(workspacePath, 'package.json'), 'utf-8'));
-    allDeps = [...Object.keys(pkgJson.dependencies ?? {}), ...Object.keys(pkgJson.devDependencies ?? {})];
-  } catch {}
+  function addFallbackModuleDeclaration(moduleName: string) {
+    if (declaredModules.has(moduleName)) return;
+    declaredModules.add(moduleName);
+    results.push({
+      virtualPath: `__generated__/${moduleName.replace(/[^a-z0-9/_-]+/gi, '_')}.d.ts`,
+      content: `declare module '${moduleName}' { const value: any; export = value; }\ndeclare module '${moduleName}/*' { const value: any; export = value; }\n`,
+    });
+  }
 
-  for (const dep of allDeps) {
-    if (results.length >= 1000) break;
-    const depDir = path.join(nodeModulesPath, dep);
-    const depPkg = await fs.readFile(path.join(depDir, 'package.json'), 'utf-8').then(JSON.parse).catch(() => null);
-    if (depPkg?.types || depPkg?.typings) {
-      await walkDts(depDir, `node_modules/${dep}`, results);
+  const rootPackageJson = await readPackageJson(workspacePath);
+  const workspacePatterns = Array.isArray(rootPackageJson?.workspaces)
+    ? rootPackageJson.workspaces
+    : Array.isArray(rootPackageJson?.workspaces?.packages)
+      ? rootPackageJson.workspaces.packages
+      : [];
+
+  const packageRoots = [workspacePath];
+  for (const pattern of workspacePatterns) {
+    if (pattern.includes('*')) continue;
+    packageRoots.push(path.join(workspacePath, pattern));
+  }
+
+  for (const packageRoot of packageRoots) {
+    const pkgJson = await readPackageJson(packageRoot);
+    if (!pkgJson) continue;
+    const packageRelRoot = path.relative(workspacePath, packageRoot).split(path.sep).join('/');
+    const packagePrefix = packageRelRoot ? `${packageRelRoot}/` : '';
+    const nodeModulesPath = path.join(packageRoot, 'node_modules');
+
+    const atTypesEntries = await fs.readdir(path.join(nodeModulesPath, '@types'), { withFileTypes: true }).catch(() => null);
+    if (atTypesEntries) {
+      for (const pkg of atTypesEntries) {
+        if (!pkg.isDirectory()) continue;
+        await walkDts(
+          path.join(nodeModulesPath, '@types', pkg.name),
+          `${packagePrefix}node_modules/@types/${pkg.name}`,
+          results,
+        );
+      }
+    }
+
+    const allDeps = [...Object.keys(pkgJson.dependencies ?? {}), ...Object.keys(pkgJson.devDependencies ?? {})];
+
+    for (const dep of allDeps) {
+      if (results.length >= 1000) break;
+      const depDir = path.join(nodeModulesPath, dep);
+      const depPkg = await readPackageJson(depDir);
+      if (depPkg?.types || depPkg?.typings) {
+        await walkDts(depDir, `${packagePrefix}node_modules/${dep}`, results);
+        continue;
+      }
+      addFallbackModuleDeclaration(dep);
     }
   }
 
