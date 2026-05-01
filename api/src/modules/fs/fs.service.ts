@@ -343,6 +343,7 @@ async function walkDts(
 export async function collectTypeDefs(workspacePath: string): Promise<{ virtualPath: string; content: string }[]> {
   const results: { virtualPath: string; content: string }[] = [];
   const declaredModules = new Set<string>();
+  const typedModules = new Set<string>();
 
   async function readPackageJson(pkgDir: string): Promise<PackageJsonLike | null> {
     try {
@@ -353,6 +354,7 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
   }
 
   function addFallbackModuleDeclaration(moduleName: string) {
+    if (typedModules.has(moduleName)) return;
     if (declaredModules.has(moduleName)) return;
     declaredModules.add(moduleName);
     results.push({
@@ -387,6 +389,7 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
       for (const pkg of atTypesEntries) {
         if (results.length >= MAX_TYPEDEF_FILES) break;
         if (!pkg.isDirectory()) continue;
+        typedModules.add(pkg.name.startsWith('__') ? `@${pkg.name.replace('__', '/')}` : pkg.name);
         await walkDts(
           path.join(nodeModulesPath, '@types', pkg.name),
           `${packagePrefix}node_modules/@types/${pkg.name}`,
@@ -401,10 +404,12 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
       if (results.length >= MAX_TYPEDEF_FILES) break;
       const depDir = path.join(nodeModulesPath, dep);
       const depPkg = await readPackageJson(depDir);
-      addFallbackModuleDeclaration(dep);
       if (depPkg?.types || depPkg?.typings) {
+        typedModules.add(dep);
         await walkDts(depDir, `${packagePrefix}node_modules/${dep}`, results);
+        continue;
       }
+      addFallbackModuleDeclaration(dep);
     }
   }
 

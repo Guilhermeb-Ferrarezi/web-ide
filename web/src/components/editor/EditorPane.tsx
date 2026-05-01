@@ -28,6 +28,10 @@ type TsConfigLike = {
     paths?: Record<string, string[]>;
     jsx?: 'react-jsx' | 'react-jsxdev' | 'react' | 'preserve';
     jsxImportSource?: string;
+    allowImportingTsExtensions?: boolean;
+    resolveJsonModule?: boolean;
+    verbatimModuleSyntax?: boolean;
+    types?: string[];
   };
 };
 
@@ -142,6 +146,10 @@ function deriveCompilerOptionsFromProjectFiles(
       paths: { '@/*': ['src/*'] },
       jsx: 'react-jsx' as const,
       jsxImportSource: 'react',
+      allowImportingTsExtensions: true,
+      resolveJsonModule: true,
+      verbatimModuleSyntax: false,
+      types: ['react', 'react-dom'],
     };
   }
 
@@ -153,7 +161,7 @@ function deriveCompilerOptionsFromProjectFiles(
     const resolvedPaths = Object.fromEntries(
       Object.entries(compilerOptions.paths ?? {}).map(([key, values]) => [
         key,
-        values.map((value) => normalizeProjectPath(value)),
+        values.map((value) => resolveProjectPath(configRoot, value)),
       ]),
     );
 
@@ -162,6 +170,10 @@ function deriveCompilerOptionsFromProjectFiles(
       paths: Object.keys(resolvedPaths).length > 0 ? resolvedPaths : { '@/*': ['src/*'] },
       jsx: compilerOptions.jsx ?? ('react-jsx' as const),
       jsxImportSource: compilerOptions.jsxImportSource ?? 'react',
+      allowImportingTsExtensions: compilerOptions.allowImportingTsExtensions ?? true,
+      resolveJsonModule: compilerOptions.resolveJsonModule ?? true,
+      verbatimModuleSyntax: compilerOptions.verbatimModuleSyntax ?? false,
+      types: compilerOptions.types ?? [],
     };
   } catch {
     return {
@@ -169,6 +181,10 @@ function deriveCompilerOptionsFromProjectFiles(
       paths: { '@/*': ['src/*'] },
       jsx: 'react-jsx' as const,
       jsxImportSource: 'react',
+      allowImportingTsExtensions: true,
+      resolveJsonModule: true,
+      verbatimModuleSyntax: false,
+      types: ['react', 'react-dom'],
     };
   }
 }
@@ -223,6 +239,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
           ? ts.JsxEmit.Preserve
           : ts.JsxEmit.ReactJSX;
       const opts: Parameters<typeof ts.typescriptDefaults.setCompilerOptions>[0] = {
+        module: ts.ModuleKind.ESNext,
         moduleResolution: ts.ModuleResolutionKind.Bundler ?? ts.ModuleResolutionKind.NodeJs,
         allowSyntheticDefaultImports: true,
         esModuleInterop: true,
@@ -232,10 +249,17 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
         noEmit: true,
         skipLibCheck: true,
         allowNonTsExtensions: true,
+        allowImportingTsExtensions: projectCompilerOptions.allowImportingTsExtensions,
         allowJs: true,
+        resolveJsonModule: projectCompilerOptions.resolveJsonModule,
+        verbatimModuleSyntax: projectCompilerOptions.verbatimModuleSyntax,
         target: ts.ScriptTarget.ES2022,
         baseUrl: projectCompilerOptions.baseUrl,
-        types: ['react', 'react-dom'],
+        types: Array.from(new Set([
+          ...projectCompilerOptions.types,
+          'react',
+          'react-dom',
+        ])),
         paths: {
           ...projectCompilerOptions.paths,
           react: ['node_modules/@types/react/index.d.ts', 'web/node_modules/@types/react/index.d.ts'],

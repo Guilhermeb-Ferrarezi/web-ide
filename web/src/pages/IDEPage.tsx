@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AppShell } from '@/components/layout/AppShell';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -123,9 +123,18 @@ export default function IDEPage() {
         </Button>
         <span className="text-sm font-medium">{workspace}</span>
         {permission && (
-          <Badge variant={permission === 'write' ? 'default' : 'secondary'}>
-            {permission === 'write' ? 'Pode alterar' : 'Somente leitura'}
-          </Badge>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${permission === 'write' ? 'bg-green-500' : 'bg-yellow-500'}`}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {permission === 'write' ? 'Pode alterar' : 'Somente leitura'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
       </header>
       <div className="flex-1 overflow-hidden">

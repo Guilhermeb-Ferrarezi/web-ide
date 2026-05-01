@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import {
+  collectTypeDefs,
   readTree,
   readFile,
   searchFiles,
@@ -121,6 +122,58 @@ describe('searchFiles', () => {
     await fs.writeFile(path.join(workspace, 'img.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]));
     const results = await searchFiles(workspace, 'png');
     expect(results).toEqual([]);
+  });
+});
+
+describe('collectTypeDefs', () => {
+  it('prefere tipagens reais da dependencia e nao injeta fallback generico por cima', async () => {
+    await fs.writeFile(
+      path.join(workspace, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          'react-router-dom': '6.30.3',
+        },
+      }),
+    );
+    await fs.mkdir(path.join(workspace, 'node_modules', 'react-router-dom', 'dist'), { recursive: true });
+    await fs.writeFile(
+      path.join(workspace, 'node_modules', 'react-router-dom', 'package.json'),
+      JSON.stringify({
+        name: 'react-router-dom',
+        types: './dist/index.d.ts',
+      }),
+    );
+    await fs.writeFile(
+      path.join(workspace, 'node_modules', 'react-router-dom', 'dist', 'index.d.ts'),
+      "export declare function Navigate(): null;\n",
+    );
+
+    const types = await collectTypeDefs(workspace);
+
+    expect(types.some((entry) => entry.virtualPath.endsWith('react-router-dom/dist/index.d.ts'))).toBe(true);
+    expect(types.some((entry) => entry.virtualPath.includes('__generated__/react-router-dom.d.ts'))).toBe(false);
+  });
+
+  it('mantem fallback generico para dependencias sem tipagem', async () => {
+    await fs.writeFile(
+      path.join(workspace, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          'some-untyped-package': '1.0.0',
+        },
+      }),
+    );
+    await fs.mkdir(path.join(workspace, 'node_modules', 'some-untyped-package'), { recursive: true });
+    await fs.writeFile(
+      path.join(workspace, 'node_modules', 'some-untyped-package', 'package.json'),
+      JSON.stringify({
+        name: 'some-untyped-package',
+      }),
+    );
+
+    const types = await collectTypeDefs(workspace);
+
+    expect(types.some((entry) => entry.virtualPath.includes('__generated__/some-untyped-package.d.ts'))).toBe(true);
   });
 });
 
