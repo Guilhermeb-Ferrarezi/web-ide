@@ -258,5 +258,12 @@ export async function deleteLocalRepo(userId: string, repoName: string): Promise
     where: eq(repos.slug, repoName),
   });
   if (!repo) return;
+
+  if (repo.createdByUserId === userId) {
+    await fs.rm(repo.storagePath, { recursive: true, force: true });
+    await db.delete(repos).where(eq(repos.id, repo.id));
+    return;
+  }
+
   await db.delete(repoPermissions).where(and(eq(repoPermissions.repoId, repo.id), eq(repoPermissions.userId, userId)));
 }
