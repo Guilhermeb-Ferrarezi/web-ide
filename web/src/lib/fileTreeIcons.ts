@@ -31,6 +31,10 @@ function getDefaultIconUrl(iconId: string): string | undefined {
   return defaultIconTheme.iconDefinitions[iconId];
 }
 
+function pickDefinedIconUrl(...candidates: Array<string | undefined>): string | undefined {
+  return candidates.find((candidate) => Boolean(candidate));
+}
+
 function getActiveIconTheme(): ResolvedIconTheme {
   const { activeIconThemeId, installedIconThemes } = useAppearanceStore.getState();
   if (activeIconThemeId === DEFAULT_ICON_THEME_ID) return defaultIconTheme;
@@ -55,12 +59,13 @@ function iconIdToUrl(
   defaultFallbackId = fallbackId,
 ): string {
   const resolvedId = iconId ?? fallbackId;
-  return iconTheme.iconDefinitions[resolvedId]
-    ?? iconTheme.iconDefinitions[fallbackId]
-    ?? getDefaultIconUrl(resolvedId)
-    ?? getDefaultIconUrl(fallbackId)
-    ?? getDefaultIconUrl(defaultFallbackId)
-    ?? '';
+  return pickDefinedIconUrl(
+    iconTheme.iconDefinitions[resolvedId],
+    iconTheme.iconDefinitions[fallbackId],
+    getDefaultIconUrl(resolvedId),
+    getDefaultIconUrl(fallbackId),
+    getDefaultIconUrl(defaultFallbackId),
+  ) ?? '';
 }
 
 function matchAssociation(

@@ -90,4 +90,43 @@ describe('fileTreeIcons', () => {
     expect(resolveFolderIcon('random-folder')).toBe(`${BASE_URL}/folder.svg`);
     expect(resolveFolderIcon('random-folder', { expanded: true })).toBe(`${BASE_URL}/folder-open.svg`);
   });
+
+  it('ignores empty icon definition URLs from installed themes and still falls back', () => {
+    useAppearanceStore.setState({
+      installedThemes: [],
+      activeThemeId: 'default-dark',
+      installedIconThemes: [
+        {
+          id: 'partial-theme',
+          extensionId: 'partial.theme',
+          label: 'Partial Theme',
+          icons: {
+            file: 'custom-file',
+            folder: 'custom-folder',
+            folderExpanded: 'custom-folder-open',
+            fileNames: {
+              '.dockerignore': 'dockerignore-missing',
+            },
+            fileExtensions: {},
+            folderNames: {
+              docs: 'folder-docs-missing',
+            },
+            folderNamesExpanded: {},
+            languageIds: {},
+            iconDefinitions: {
+              'dockerignore-missing': '',
+              'folder-docs-missing': '',
+              'custom-file': '',
+              'custom-folder': '',
+              'custom-folder-open': '',
+            },
+          },
+        },
+      ],
+      activeIconThemeId: 'partial-theme',
+    });
+
+    expect(resolveFileIcon('.dockerignore')).toBe(`${BASE_URL}/file.svg`);
+    expect(resolveFolderIcon('docs')).toBe(`${BASE_URL}/folder.svg`);
+  });
 });
