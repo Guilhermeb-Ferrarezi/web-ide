@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useGitStatus } from '@/hooks/useGitStatus';
-import { gitAdd, gitCommit, gitPull, gitPush, gitUnstage } from '@/api/git';
+import { gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntrack } from '@/api/git';
 import { GitFileList } from './GitFileList';
 
 type Props = { workspace: string; readOnly?: boolean };
@@ -27,6 +27,10 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
       ...(status?.unstaged.map((f) => ({ path: f.path, tag: f.workingDir.trim() || 'M' })) ?? []),
       ...(status?.untracked.map((p) => ({ path: p, tag: '?' })) ?? []),
     ],
+    [status],
+  );
+  const trackedPaths = useMemo(
+    () => Array.from(new Set([...(status?.staged.map((f) => f.path) ?? []), ...(status?.unstaged.map((f) => f.path) ?? [])])),
     [status],
   );
 
@@ -66,6 +70,19 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
       await refresh();
     } catch {
       toast.error('Falha ao desfazer stage');
+    }
+  }
+
+  async function handleUntrack() {
+    const files = trackedPaths.filter((path) => selected.has(path));
+    if (files.length === 0) return;
+    try {
+      await gitUntrack(workspace, files);
+      setSelected(new Set());
+      toast.success('Arquivos removidos do rastreamento');
+      await refresh();
+    } catch {
+      toast.error('Falha ao remover arquivos do Git');
     }
   }
 
@@ -177,6 +194,25 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
             stagedItems.length === 0 && (
               <p className="px-3 py-6 text-center text-xs text-muted-foreground">Sem mudanças</p>
             )
+          )}
+          {trackedPaths.length > 0 && (
+            <>
+              <Separator />
+              <div className="px-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => void handleUntrack()}
+                  disabled={readOnly || trackedPaths.every((path) => !selected.has(path))}
+                >
+                  Tirar selecionados do Git
+                </Button>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Remove do índice, mas mantém os arquivos no disco.
+                </p>
+              </div>
+            </>
           )}
         </div>
       </ScrollArea>

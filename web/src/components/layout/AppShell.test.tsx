@@ -14,6 +14,21 @@ vi.mock('@/hooks/useEditor', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useGitStatus', () => ({
+  useGitStatus: () => ({
+    status: {
+      branch: 'main',
+      ahead: 0,
+      behind: 0,
+      staged: [{ path: 'README.md', index: 'M', workingDir: ' ' }],
+      unstaged: [{ path: 'src/app.ts', index: ' ', workingDir: 'M' }],
+      untracked: ['notes.txt'],
+    },
+    loading: false,
+    refresh: vi.fn(),
+  }),
+}));
+
 vi.mock('@/components/file-tree/FileTree', () => ({
   FileTree: () => <div>file-tree</div>,
 }));
@@ -53,5 +68,6 @@ describe('<AppShell />', () => {
     expect(screen.getByText('Modo somente leitura')).toBeInTheDocument();
     expect(screen.getByText('Você pode navegar, mas não editar arquivos, usar terminal ou executar ações de Git com escrita.')).toBeInTheDocument();
     expect(screen.getByTitle('Terminal indisponível em modo somente leitura')).toBeDisabled();
+    expect(screen.getByText('3')).toBeInTheDocument();
   });
 });

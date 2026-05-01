@@ -11,6 +11,7 @@ export default async function gitRoutes(app: FastifyInstance) {
   app.get('/git/branches', { preHandler: resolveRepoAccess('read') }, ctrl.getBranches);
   app.post('/git/add', { preHandler: resolveRepoAccess('write') }, ctrl.postAdd);
   app.post('/git/unstage', { preHandler: resolveRepoAccess('write') }, ctrl.postUnstage);
+  app.post('/git/untrack', { preHandler: resolveRepoAccess('write') }, ctrl.postUntrack);
   app.post('/git/commit', { preHandler: resolveRepoAccess('write') }, ctrl.postCommit);
   app.post('/git/push', { preHandler: resolveRepoAccess('write') }, ctrl.postPush);
   app.post('/git/pull', { preHandler: resolveRepoAccess('write') }, ctrl.postPull);

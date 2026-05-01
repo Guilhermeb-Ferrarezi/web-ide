@@ -9,6 +9,7 @@ import {
   getBranches,
   addFiles,
   unstageFiles,
+  untrackFiles,
   commit,
   checkout,
 } from './git.service.ts';
@@ -76,6 +77,18 @@ describe('addFiles / unstageFiles / commit', () => {
     const s = await getStatus(workspace);
     expect(s.staged).toEqual([]);
     expect(s.untracked).toContain('a.txt');
+  });
+
+  it('untrack remove arquivo do índice mas mantém no disco', async () => {
+    await writeFile('a.txt', 'a');
+    await addFiles(workspace, ['a.txt']);
+    await commit(workspace, 'init');
+
+    await untrackFiles(workspace, ['a.txt']);
+
+    const s = await getStatus(workspace);
+    expect(s.untracked).toContain('a.txt');
+    expect(await fs.readFile(path.join(workspace, 'a.txt'), 'utf-8')).toBe('a');
   });
 });
 

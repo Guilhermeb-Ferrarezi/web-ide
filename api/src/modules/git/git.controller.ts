@@ -36,6 +36,12 @@ export async function postUnstage(req: FastifyRequest, reply: FastifyReply) {
   return reply.send({ ok: true });
 }
 
+export async function postUntrack(req: FastifyRequest, reply: FastifyReply) {
+  const body = filesSchema.parse(req.body);
+  await gitService.untrackFiles(req.workspacePath!, body.files);
+  return reply.send({ ok: true });
+}
+
 const commitSchema = z.object({ workspace: z.string(), message: z.string().min(1) });
 export async function postCommit(req: FastifyRequest, reply: FastifyReply) {
   const body = commitSchema.parse(req.body);

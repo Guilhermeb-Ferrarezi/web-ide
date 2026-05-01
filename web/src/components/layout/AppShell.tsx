@@ -11,6 +11,7 @@ import { GitPanel } from '@/components/git/GitPanel';
 import { TerminalPane } from '@/components/terminal/TerminalPane';
 import { StatusBar } from './StatusBar';
 import { useEditor } from '@/hooks/useEditor';
+import { useGitStatus } from '@/hooks/useGitStatus';
 import { cn } from '@/lib/utils';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
@@ -20,8 +21,16 @@ export function AppShell({ workspace }: { workspace: string }) {
   const { tabs, activePath, setActive, closeTab, updateContent, save } = useEditor();
   const permission = useWorkspaceStore((s) => s.permission);
   const activeTab = tabs.find((t) => t.path === activePath) ?? null;
+  const { status: gitStatus } = useGitStatus(workspace);
   const [side, setSide] = useState<SidePanel>('files');
   const [showTerminal, setShowTerminal] = useState(true);
+  const gitChangedCount = gitStatus
+    ? new Set([
+        ...gitStatus.staged.map((file) => file.path),
+        ...gitStatus.unstaged.map((file) => file.path),
+        ...gitStatus.untracked,
+      ]).size
+    : 0;
 
   useEffect(() => {
     if (permission !== 'write') setShowTerminal(false);
@@ -43,11 +52,16 @@ export function AppShell({ workspace }: { workspace: string }) {
           <Button
             variant="ghost"
             size="icon"
-            className={cn('h-8 w-8', side === 'git' && 'bg-accent')}
+            className={cn('relative h-8 w-8', side === 'git' && 'bg-accent')}
             onClick={() => setSide('git')}
             title="Git"
           >
             <GitBranch className="h-4 w-4" />
+            {gitChangedCount > 0 && (
+              <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-emerald-500 px-1 text-[10px] font-semibold leading-4 text-emerald-950">
+                {gitChangedCount}
+              </span>
+            )}
           </Button>
           <div className="flex-1" />
           <Button

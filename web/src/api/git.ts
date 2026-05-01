@@ -28,6 +28,10 @@ export async function gitUnstage(workspace: string, files: string[]) {
   await api.post('/git/unstage', { workspace, files });
 }
 
+export async function gitUntrack(workspace: string, files: string[]) {
+  await api.post('/git/untrack', { workspace, files });
+}
+
 export async function gitCommit(workspace: string, message: string) {
   await api.post('/git/commit', { workspace, message });
 }

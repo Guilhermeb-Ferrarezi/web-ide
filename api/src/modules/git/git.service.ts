@@ -98,6 +98,10 @@ export async function unstageFiles(workspacePath: string, files: string[]) {
   await git(workspacePath).reset(['HEAD', '--', ...files]);
 }
 
+export async function untrackFiles(workspacePath: string, files: string[]) {
+  await git(workspacePath).raw(['rm', '--cached', '--', ...files]);
+}
+
 export async function commit(workspacePath: string, message: string, author?: GitCommitAuthor) {
   const g = git(workspacePath);
   await ensureCommitIdentity(g, author);
