@@ -14,6 +14,7 @@ export const appConfigSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   FRONTEND_URL: z.string().url(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  TERMINAL_SUPERUSERS: z.string().default(''),
 });
 
 const parsed = appConfigSchema.parse(process.env);
@@ -27,6 +28,10 @@ fs.mkdirSync(workspacesRoot, { recursive: true });
 export const config = {
   ...parsed,
   WORKSPACES_ROOT: workspacesRoot,
+  TERMINAL_SUPERUSERS_LIST: parsed.TERMINAL_SUPERUSERS
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean),
 };
 
 export type Config = typeof config;

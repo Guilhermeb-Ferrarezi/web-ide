@@ -1,5 +1,6 @@
 import 'fastify';
 import '@fastify/session';
+import type { AppRole } from '../modules/users/users.service.ts';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -19,7 +20,7 @@ declare module '@fastify/session' {
       email?: string | null;
       accessToken: string;
       avatarUrl?: string;
-      role: 'owner' | 'admin' | 'user';
+      role: AppRole;
     };
   }
 }

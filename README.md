@@ -27,6 +27,7 @@ bun run dev
 - Web: http://localhost:5173
 - API: http://localhost:3000
 - Workspaces locais em `api/.workspaces/` (configurável via `WORKSPACES_ROOT`)
+- Para liberar terminal irrestrito a usuários específicos, preencha `TERMINAL_SUPERUSERS` em `api/.env` com `login`, `githubUserId` ou `userId` separados por vírgula
 
 Para rodar separado:
 

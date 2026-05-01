@@ -2,7 +2,7 @@ export type AuthUser = {
   userId: string;
   login: string;
   avatarUrl?: string;
-  role?: 'owner' | 'admin' | 'user';
+  role?: 'owner' | 'admin' | 'user' | 'terminal_superuser';
 };
 
 export type RemoteRepo = {
@@ -24,6 +24,13 @@ export type LocalRepo = {
   githubFullName: string;
   permission: 'read' | 'write';
   path: string;
+  canManage: boolean;
+};
+
+export type RepoPermissionEntry = {
+  userId: string;
+  login: string | null;
+  permission: 'read' | 'write';
 };
 
 export type ReposPayload = {

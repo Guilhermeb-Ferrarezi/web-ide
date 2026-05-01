@@ -28,6 +28,7 @@ export type LocalRepo = {
   githubFullName: string;
   permission: 'read' | 'write';
   path: string;
+  canManage: boolean;
 };
 
 export type ReposPayload = {
@@ -77,6 +78,7 @@ export async function listLocalRepos(userId: string): Promise<LocalRepo[]> {
     githubFullName: repo.githubFullName,
     permission: permissionByRepoId.get(repo.id) ?? 'read',
     path: repo.storagePath,
+    canManage: repo.createdByUserId === userId,
   }));
 }
 
@@ -117,6 +119,7 @@ export async function importRepo(opts: {
         githubFullName: existing.githubFullName,
         permission: currentPermission?.permission ?? 'read',
         path: existing.storagePath,
+        canManage: existing.createdByUserId === opts.userId,
       },
       permission: currentPermission?.permission ?? 'read',
     };
@@ -156,6 +159,7 @@ export async function importRepo(opts: {
       githubFullName: repoRecord.githubFullName,
       permission: 'write',
       path: repoRecord.storagePath,
+      canManage: true,
     },
     permission: 'write',
   };

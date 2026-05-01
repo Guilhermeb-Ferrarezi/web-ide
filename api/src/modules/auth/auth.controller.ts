@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import crypto from 'node:crypto';
 import { config } from '../../config.ts';
-import { ensureUserFromGithubProfile, getGlobalRoleForUser } from '../users/users.service.ts';
+import { ensureUserFromGithubProfile, getGlobalRoleForUser, resolveAppRole } from '../users/users.service.ts';
 import { buildAuthorizeUrl, exchangeCodeForToken, fetchGithubUser } from './auth.service.ts';
 
 export async function startGithubLogin(req: FastifyRequest, reply: FastifyReply) {
@@ -34,7 +34,13 @@ export async function githubCallback(
       avatarUrl: user.avatarUrl,
       accessToken,
     });
-    const role = await getGlobalRoleForUser(localUser.id);
+    const storedRole = await getGlobalRoleForUser(localUser.id);
+    const role = resolveAppRole(storedRole, {
+      userId: localUser.id,
+      githubUserId: user.userId,
+      login: user.login,
+      terminalSuperusers: config.TERMINAL_SUPERUSERS_LIST,
+    });
 
     req.session.user = {
       userId: localUser.id,

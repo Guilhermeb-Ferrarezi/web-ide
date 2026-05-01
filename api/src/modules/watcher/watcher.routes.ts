@@ -65,11 +65,11 @@ export default async function watcherRoutes(app: FastifyInstance) {
     req.log.info({ userId: user.userId, workspace, cwd }, '[watcher] subscribed');
     socket.send(JSON.stringify({ kind: 'ready' }));
 
-    socket.on('close', (code, reason) => {
+    socket.on('close', (code: number, reason: Buffer) => {
       req.log.info({ userId: user.userId, workspace, code, reason: reason.toString() }, '[watcher] socket closed');
       unsubscribe();
     });
-    socket.on('error', (err) => {
+    socket.on('error', (err: Error) => {
       req.log.warn({ err, userId: user.userId, workspace }, '[watcher] socket error');
       unsubscribe();
     });

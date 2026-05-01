@@ -48,7 +48,7 @@ export default async function terminalRoutes(app: FastifyInstance) {
     req.log.info({ userId: user.userId, workspace, cwd }, '[terminal] spawning pty');
     let handle: ReturnType<typeof createPty>;
     try {
-      handle = createPty(cwd);
+      handle = createPty(cwd, user.role);
     } catch (err) {
       req.log.error({ err, userId: user.userId, workspace, cwd }, '[terminal] failed to spawn pty');
       socket.send(JSON.stringify({ type: 'error', message: 'pty_spawn_failed' }));
@@ -74,7 +74,7 @@ export default async function terminalRoutes(app: FastifyInstance) {
       }
     });
 
-    socket.on('message', (raw) => {
+    socket.on('message', (raw: Buffer) => {
       const msg = raw.toString();
       if (msg.startsWith('{')) {
         try {
@@ -94,11 +94,11 @@ export default async function terminalRoutes(app: FastifyInstance) {
       handle.pty.write(msg);
     });
 
-    socket.on('close', (code, reason) => {
+    socket.on('close', (code: number, reason: Buffer) => {
       req.log.info({ userId: user.userId, workspace, code, reason: reason.toString() }, '[terminal] socket closed');
       handle.kill();
     });
-    socket.on('error', (err) => {
+    socket.on('error', (err: Error) => {
       req.log.warn({ err, userId: user.userId, workspace }, '[terminal] socket error');
       handle.kill();
     });

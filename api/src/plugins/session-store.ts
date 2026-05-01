@@ -43,7 +43,7 @@ export function createSessionStore(storeDb: SessionDb = db): SessionStore {
           where: eq(sessions.id, sessionId),
         });
         if (!row || row.expiresAt.getTime() <= Date.now()) {
-          callback();
+          callback(null);
           return;
         }
         callback(null, JSON.parse(row.data));

@@ -1,6 +1,6 @@
 FROM oven/bun:1.1-alpine AS deps
 WORKDIR /app
-RUN apk add --no-cache python3 make g++ bash
+RUN apk add --no-cache python3 make g++ bash eza
 COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile || bun install
 

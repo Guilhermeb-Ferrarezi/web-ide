@@ -10,7 +10,7 @@ export type TreeNode = {
   children?: TreeNode[];
 };
 
-const IGNORED = new Set(['.git', 'node_modules', '.DS_Store', '.next', 'dist', 'build']);
+const IGNORED = new Set(['.git', 'node_modules', '.DS_Store']);
 const MAX_DEPTH = 10;
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -21,10 +21,40 @@ const TEXT_EXTENSIONS = new Set([
   'vue', 'svelte', 'astro', 'prisma', 'lock',
 ]);
 
-function isProbablyText(filename: string): boolean {
-  const ext = filename.split('.').pop()?.toLowerCase();
-  if (!ext) return TEXT_EXTENSIONS.has(filename.toLowerCase());
-  return TEXT_EXTENSIONS.has(ext);
+const TEXT_BASENAMES = new Set([
+  'dockerfile',
+  'makefile',
+  'procfile',
+  '.env',
+  '.env.local',
+  '.env.development',
+  '.env.production',
+  '.env.test',
+  '.gitignore',
+  '.dockerignore',
+  '.npmrc',
+  '.nvmrc',
+  '.editorconfig',
+  '.prettierrc',
+  '.prettierignore',
+  '.eslintrc',
+  '.eslintignore',
+  '.babelrc',
+]);
+
+function isProbablyText(filename: string, buf?: Buffer): boolean {
+  const lower = filename.toLowerCase();
+  if (TEXT_BASENAMES.has(lower)) return true;
+  const ext = lower.split('.').pop();
+  if (ext && TEXT_EXTENSIONS.has(ext)) return true;
+  if (!buf) return false;
+  if (buf.includes(0)) return false;
+  try {
+    new TextDecoder('utf-8', { fatal: true }).decode(buf);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function readTree(workspacePath: string, depth = MAX_DEPTH, relPath = ''): Promise<TreeNode[]> {
@@ -74,7 +104,7 @@ export async function readFile(workspacePath: string, relPath: string): Promise<
   if (stat.size > MAX_FILE_SIZE) throw new Error('File too large');
   const buf = await fs.readFile(fullPath);
   const name = path.basename(fullPath);
-  if (isProbablyText(name)) {
+  if (isProbablyText(name, buf)) {
     return { encoding: 'utf-8', content: buf.toString('utf-8'), size: stat.size, mimeType: 'text/plain' };
   }
   return { encoding: 'base64', content: buf.toString('base64'), size: stat.size, mimeType: guessMime(name) };

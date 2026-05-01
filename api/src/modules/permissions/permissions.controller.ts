@@ -4,16 +4,22 @@ import { db } from '../../db/client.ts';
 import { repoPermissions } from '../../db/schema.ts';
 import { eq } from 'drizzle-orm';
 import { grantRepoPermission, removeRepoPermission } from './permissions.service.ts';
+import { findUserByLogin } from '../users/users.service.ts';
 
 const paramsSchema = z.object({
   repoId: z.string().uuid(),
   userId: z.string().uuid().optional(),
 });
 
-const bodySchema = z.object({
-  userId: z.string().uuid(),
-  permission: z.enum(['read', 'write']),
-});
+const bodySchema = z
+  .object({
+    userId: z.string().uuid().optional(),
+    login: z.string().min(1).optional(),
+    permission: z.enum(['read', 'write']),
+  })
+  .refine((body) => Boolean(body.userId || body.login), {
+    message: 'userId_or_login_required',
+  });
 
 export async function getRepoPermissions(req: FastifyRequest, reply: FastifyReply) {
   const { repoId } = paramsSchema.parse(req.params);
@@ -37,9 +43,18 @@ export async function getRepoPermissions(req: FastifyRequest, reply: FastifyRepl
 export async function postRepoPermission(req: FastifyRequest, reply: FastifyReply) {
   const { repoId } = paramsSchema.parse(req.params);
   const body = bodySchema.parse(req.body);
+  const targetUser = body.userId
+    ? await db.query.users.findFirst({ where: (fields, ops) => ops.eq(fields.id, body.userId!) })
+    : await findUserByLogin(body.login!);
+  if (!targetUser) {
+    return reply.code(404).send({
+      error: 'user_not_found',
+      message: 'Usuario nao encontrado. Ele precisa entrar na plataforma pelo menos uma vez.',
+    });
+  }
   await grantRepoPermission({
     repoId,
-    userId: body.userId,
+    userId: targetUser.id,
     permission: body.permission,
     createdByUserId: req.session.user!.userId,
   });

@@ -1,7 +1,11 @@
 import { count, eq } from 'drizzle-orm';
 import { db } from '../../db/client.ts';
+import { config } from '../../config.ts';
 import { globalRoles, users } from '../../db/schema.ts';
 import { encryptSecret } from '../../utils/crypto.ts';
+
+export type StoredGlobalRole = 'owner' | 'admin' | 'user';
+export type AppRole = StoredGlobalRole | 'terminal_superuser';
 
 export async function ensureUserFromGithubProfile(input: {
   githubUserId: string;
@@ -46,9 +50,32 @@ export async function ensureUserFromGithubProfile(input: {
   return created;
 }
 
-export async function getGlobalRoleForUser(userId: string): Promise<'owner' | 'admin' | 'user'> {
+export async function getGlobalRoleForUser(userId: string): Promise<StoredGlobalRole> {
   const role = await db.query.globalRoles.findFirst({
     where: eq(globalRoles.userId, userId),
   });
   return role?.role ?? 'user';
+}
+
+export async function findUserByLogin(login: string) {
+  return db.query.users.findFirst({
+    where: eq(users.login, login),
+  });
+}
+
+export function resolveAppRole(
+  storedRole: StoredGlobalRole,
+  input: {
+    userId: string;
+    githubUserId: string;
+    login: string;
+    terminalSuperusers?: string[];
+  },
+): AppRole {
+  const terminalSuperusers = input.terminalSuperusers ?? config.TERMINAL_SUPERUSERS_LIST;
+  const candidates = [input.userId, input.githubUserId, input.login]
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+
+  return candidates.some((candidate) => terminalSuperusers.includes(candidate)) ? 'terminal_superuser' : storedRole;
 }

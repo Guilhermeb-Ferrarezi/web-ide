@@ -41,12 +41,13 @@ describe('readTree', () => {
     expect(tree[0].children?.[0].path).toBe('a-dir/inner.txt');
   });
 
-  it('ignora node_modules e .git', async () => {
+  it('ignora node_modules e .git, mas lista pastas ocultas comuns do projeto', async () => {
     await fs.mkdir(path.join(workspace, 'node_modules'));
     await fs.mkdir(path.join(workspace, '.git'));
+    await fs.mkdir(path.join(workspace, '.next'));
     await fs.mkdir(path.join(workspace, 'src'));
     const tree = await readTree(workspace);
-    expect(tree.map((n) => n.name)).toEqual(['src']);
+    expect(tree.map((n) => n.name)).toEqual(['.next', 'src']);
   });
 
   it('respeita profundidade máxima', async () => {
@@ -66,6 +67,17 @@ describe('readFile / writeFile', () => {
     const file = await readFile(workspace, 'hello.ts');
     expect(file.encoding).toBe('utf-8');
     expect(file.content).toBe('const x = 1;');
+  });
+
+  it('lê dotfiles e arquivos sem extensão conhecida como utf-8', async () => {
+    await writeFile(workspace, '.env.local', 'TOKEN=abc');
+    await writeFile(workspace, 'Dockerfile', 'FROM node:22');
+    const envFile = await readFile(workspace, '.env.local');
+    const dockerfile = await readFile(workspace, 'Dockerfile');
+    expect(envFile.encoding).toBe('utf-8');
+    expect(envFile.content).toBe('TOKEN=abc');
+    expect(dockerfile.encoding).toBe('utf-8');
+    expect(dockerfile.content).toBe('FROM node:22');
   });
 
   it('lê binário como base64', async () => {

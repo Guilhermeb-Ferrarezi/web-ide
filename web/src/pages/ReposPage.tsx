@@ -1,13 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Code2, Download, ExternalLink, Lock, LogOut, Search, Trash2 } from 'lucide-react';
+import { Code2, Download, ExternalLink, Lock, LogOut, Search, Share2, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useRepos } from '@/hooks/useRepos';
+import { grantRepoAccess, listRepoPermissions, revokeRepoAccess } from '@/api/repos';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import type { RepoPermissionEntry } from '@/types';
 
 function formatRelative(iso: string | null) {
   if (!iso) return '';
@@ -24,7 +27,24 @@ export default function ReposPage() {
   const { user, logout } = useAuth();
   const { githubRepos, localRepos, loading, cloningId, clone, remove } = useRepos();
   const [query, setQuery] = useState('');
+  const [sharingRepoId, setSharingRepoId] = useState<string | null>(null);
+  const [shareLogin, setShareLogin] = useState('');
+  const [sharePermission, setSharePermission] = useState<'read' | 'write'>('read');
+  const [shareBusy, setShareBusy] = useState(false);
+  const [permissionsByRepo, setPermissionsByRepo] = useState<Record<string, RepoPermissionEntry[]>>({});
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!sharingRepoId) return;
+    void (async () => {
+      try {
+        const data = await listRepoPermissions(sharingRepoId);
+        setPermissionsByRepo((prev) => ({ ...prev, [sharingRepoId]: data }));
+      } catch (err: any) {
+        toast.error(err?.response?.data?.message ?? 'Falha ao carregar acessos');
+      }
+    })();
+  }, [sharingRepoId]);
 
   const filteredGithub = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -42,6 +62,38 @@ export default function ReposPage() {
     if (!q) return localRepos;
     return localRepos.filter((r) => r.slug.toLowerCase().includes(q) || r.githubFullName.toLowerCase().includes(q));
   }, [localRepos, query]);
+
+  async function handleGrant(repoId: string) {
+    const login = shareLogin.trim().replace(/^@/, '');
+    if (!login) return toast.warning('Informe o login do GitHub');
+    setShareBusy(true);
+    try {
+      await grantRepoAccess(repoId, login, sharePermission);
+      const data = await listRepoPermissions(repoId);
+      setPermissionsByRepo((prev) => ({ ...prev, [repoId]: data }));
+      setShareLogin('');
+      setSharePermission('read');
+      toast.success(`Acesso concedido para @${login}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Falha ao compartilhar');
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
+  async function handleRevoke(repoId: string, userId: string, login: string | null) {
+    setShareBusy(true);
+    try {
+      await revokeRepoAccess(repoId, userId);
+      const data = await listRepoPermissions(repoId);
+      setPermissionsByRepo((prev) => ({ ...prev, [repoId]: data }));
+      toast.success(`Acesso removido${login ? ` de @${login}` : ''}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Falha ao remover acesso');
+    } finally {
+      setShareBusy(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-5xl p-6">
@@ -103,6 +155,16 @@ export default function ReposPage() {
                           <ExternalLink className="mr-2 h-4 w-4" />
                           Abrir
                         </Button>
+                        {(repo.canManage || user?.role === 'admin' || user?.role === 'owner') && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSharingRepoId((current) => (current === repo.id ? null : repo.id))}
+                          >
+                            <Share2 className="mr-2 h-4 w-4" />
+                            Compartilhar
+                          </Button>
+                        )}
                         <Button
                           size="icon"
                           variant="ghost"
@@ -113,6 +175,51 @@ export default function ReposPage() {
                         </Button>
                       </div>
                     </Card>
+                    {sharingRepoId === repo.id && (
+                      <Card className="mt-2 space-y-3 p-4">
+                        <div className="flex flex-col gap-2 md:flex-row">
+                          <Input
+                            value={shareLogin}
+                            onChange={(e) => setShareLogin(e.target.value)}
+                            placeholder="login do GitHub"
+                          />
+                          <select
+                            className="h-10 rounded-md border bg-background px-3 text-sm"
+                            value={sharePermission}
+                            onChange={(e) => setSharePermission(e.target.value as 'read' | 'write')}
+                          >
+                            <option value="read">read</option>
+                            <option value="write">write</option>
+                          </select>
+                          <Button disabled={shareBusy} onClick={() => void handleGrant(repo.id)}>
+                            Conceder acesso
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {(permissionsByRepo[repo.id] ?? []).map((entry) => (
+                            <div key={entry.userId} className="flex items-center justify-between rounded-md border p-3">
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium">@{entry.login ?? entry.userId}</p>
+                                <p className="text-xs text-muted-foreground">{entry.permission}</p>
+                              </div>
+                              {entry.userId !== user?.userId && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  disabled={shareBusy}
+                                  onClick={() => void handleRevoke(repo.id, entry.userId, entry.login)}
+                                >
+                                  Remover
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                          {(permissionsByRepo[repo.id] ?? []).length === 0 && (
+                            <p className="text-sm text-muted-foreground">Nenhum acesso extra concedido.</p>
+                          )}
+                        </div>
+                      </Card>
+                    )}
                   </li>
                 ))}
               </ul>

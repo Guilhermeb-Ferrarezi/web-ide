@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { ChevronRight, File as FileIcon, Folder, FolderOpen } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import type { TreeNode } from '@/types';
 import { cn } from '@/lib/utils';
+import { resolveMaterialFileIcon, resolveMaterialFolderIcon } from '@/lib/fileTreeIcons';
 
 type Props = {
   node: TreeNode;
@@ -15,6 +16,8 @@ export function FileTreeNode({ node, level, activePath, onOpenFile }: Props) {
   const isActive = activePath === node.path;
 
   if (node.type === 'directory') {
+    const folderIcon = resolveMaterialFolderIcon(node.path, { expanded: open });
+
     return (
       <li>
         <button
@@ -24,11 +27,7 @@ export function FileTreeNode({ node, level, activePath, onOpenFile }: Props) {
           style={{ paddingLeft: 4 + level * 12 }}
         >
           <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', open && 'rotate-90')} />
-          {open ? (
-            <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
-          ) : (
-            <Folder className="h-3.5 w-3.5 text-muted-foreground" />
-          )}
+          <img src={folderIcon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
           <span className="truncate">{node.name}</span>
         </button>
         {open && node.children && node.children.length > 0 && (
@@ -48,6 +47,8 @@ export function FileTreeNode({ node, level, activePath, onOpenFile }: Props) {
     );
   }
 
+  const fileIcon = resolveMaterialFileIcon(node.path);
+
   return (
     <li>
       <button
@@ -59,7 +60,7 @@ export function FileTreeNode({ node, level, activePath, onOpenFile }: Props) {
         )}
         style={{ paddingLeft: 4 + level * 12 + 14 }}
       >
-        <FileIcon className="h-3.5 w-3.5 text-muted-foreground" />
+        <img src={fileIcon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
         <span className="truncate">{node.name}</span>
       </button>
     </li>
