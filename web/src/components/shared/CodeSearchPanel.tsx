@@ -160,7 +160,7 @@ export function CodeSearchPanel({ workspace }: Props) {
                       <li key={`${result.path}:${match.line}:${match.column}`}>
                         <button
                           type="button"
-                          onClick={() => void openFile(result.path)}
+                          onClick={() => void openFile(result.path, { line: match.line, column: match.column })}
                           className="flex w-full items-start gap-2 px-2 py-0.5 pl-6 text-left text-xs hover:bg-accent"
                           title={`Linha ${match.line}, coluna ${match.column}`}
                         >

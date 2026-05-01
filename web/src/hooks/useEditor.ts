@@ -1,17 +1,23 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { fetchFile, saveFile } from '@/api/fs';
-import { useEditorStore } from '@/stores/editorStore';
+import { useEditorStore, type EditorJump } from '@/stores/editorStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 export function useEditor() {
   const workspace = useWorkspaceStore((s) => s.workspace);
   const permission = useWorkspaceStore((s) => s.permission);
-  const { tabs, activePath, openTab, closeTab, setActive, updateContent, markSaved } = useEditorStore();
+  const { tabs, activePath, openTab, closeTab, setActive, updateContent, markSaved, setPendingJump } = useEditorStore();
 
   const openFile = useCallback(
-    async (filePath: string) => {
+    async (filePath: string, jump?: EditorJump) => {
       if (!workspace) return;
+      if (jump) setPendingJump(jump);
+      const alreadyOpen = useEditorStore.getState().tabs.find((t) => t.path === filePath);
+      if (alreadyOpen) {
+        setActive(filePath);
+        return;
+      }
       try {
         const file = await fetchFile(workspace, filePath);
         const name = filePath.split('/').pop() ?? filePath;
@@ -28,7 +34,7 @@ export function useEditor() {
         toast.error('Falha ao abrir arquivo');
       }
     },
-    [workspace, openTab],
+    [workspace, openTab, setActive, setPendingJump],
   );
 
   const save = useCallback(
