@@ -47,10 +47,11 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const ts = monaco.languages.typescript as any;
     const opts: Parameters<typeof ts.typescriptDefaults.setCompilerOptions>[0] = {
-      moduleResolution: ts.ModuleResolutionKind.NodeJs,
+      moduleResolution: ts.ModuleResolutionKind.Bundler ?? ts.ModuleResolutionKind.NodeJs,
       allowSyntheticDefaultImports: true,
       esModuleInterop: true,
       jsx: ts.JsxEmit.ReactJSX,
+      jsxImportSource: 'react',
       strict: false,
       noEmit: true,
       skipLibCheck: true,
@@ -58,8 +59,13 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
       allowJs: true,
       target: ts.ScriptTarget.ES2022,
       baseUrl: 'file:///',
+      types: ['react', 'react-dom'],
       paths: {
         '@/*': ['src/*'],
+        react: ['node_modules/@types/react/index.d.ts'],
+        'react/jsx-runtime': ['node_modules/@types/react/jsx-runtime.d.ts'],
+        'react/jsx-dev-runtime': ['node_modules/@types/react/jsx-dev-runtime.d.ts'],
+        'react-dom': ['node_modules/@types/react-dom/index.d.ts'],
       },
     };
     ts.typescriptDefaults.setCompilerOptions(opts);
