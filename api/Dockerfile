@@ -12,6 +12,7 @@ RUN apk add --no-cache git bash
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json tsconfig.json ./
 COPY src ./src
+COPY drizzle ./drizzle
 
 ENV NODE_ENV=production
 EXPOSE 3000

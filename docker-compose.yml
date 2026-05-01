@@ -8,6 +8,8 @@ services:
       - ./api/.env
     environment:
       - WORKSPACES_ROOT=/data/workspaces
+      - NODE_ENV=production
+      - FRONTEND_URL=http://localhost:8080
     volumes:
       - workspace_data:/data/workspaces
     networks:
