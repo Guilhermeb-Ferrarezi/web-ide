@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import ReposPage from './ReposPage';
 import * as reposApi from '@/api/repos';
-import type { LocalRepo, RemoteRepo } from '@/types';
+import type { LocalRepo } from '@/types';
 
 const mockLogout = vi.fn();
 const mockNavigate = vi.fn();
@@ -58,7 +58,13 @@ describe('<ReposPage />', () => {
         },
       ] satisfies LocalRepo[],
       loading: false,
+      loadingMoreGithub: false,
+      loadingMoreLocal: false,
+      hasMoreGithub: false,
+      hasMoreLocal: false,
       cloningId: null,
+      loadMoreGithub: vi.fn(),
+      loadMoreLocal: vi.fn(),
       clone: vi.fn(),
       remove: vi.fn(),
     });
@@ -90,25 +96,60 @@ describe('<ReposPage />', () => {
     );
   });
 
-  it('carrega repositorios do GitHub em blocos de 10 ao atingir o fim da lista', async () => {
-    const githubRepos = Array.from({ length: 25 }, (_, index) => ({
-      id: index + 1,
-      name: `repo-${index + 1}`,
-      fullName: `octocat/repo-${index + 1}`,
-      private: false,
-      cloneUrl: `https://github.com/octocat/repo-${index + 1}.git`,
-      defaultBranch: 'main',
-      updatedAt: '2026-04-30T00:00:00.000Z',
-      description: null,
-      language: 'TypeScript',
-      cloned: false,
-    })) satisfies RemoteRepo[];
+  it('permite alterar a permissao de um usuario ja compartilhado', async () => {
+    vi.spyOn(reposApi, 'listRepoPermissions')
+      .mockResolvedValueOnce([
+        { userId: 'user-2', login: 'octodemo', permission: 'read' },
+      ])
+      .mockResolvedValueOnce([
+        { userId: 'user-2', login: 'octodemo', permission: 'write' },
+      ]);
+    const grantSpy = vi.spyOn(reposApi, 'grantRepoAccess').mockResolvedValue();
 
+    render(
+      <MemoryRouter>
+        <ReposPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /compartilhar/i }));
+    expect(await screen.findByText('@octodemo')).toBeInTheDocument();
+
+    await userEvent.selectOptions(screen.getByLabelText('Permissão de octodemo'), 'write');
+    await userEvent.click(screen.getByRole('button', { name: 'Atualizar octodemo' }));
+
+    await waitFor(() =>
+      expect(grantSpy).toHaveBeenCalledWith('repo-1', 'octodemo', 'write'),
+    );
+    expect(screen.getByLabelText('Permissão de octodemo')).toHaveValue('write');
+  });
+
+  it('aciona o carregamento da proxima pagina do GitHub ao atingir o fim da lista', async () => {
+    const loadMoreGithub = vi.fn();
     mockUseRepos.mockReturnValue({
-      githubRepos,
+      githubRepos: [
+        {
+          id: 1,
+          name: 'repo-1',
+          fullName: 'octocat/repo-1',
+          private: false,
+          cloneUrl: '',
+          defaultBranch: 'main',
+          updatedAt: null,
+          description: null,
+          language: null,
+          cloned: false,
+        },
+      ],
       localRepos: [],
       loading: false,
+      loadingMoreGithub: false,
+      loadingMoreLocal: false,
+      hasMoreGithub: true,
+      hasMoreLocal: false,
       cloningId: null,
+      loadMoreGithub,
+      loadMoreLocal: vi.fn(),
       clone: vi.fn(),
       remove: vi.fn(),
     });
@@ -131,10 +172,6 @@ describe('<ReposPage />', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('repo-1')).toBeInTheDocument();
-    expect(screen.getByText('repo-10')).toBeInTheDocument();
-    expect(screen.queryByText('repo-11')).not.toBeInTheDocument();
-
     act(() => {
       observerCallback?.(
         [{ isIntersecting: true } as IntersectionObserverEntry],
@@ -142,16 +179,6 @@ describe('<ReposPage />', () => {
       );
     });
 
-    await waitFor(() => expect(screen.getByText('repo-20')).toBeInTheDocument());
-    expect(screen.queryByText('repo-21')).not.toBeInTheDocument();
-
-    act(() => {
-      observerCallback?.(
-        [{ isIntersecting: true } as IntersectionObserverEntry],
-        {} as IntersectionObserver,
-      );
-    });
-
-    await waitFor(() => expect(screen.getByText('repo-25')).toBeInTheDocument());
+    await waitFor(() => expect(loadMoreGithub).toHaveBeenCalledTimes(1));
   });
 });

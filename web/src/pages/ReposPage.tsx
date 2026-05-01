@@ -12,8 +12,6 @@ import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { RepoPermissionEntry, ShareUserCandidate } from '@/types';
 
-const REPOS_PAGE_SIZE = 10;
-
 function formatRelative(iso: string | null) {
   if (!iso) return '';
   const ms = Date.now() - new Date(iso).getTime();
@@ -27,17 +25,27 @@ function formatRelative(iso: string | null) {
 
 export default function ReposPage() {
   const { user, logout } = useAuth();
-  const { githubRepos, localRepos, loading, cloningId, clone, remove } = useRepos();
+  const {
+    githubRepos,
+    localRepos,
+    loading,
+    cloningId,
+    hasMoreGithub,
+    hasMoreLocal,
+    loadMoreGithub,
+    loadMoreLocal,
+    clone,
+    remove,
+  } = useRepos();
   const [query, setQuery] = useState('');
   const [sharingRepoId, setSharingRepoId] = useState<string | null>(null);
   const [shareLogin, setShareLogin] = useState('');
   const [sharePermission, setSharePermission] = useState<'read' | 'write'>('read');
   const [shareBusy, setShareBusy] = useState(false);
   const [permissionsByRepo, setPermissionsByRepo] = useState<Record<string, RepoPermissionEntry[]>>({});
+  const [permissionDrafts, setPermissionDrafts] = useState<Record<string, 'read' | 'write'>>({});
   const [shareCandidates, setShareCandidates] = useState<ShareUserCandidate[]>([]);
   const [searchingUsers, setSearchingUsers] = useState(false);
-  const [visibleLocalCount, setVisibleLocalCount] = useState(REPOS_PAGE_SIZE);
-  const [visibleGithubCount, setVisibleGithubCount] = useState(REPOS_PAGE_SIZE);
   const localSentinelRef = useRef<HTMLDivElement | null>(null);
   const githubSentinelRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -48,6 +56,10 @@ export default function ReposPage() {
       try {
         const data = await listRepoPermissions(sharingRepoId);
         setPermissionsByRepo((prev) => ({ ...prev, [sharingRepoId]: data }));
+        setPermissionDrafts((prev) => ({
+          ...prev,
+          ...Object.fromEntries(data.map((entry) => [entry.userId, entry.permission])),
+        }));
       } catch (err: any) {
         toast.error(err?.response?.data?.message ?? 'Falha ao carregar acessos');
       }
@@ -112,38 +124,30 @@ export default function ReposPage() {
   }, [localRepos, query]);
 
   useEffect(() => {
-    setVisibleLocalCount(REPOS_PAGE_SIZE);
-  }, [query, localRepos]);
-
-  useEffect(() => {
-    setVisibleGithubCount(REPOS_PAGE_SIZE);
-  }, [query, githubRepos]);
-
-  useEffect(() => {
     const node = localSentinelRef.current;
-    if (!node || visibleLocalCount >= filteredLocal.length) return;
+    if (!node || !hasMoreLocal) return;
 
     const observer = new IntersectionObserver((entries) => {
       if (!entries[0]?.isIntersecting) return;
-      setVisibleLocalCount((count) => Math.min(count + REPOS_PAGE_SIZE, filteredLocal.length));
+      void loadMoreLocal();
     });
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [filteredLocal.length, visibleLocalCount]);
+  }, [hasMoreLocal, loadMoreLocal]);
 
   useEffect(() => {
     const node = githubSentinelRef.current;
-    if (!node || visibleGithubCount >= filteredGithub.length) return;
+    if (!node || !hasMoreGithub) return;
 
     const observer = new IntersectionObserver((entries) => {
       if (!entries[0]?.isIntersecting) return;
-      setVisibleGithubCount((count) => Math.min(count + REPOS_PAGE_SIZE, filteredGithub.length));
+      void loadMoreGithub();
     });
 
     observer.observe(node);
     return () => observer.disconnect();
-  }, [filteredGithub.length, visibleGithubCount]);
+  }, [hasMoreGithub, loadMoreGithub]);
 
   async function handleGrant(repoId: string) {
     const login = shareLogin.trim().replace(/^@/, '');
@@ -153,6 +157,10 @@ export default function ReposPage() {
       await grantRepoAccess(repoId, login, sharePermission);
       const data = await listRepoPermissions(repoId);
       setPermissionsByRepo((prev) => ({ ...prev, [repoId]: data }));
+      setPermissionDrafts((prev) => ({
+        ...prev,
+        ...Object.fromEntries(data.map((entry) => [entry.userId, entry.permission])),
+      }));
       setShareLogin('');
       setSharePermission('read');
       setShareCandidates([]);
@@ -170,9 +178,35 @@ export default function ReposPage() {
       await revokeRepoAccess(repoId, userId);
       const data = await listRepoPermissions(repoId);
       setPermissionsByRepo((prev) => ({ ...prev, [repoId]: data }));
+      setPermissionDrafts((prev) => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
       toast.success(`Acesso removido${login ? ` de @${login}` : ''}`);
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'Falha ao remover acesso');
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
+  async function handleUpdatePermission(repoId: string, entry: RepoPermissionEntry) {
+    if (!entry.login) return;
+    const nextPermission = permissionDrafts[entry.userId] ?? entry.permission;
+    if (nextPermission === entry.permission) return;
+    setShareBusy(true);
+    try {
+      await grantRepoAccess(repoId, entry.login, nextPermission);
+      const data = await listRepoPermissions(repoId);
+      setPermissionsByRepo((prev) => ({ ...prev, [repoId]: data }));
+      setPermissionDrafts((prev) => ({
+        ...prev,
+        ...Object.fromEntries(data.map((row) => [row.userId, row.permission])),
+      }));
+      toast.success(`Permissão de @${entry.login} atualizada para ${nextPermission}`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message ?? 'Falha ao atualizar permissão');
     } finally {
       setShareBusy(false);
     }
@@ -223,7 +257,7 @@ export default function ReposPage() {
               <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">Nenhum repositório local acessível.</p>
             ) : (
               <ul className="space-y-2">
-                {filteredLocal.slice(0, visibleLocalCount).map((repo) => (
+                {filteredLocal.map((repo) => (
                   <li key={repo.id}>
                     <Card className="flex items-center justify-between gap-4 p-4">
                       <div className="min-w-0 flex-1">
@@ -319,14 +353,42 @@ export default function ReposPage() {
                                 <p className="text-xs text-muted-foreground">{entry.permission}</p>
                               </div>
                               {entry.userId !== user?.userId && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={shareBusy}
-                                  onClick={() => void handleRevoke(repo.id, entry.userId, entry.login)}
-                                >
-                                  Remover
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                  <label className="sr-only" htmlFor={`permission-${entry.userId}`}>
+                                    Permissão de {entry.login ?? entry.userId}
+                                  </label>
+                                  <select
+                                    id={`permission-${entry.userId}`}
+                                    className="h-9 rounded-md border bg-background px-3 text-sm"
+                                    value={permissionDrafts[entry.userId] ?? entry.permission}
+                                    onChange={(e) =>
+                                      setPermissionDrafts((prev) => ({
+                                        ...prev,
+                                        [entry.userId]: e.target.value as 'read' | 'write',
+                                      }))
+                                    }
+                                    disabled={shareBusy}
+                                  >
+                                    <option value="read">read</option>
+                                    <option value="write">write</option>
+                                  </select>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={shareBusy || (permissionDrafts[entry.userId] ?? entry.permission) === entry.permission}
+                                    onClick={() => void handleUpdatePermission(repo.id, entry)}
+                                  >
+                                    Atualizar {entry.login ?? entry.userId}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    disabled={shareBusy}
+                                    onClick={() => void handleRevoke(repo.id, entry.userId, entry.login)}
+                                  >
+                                    Remover
+                                  </Button>
+                                </div>
                               )}
                             </div>
                           ))}
@@ -340,7 +402,7 @@ export default function ReposPage() {
                 ))}
               </ul>
             )}
-            {visibleLocalCount < filteredLocal.length && <div ref={localSentinelRef} className="h-4" aria-hidden="true" />}
+            {hasMoreLocal && <div ref={localSentinelRef} className="h-4" aria-hidden="true" />}
           </section>
 
           <section>
@@ -352,7 +414,7 @@ export default function ReposPage() {
               <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">Nenhum repositório encontrado.</p>
             ) : (
               <ul className="space-y-2">
-                {filteredGithub.slice(0, visibleGithubCount).map((repo) => (
+                {filteredGithub.map((repo) => (
                   <li key={repo.id}>
                     <Card className="flex items-center justify-between gap-4 p-4">
                       <div className="min-w-0 flex-1">
@@ -395,7 +457,7 @@ export default function ReposPage() {
                 ))}
               </ul>
             )}
-            {visibleGithubCount < filteredGithub.length && <div ref={githubSentinelRef} className="h-4" aria-hidden="true" />}
+            {hasMoreGithub && <div ref={githubSentinelRef} className="h-4" aria-hidden="true" />}
           </section>
         </div>
       )}

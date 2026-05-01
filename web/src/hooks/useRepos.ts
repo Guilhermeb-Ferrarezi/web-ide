@@ -3,18 +3,30 @@ import { toast } from 'sonner';
 import { cloneRepo as apiClone, deleteLocalRepo as apiDelete, listRepos } from '@/api/repos';
 import type { LocalRepo, RemoteRepo } from '@/types';
 
+const REPOS_PAGE_SIZE = 10;
+
 export function useRepos() {
   const [githubRepos, setGithubRepos] = useState<RemoteRepo[]>([]);
   const [localRepos, setLocalRepos] = useState<LocalRepo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMoreGithub, setLoadingMoreGithub] = useState(false);
+  const [loadingMoreLocal, setLoadingMoreLocal] = useState(false);
   const [cloningId, setCloningId] = useState<number | null>(null);
+  const [githubPage, setGithubPage] = useState(1);
+  const [localPage, setLocalPage] = useState(1);
+  const [hasMoreGithub, setHasMoreGithub] = useState(false);
+  const [hasMoreLocal, setHasMoreLocal] = useState(false);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await listRepos();
+      const data = await listRepos({ githubPage: 1, localPage: 1, limit: REPOS_PAGE_SIZE });
       setGithubRepos(data.githubRepos);
       setLocalRepos(data.localRepos);
+      setGithubPage(data.githubPagination.page);
+      setLocalPage(data.localPagination.page);
+      setHasMoreGithub(data.githubPagination.hasMore);
+      setHasMoreLocal(data.localPagination.hasMore);
     } catch {
       toast.error('Falha ao carregar repositórios');
     } finally {
@@ -25,6 +37,38 @@ export function useRepos() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const loadMoreGithub = useCallback(async () => {
+    if (loading || loadingMoreGithub || !hasMoreGithub) return;
+    setLoadingMoreGithub(true);
+    try {
+      const nextPage = githubPage + 1;
+      const data = await listRepos({ githubPage: nextPage, localPage: localPage, limit: REPOS_PAGE_SIZE });
+      setGithubRepos((prev) => [...prev, ...data.githubRepos]);
+      setGithubPage(data.githubPagination.page);
+      setHasMoreGithub(data.githubPagination.hasMore);
+    } catch {
+      toast.error('Falha ao carregar mais repositórios do GitHub');
+    } finally {
+      setLoadingMoreGithub(false);
+    }
+  }, [githubPage, hasMoreGithub, loading, loadingMoreGithub, localPage]);
+
+  const loadMoreLocal = useCallback(async () => {
+    if (loading || loadingMoreLocal || !hasMoreLocal) return;
+    setLoadingMoreLocal(true);
+    try {
+      const nextPage = localPage + 1;
+      const data = await listRepos({ githubPage: githubPage, localPage: nextPage, limit: REPOS_PAGE_SIZE });
+      setLocalRepos((prev) => [...prev, ...data.localRepos]);
+      setLocalPage(data.localPagination.page);
+      setHasMoreLocal(data.localPagination.hasMore);
+    } catch {
+      toast.error('Falha ao carregar mais repositórios locais');
+    } finally {
+      setLoadingMoreLocal(false);
+    }
+  }, [githubPage, hasMoreLocal, loading, loadingMoreLocal, localPage]);
 
   const clone = useCallback(
     async (repo: RemoteRepo) => {
@@ -60,5 +104,19 @@ export function useRepos() {
     }
   }, []);
 
-  return { githubRepos, localRepos, loading, cloningId, refresh, clone, remove };
+  return {
+    githubRepos,
+    localRepos,
+    loading,
+    loadingMoreGithub,
+    loadingMoreLocal,
+    hasMoreGithub,
+    hasMoreLocal,
+    cloningId,
+    refresh,
+    loadMoreGithub,
+    loadMoreLocal,
+    clone,
+    remove,
+  };
 }

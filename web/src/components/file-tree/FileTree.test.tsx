@@ -57,14 +57,15 @@ describe('<FileTree />', () => {
   it('cria arquivo pela barra superior', async () => {
     vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([]);
     const saveSpy = vi.spyOn(fsApi, 'saveFile').mockResolvedValue();
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('notes.txt');
 
     render(<FileTree workspace="repo" />);
     await waitFor(() => expect(screen.getByText('Workspace vazio')).toBeInTheDocument());
 
     await userEvent.click(screen.getByTitle('Novo arquivo'));
+    expect(screen.getByText('Criar novo arquivo')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Nome'), 'notes.txt');
+    await userEvent.click(screen.getByRole('button', { name: 'Criar' }));
 
-    expect(promptSpy).toHaveBeenCalled();
     expect(saveSpy).toHaveBeenCalledWith('repo', 'notes.txt', '', 'utf-8');
   });
 

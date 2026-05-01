@@ -39,9 +39,17 @@ export type ShareUserCandidate = {
   avatarUrl: string | null;
 };
 
+export type RepoPagination = {
+  page: number;
+  limit: number;
+  hasMore: boolean;
+};
+
 export type ReposPayload = {
   githubRepos: RemoteRepo[];
   localRepos: LocalRepo[];
+  githubPagination: RepoPagination;
+  localPagination: RepoPagination;
 };
 
 export type TreeNode = {

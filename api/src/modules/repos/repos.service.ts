@@ -4,7 +4,7 @@ import { config } from '../../config.ts';
 import { createOctokit } from '../../utils/octokit.ts';
 import { db } from '../../db/client.ts';
 import { repoPermissions, repos } from '../../db/schema.ts';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 import { getSharedReposRoot, sanitizeRepoName } from '../../utils/path.utils.ts';
 import { grantRepoPermission } from '../permissions/permissions.service.ts';
 import { ensureImportedRepo } from './repo-catalog.service.ts';
@@ -34,30 +34,66 @@ export type LocalRepo = {
 export type ReposPayload = {
   githubRepos: RemoteRepo[];
   localRepos: LocalRepo[];
+  githubPagination: RepoPagination;
+  localPagination: RepoPagination;
 };
 
-export async function listRemoteRepos(accessToken: string, userId: string): Promise<RemoteRepo[]> {
+export type RepoPagination = {
+  page: number;
+  limit: number;
+  hasMore: boolean;
+};
+
+export type ListReposOptions = {
+  githubPage: number;
+  localPage: number;
+  limit: number;
+};
+
+async function listAccessibleGithubFullNames(userId: string): Promise<string[]> {
+  const rows = await db
+    .select({ githubFullName: repos.githubFullName })
+    .from(repoPermissions)
+    .innerJoin(repos, eq(repoPermissions.repoId, repos.id))
+    .where(eq(repoPermissions.userId, userId));
+
+  return rows.map((row) => row.githubFullName);
+}
+
+export async function listRemoteRepos(
+  accessToken: string,
+  userId: string,
+  pagination: RepoPaginationInput,
+): Promise<{ items: RemoteRepo[]; pagination: RepoPagination }> {
   const octokit = createOctokit(accessToken);
   const { data } = await octokit.repos.listForAuthenticatedUser({
-    per_page: 100,
+    per_page: pagination.limit + 1,
+    page: pagination.page,
     sort: 'updated',
     affiliation: 'owner,collaborator',
   });
 
-  const local = new Set((await listLocalRepos(userId)).map((r) => r.githubFullName));
+  const local = new Set(await listAccessibleGithubFullNames(userId));
 
-  return data.map((r) => ({
-    id: r.id,
-    name: r.name,
-    fullName: r.full_name,
-    private: r.private,
-    cloneUrl: r.clone_url ?? '',
-    defaultBranch: r.default_branch ?? 'main',
-    updatedAt: r.updated_at,
-    description: r.description,
-    language: r.language,
-    cloned: local.has(r.full_name),
-  }));
+  return {
+    items: data.slice(0, pagination.limit).map((r) => ({
+      id: r.id,
+      name: r.name,
+      fullName: r.full_name,
+      private: r.private,
+      cloneUrl: r.clone_url ?? '',
+      defaultBranch: r.default_branch ?? 'main',
+      updatedAt: r.updated_at,
+      description: r.description,
+      language: r.language,
+      cloned: local.has(r.full_name),
+    })),
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      hasMore: data.length > pagination.limit,
+    },
+  };
 }
 
 export async function listLocalRepos(userId: string): Promise<LocalRepo[]> {
@@ -82,12 +118,64 @@ export async function listLocalRepos(userId: string): Promise<LocalRepo[]> {
   }));
 }
 
-export async function listReposForUser(accessToken: string, userId: string): Promise<ReposPayload> {
+type RepoPaginationInput = {
+  page: number;
+  limit: number;
+};
+
+export async function listLocalReposPage(
+  userId: string,
+  pagination: RepoPaginationInput,
+): Promise<{ items: LocalRepo[]; pagination: RepoPagination }> {
+  const rows = await db
+    .select({
+      id: repos.id,
+      slug: repos.slug,
+      githubFullName: repos.githubFullName,
+      path: repos.storagePath,
+      createdByUserId: repos.createdByUserId,
+      permission: repoPermissions.permission,
+    })
+    .from(repoPermissions)
+    .innerJoin(repos, eq(repoPermissions.repoId, repos.id))
+    .where(eq(repoPermissions.userId, userId))
+    .orderBy(asc(repos.githubFullName))
+    .limit(pagination.limit + 1)
+    .offset((pagination.page - 1) * pagination.limit);
+
+  return {
+    items: rows.slice(0, pagination.limit).map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      githubFullName: row.githubFullName,
+      permission: row.permission,
+      path: row.path,
+      canManage: row.createdByUserId === userId,
+    })),
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      hasMore: rows.length > pagination.limit,
+    },
+  };
+}
+
+export async function listReposForUser(
+  accessToken: string,
+  userId: string,
+  options: ListReposOptions,
+): Promise<ReposPayload> {
   const [githubRepos, localRepos] = await Promise.all([
-    listRemoteRepos(accessToken, userId),
-    listLocalRepos(userId),
+    listRemoteRepos(accessToken, userId, { page: options.githubPage, limit: options.limit }),
+    listLocalReposPage(userId, { page: options.localPage, limit: options.limit }),
   ]);
-  return { githubRepos, localRepos };
+
+  return {
+    githubRepos: githubRepos.items,
+    localRepos: localRepos.items,
+    githubPagination: githubRepos.pagination,
+    localPagination: localRepos.pagination,
+  };
 }
 
 export async function importRepo(opts: {

@@ -7,11 +7,18 @@ const cloneSchema = z.object({
   branch: z.string().optional(),
 });
 
+const listReposQuerySchema = z.object({
+  githubPage: z.coerce.number().int().min(1).default(1),
+  localPage: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
 const repoNameParam = z.object({ name: z.string().min(1) });
 
 export async function getRemoteRepos(req: FastifyRequest, reply: FastifyReply) {
   const user = req.session.user!;
-  const repos = await listReposForUser(user.accessToken, user.userId);
+  const query = listReposQuerySchema.parse(req.query);
+  const repos = await listReposForUser(user.accessToken, user.userId, query);
   return reply.send(repos);
 }
 

@@ -1,8 +1,14 @@
 import { api } from './client';
 import type { LocalRepo, RepoPermissionEntry, ReposPayload, ShareUserCandidate } from '@/types';
 
-export async function listRepos(): Promise<ReposPayload> {
-  const { data } = await api.get<ReposPayload>('/repos');
+export type ListReposParams = {
+  githubPage?: number;
+  localPage?: number;
+  limit?: number;
+};
+
+export async function listRepos(params?: ListReposParams): Promise<ReposPayload> {
+  const { data } = await api.get<ReposPayload>('/repos', { params });
   return data;
 }
 
