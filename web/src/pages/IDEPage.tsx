@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { AppShell } from '@/components/layout/AppShell';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useEditorStore } from '@/stores/editorStore';
@@ -15,6 +16,7 @@ export default function IDEPage() {
   const navigate = useNavigate();
   const setWorkspace = useWorkspaceStore((s) => s.setWorkspace);
   const setPermission = useWorkspaceStore((s) => s.setPermission);
+  const permission = useWorkspaceStore((s) => s.permission);
   const resetEditor = useEditorStore((s) => s.reset);
 
   useEffect(() => {
@@ -85,6 +87,11 @@ export default function IDEPage() {
           Repositórios
         </Button>
         <span className="text-sm font-medium">{workspace}</span>
+        {permission && (
+          <Badge variant={permission === 'write' ? 'default' : 'secondary'}>
+            {permission === 'write' ? 'Pode editar' : 'Somente leitura'}
+          </Badge>
+        )}
       </header>
       <div className="flex-1 overflow-hidden">
         <AppShell workspace={workspace} />

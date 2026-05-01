@@ -10,9 +10,9 @@ import { useGitStatus } from '@/hooks/useGitStatus';
 import { gitAdd, gitCommit, gitPull, gitPush, gitUnstage } from '@/api/git';
 import { GitFileList } from './GitFileList';
 
-type Props = { workspace: string };
+type Props = { workspace: string; readOnly?: boolean };
 
-export function GitPanel({ workspace }: Props) {
+export function GitPanel({ workspace, readOnly = false }: Props) {
   const { status, loading, refresh } = useGitStatus(workspace);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
@@ -130,6 +130,14 @@ export function GitPanel({ workspace }: Props) {
 
       <ScrollArea className="flex-1">
         <div className="space-y-2 py-2">
+          {readOnly && (
+            <div className="mx-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+              <p className="text-sm font-medium text-foreground">Somente leitura</p>
+              <p className="text-xs text-muted-foreground">
+                Commits, stage, push e pull ficam bloqueados para quem tem acesso read.
+              </p>
+            </div>
+          )}
           {stagedItems.length > 0 && (
             <>
               <GitFileList
@@ -141,7 +149,7 @@ export function GitPanel({ workspace }: Props) {
                 emptyText=""
               />
               <div className="px-2">
-                <Button size="sm" variant="outline" className="w-full" onClick={() => void handleUnstage()}>
+                <Button size="sm" variant="outline" className="w-full" onClick={() => void handleUnstage()} disabled={readOnly}>
                   Unstage selecionados
                 </Button>
               </div>
@@ -160,7 +168,7 @@ export function GitPanel({ workspace }: Props) {
                 emptyText=""
               />
               <div className="px-2">
-                <Button size="sm" className="w-full" onClick={() => void handleStage()}>
+                <Button size="sm" className="w-full" onClick={() => void handleStage()} disabled={readOnly}>
                   Adicionar selecionados (stage)
                 </Button>
               </div>
@@ -180,16 +188,17 @@ export function GitPanel({ workspace }: Props) {
           placeholder="Mensagem do commit"
           rows={3}
           className="text-sm"
+          disabled={readOnly}
         />
         <div className="flex gap-2">
-          <Button size="sm" className="flex-1" disabled={busy !== null} onClick={() => void handleCommit()}>
+          <Button size="sm" className="flex-1" disabled={busy !== null || readOnly} onClick={() => void handleCommit()}>
             {busy === 'commit' ? '...' : 'Commit'}
           </Button>
-          <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => void handlePush()}>
+          <Button size="sm" variant="outline" disabled={busy !== null || readOnly} onClick={() => void handlePush()}>
             <ArrowUp className="mr-1 h-3.5 w-3.5" />
             {busy === 'push' ? '...' : 'Push'}
           </Button>
-          <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => void handlePull()}>
+          <Button size="sm" variant="outline" disabled={busy !== null || readOnly} onClick={() => void handlePull()}>
             <ArrowDown className="mr-1 h-3.5 w-3.5" />
             {busy === 'pull' ? '...' : 'Pull'}
           </Button>

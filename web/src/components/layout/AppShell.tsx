@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GitBranch, TerminalSquare } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { FileTree } from '@/components/file-tree/FileTree';
 import { EditorBreadcrumbs } from '@/components/editor/EditorBreadcrumbs';
 import { EditorTabs } from '@/components/editor/EditorTabs';
@@ -21,6 +22,10 @@ export function AppShell({ workspace }: { workspace: string }) {
   const activeTab = tabs.find((t) => t.path === activePath) ?? null;
   const [side, setSide] = useState<SidePanel>('files');
   const [showTerminal, setShowTerminal] = useState(true);
+
+  useEffect(() => {
+    if (permission !== 'write') setShowTerminal(false);
+  }, [permission]);
 
   return (
     <div className="flex h-full flex-col">
@@ -50,14 +55,15 @@ export function AppShell({ workspace }: { workspace: string }) {
             size="icon"
             className={cn('h-8 w-8', showTerminal && 'bg-accent')}
             onClick={() => setShowTerminal((v) => !v)}
-            title="Terminal"
+            title={permission === 'write' ? 'Terminal' : 'Terminal indisponível em modo somente leitura'}
+            disabled={permission !== 'write'}
           >
             <TerminalSquare className="h-4 w-4" />
           </Button>
         </div>
 
         <ResizablePanel defaultSize={22} minSize={14} maxSize={45} className="border-r">
-          {side === 'files' ? <FileTree workspace={workspace} /> : <GitPanel workspace={workspace} />}
+          {side === 'files' ? <FileTree workspace={workspace} /> : <GitPanel workspace={workspace} readOnly={permission !== 'write'} />}
         </ResizablePanel>
         <ResizableHandle />
 
@@ -65,6 +71,17 @@ export function AppShell({ workspace }: { workspace: string }) {
           <ResizablePanelGroup direction="vertical">
             <ResizablePanel defaultSize={showTerminal ? 65 : 100}>
               <div className="flex h-full flex-col">
+                {permission !== 'write' && (
+                  <div className="flex items-center justify-between gap-3 border-b bg-amber-500/10 px-3 py-2 text-sm">
+                    <div>
+                      <p className="font-medium text-foreground">Modo somente leitura</p>
+                      <p className="text-xs text-muted-foreground">
+                        Você pode navegar, mas não editar arquivos, usar terminal ou executar ações de Git com escrita.
+                      </p>
+                    </div>
+                    <Badge variant="outline">read</Badge>
+                  </div>
+                )}
                 <EditorTabs tabs={tabs} activePath={activePath} onSelect={setActive} onClose={closeTab} />
                 <EditorBreadcrumbs path={activeTab?.path ?? null} dirty={activeTab?.dirty} />
                 <div className="flex-1 overflow-hidden">
@@ -72,7 +89,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 </div>
               </div>
             </ResizablePanel>
-            {showTerminal && (
+            {showTerminal && permission === 'write' && (
               <>
                 <ResizableHandle />
                 <ResizablePanel defaultSize={35} minSize={15}>
