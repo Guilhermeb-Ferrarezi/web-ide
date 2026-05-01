@@ -147,7 +147,7 @@ function deriveCompilerOptionsFromProjectFiles(
 
   if (!matchingConfig) {
     return {
-      baseUrl: 'file:///',
+      baseUrl: '.',
       paths: { '@/*': ['src/*'] },
       jsx: 'react-jsx' as const,
       jsxImportSource: 'react',
@@ -171,7 +171,7 @@ function deriveCompilerOptionsFromProjectFiles(
     );
 
     return {
-      baseUrl: `file:///${resolvedBaseUrl}`,
+      baseUrl: resolvedBaseUrl || '.',
       paths: Object.keys(resolvedPaths).length > 0 ? resolvedPaths : { '@/*': ['src/*'] },
       jsx: compilerOptions.jsx ?? ('react-jsx' as const),
       jsxImportSource: compilerOptions.jsxImportSource ?? 'react',
@@ -182,7 +182,7 @@ function deriveCompilerOptionsFromProjectFiles(
     };
   } catch {
     return {
-      baseUrl: 'file:///',
+      baseUrl: '.',
       paths: { '@/*': ['src/*'] },
       jsx: 'react-jsx' as const,
       jsxImportSource: 'react',
