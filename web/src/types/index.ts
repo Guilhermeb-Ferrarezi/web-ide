@@ -186,4 +186,9 @@ export type ExtensionDetail = {
   categories: string[];
   publishedAt: string | null;
   updatedAt: string | null;
+  installSupport: {
+    supported: boolean;
+    kinds: Array<'theme' | 'iconTheme'>;
+    reason: string | null;
+  };
 };

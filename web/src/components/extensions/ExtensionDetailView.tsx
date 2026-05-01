@@ -157,10 +157,15 @@ export function ExtensionDetailView({
                   {installing ? 'Instalando...' : 'Instalar extensão'}
                 </Button>
               ) : null}
-              {!canInstall ? (
+              {!installedAction && !canInstall ? (
                 <Button type="button" variant="outline" disabled>
-                  Uninstall
+                  Extensão não suportada
                 </Button>
+              ) : null}
+              {!installedAction && !canInstall ? (
+                <p className="basis-full text-sm text-muted-foreground">
+                  {detail.installSupport.reason ?? 'Esta extensão não pode ser instalada agora.'}
+                </p>
               ) : null}
               <label className="flex items-center gap-2 text-sm text-muted-foreground">
                 <input type="checkbox" checked readOnly className="h-4 w-4 rounded border-input bg-background" />

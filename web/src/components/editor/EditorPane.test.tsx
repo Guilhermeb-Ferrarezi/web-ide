@@ -100,6 +100,11 @@ describe('<EditorPane />', () => {
       categories: ['Themes'],
       publishedAt: '2024-10-04T03:33:27.439016Z',
       updatedAt: '2024-10-04T03:33:27.439016Z',
+      installSupport: {
+        supported: true,
+        kinds: ['theme'],
+        reason: null,
+      },
     };
 
     render(
@@ -126,5 +131,54 @@ describe('<EditorPane />', () => {
     expect(screen.getByAltText('Aura Banner')).toBeInTheDocument();
     expect(screen.queryByText('<p align="center">')).not.toBeInTheDocument();
     expect(screen.queryByTestId('monaco-editor')).not.toBeInTheDocument();
+  });
+
+  it('mostra motivo quando a extensao nao e suportada para instalacao', () => {
+    const extensionDetail: ExtensionDetail = {
+      extension: {
+        id: 'miguelsolorio.fluent-icons',
+        name: 'fluent-icons',
+        namespace: 'miguelsolorio',
+        displayName: 'Fluent Icons',
+        description: 'Fluent product icons for Visual Studio Code',
+        version: '0.0.19',
+        iconUrl: 'https://example.com/fluent.png',
+        downloadCount: 80020,
+        averageRating: 3,
+        verified: true,
+      },
+      readme: '# Fluent Icons',
+      resources: [{ label: 'Repository', url: 'https://github.com/misolori/vscode-fluent-icons' }],
+      categories: ['Themes'],
+      publishedAt: '2024-10-28T03:44:36.861379Z',
+      updatedAt: '2024-10-28T03:44:36.861379Z',
+      installSupport: {
+        supported: false,
+        kinds: [],
+        reason: 'Esta extensão só fornece product icons, que ainda não são suportados.',
+      },
+    };
+
+    render(
+      <EditorPane
+        tab={{
+          path: 'Extensions/Fluent Icons',
+          name: 'Extension: Fluent Icons',
+          content: extensionDetail.readme ?? '',
+          originalContent: extensionDetail.readme ?? '',
+          encoding: 'utf-8',
+          mimeType: 'application/x-web-ide-extension',
+          dirty: false,
+          kind: 'extension',
+          iconUrl: extensionDetail.extension.iconUrl,
+          extensionDetail,
+        }}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Extensão não suportada' })).toBeDisabled();
+    expect(screen.getByText('Esta extensão só fornece product icons, que ainda não são suportados.')).toBeInTheDocument();
   });
 });

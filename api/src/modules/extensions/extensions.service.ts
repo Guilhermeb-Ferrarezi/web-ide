@@ -113,6 +113,19 @@ export type ExtensionDetailPayload = {
   categories: string[];
   publishedAt: string | null;
   updatedAt: string | null;
+  installSupport: {
+    supported: boolean;
+    kinds: Array<'theme' | 'iconTheme'>;
+    reason: string | null;
+  };
+};
+
+type ExtensionManifest = {
+  contributes?: {
+    themes?: unknown[];
+    iconThemes?: unknown[];
+    productIconThemes?: unknown[];
+  };
 };
 
 function stripJsonComments(input: string): string {
@@ -173,6 +186,38 @@ async function fetchText(url: string): Promise<string> {
   const response = await fetch(url, { headers: { 'User-Agent': 'web-ide' } });
   if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
   return await response.text();
+}
+
+function getInstallSupport(manifest: ExtensionManifest | null): ExtensionDetailPayload['installSupport'] {
+  const contributes = manifest?.contributes ?? {};
+  const hasThemes = Array.isArray(contributes.themes) && contributes.themes.length > 0;
+  const hasIconThemes = Array.isArray(contributes.iconThemes) && contributes.iconThemes.length > 0;
+  const hasProductIconThemes = Array.isArray(contributes.productIconThemes) && contributes.productIconThemes.length > 0;
+
+  if (hasThemes || hasIconThemes) {
+    return {
+      supported: true,
+      kinds: [
+        ...(hasThemes ? ['theme' as const] : []),
+        ...(hasIconThemes ? ['iconTheme' as const] : []),
+      ],
+      reason: null,
+    };
+  }
+
+  if (hasProductIconThemes) {
+    return {
+      supported: false,
+      kinds: [],
+      reason: 'Esta extensão só fornece product icons, que ainda não são suportados.',
+    };
+  }
+
+  return {
+    supported: false,
+    kinds: [],
+    reason: 'Esta extensão não expõe temas de cor nem ícones de arquivo instaláveis.',
+  };
 }
 
 async function findExtension(extensionId: string): Promise<(MarketplaceExtension & { downloadUrl: string }) | null> {
@@ -260,7 +305,13 @@ export async function getExtensionDetail(extensionId: string): Promise<Extension
   ]);
   if (!extension || !versionData) throw new Error('Extensão não encontrada');
 
-  const readme = versionData.files?.readme ? await fetchText(versionData.files.readme) : null;
+  const [readme, manifest] = await Promise.all([
+    versionData.files?.readme ? fetchText(versionData.files.readme) : Promise.resolve(null),
+    versionData.files?.manifest
+      ? fetchText(versionData.files.manifest).then((content) => parseJsonc<ExtensionManifest>(content))
+      : Promise.resolve<ExtensionManifest | null>(null),
+  ]);
+  const installSupport = getInstallSupport(manifest);
   const repositoryUrl =
     typeof versionData.repository === 'string'
       ? versionData.repository
@@ -300,6 +351,7 @@ export async function getExtensionDetail(extensionId: string): Promise<Extension
     categories: Array.isArray(versionData.categories) ? versionData.categories : [],
     publishedAt: versionData.timestamp ?? extension.timestamp ?? null,
     updatedAt: versionData.timestamp ?? extension.timestamp ?? null,
+    installSupport,
   };
 }
 

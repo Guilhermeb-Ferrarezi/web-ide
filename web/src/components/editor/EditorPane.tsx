@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Editor, { useMonaco, type OnMount } from '@monaco-editor/react';
+import axios from 'axios';
 import type { EditorTab } from '@/types';
 import { fetchProjectFiles, fetchTypes } from '@/api/fs';
 import { useEditor } from '@/hooks/useEditor';
@@ -200,6 +201,8 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
       };
     }
 
+    const canInstall = !installedTheme && !installedIconTheme && tab.extensionDetail.installSupport.supported;
+
     async function handleInstall() {
       setInstallingId(extensionId);
       try {
@@ -209,8 +212,11 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
         if (payload.themes[0]) setActiveTheme(payload.themes[0].id);
         if (payload.iconThemes[0]) setActiveIconTheme(payload.iconThemes[0].id);
         toast.success(`${payload.displayName} instalada`);
-      } catch {
-        toast.error('Falha ao instalar extensão');
+      } catch (error) {
+        const message = axios.isAxiosError<{ message?: string }>(error)
+          ? error.response?.data?.message
+          : null;
+        toast.error(message ?? 'Falha ao instalar extensão');
       } finally {
         setInstallingId(null);
       }
@@ -220,7 +226,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
       <ExtensionDetailView
         detail={tab.extensionDetail}
         installing={installingId === extensionId}
-        canInstall={!installedTheme && !installedIconTheme}
+        canInstall={canInstall}
         installedAction={installedAction}
         onInstall={() => void handleInstall()}
       />

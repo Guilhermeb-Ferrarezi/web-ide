@@ -61,6 +61,11 @@ describe('<ExtensionsPanel />', () => {
       categories: ['Themes'],
       publishedAt: '2024-10-04T03:33:27.439016Z',
       updatedAt: '2024-10-04T03:33:27.439016Z',
+      installSupport: {
+        supported: true,
+        kinds: ['theme'],
+        reason: null,
+      },
     });
     render(<ExtensionsPanel />);
 
