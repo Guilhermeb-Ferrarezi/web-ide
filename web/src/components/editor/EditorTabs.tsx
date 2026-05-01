@@ -24,6 +24,7 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
             role="button"
             tabIndex={0}
             onClick={() => onSelect(tab.path)}
+            onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); onClose(tab.path); } }}
             className={cn(
               'group flex shrink-0 items-center gap-2 border-r px-3 text-sm cursor-pointer',
               active ? 'bg-background' : 'bg-muted/30 hover:bg-muted/50',

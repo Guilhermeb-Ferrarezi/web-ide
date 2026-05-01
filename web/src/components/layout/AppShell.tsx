@@ -3,6 +3,7 @@ import { Blocks, FileSearch, GitBranch, TerminalSquare } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { FileTree } from '@/components/file-tree/FileTree';
 import { EditorBreadcrumbs } from '@/components/editor/EditorBreadcrumbs';
 import { EditorTabs } from '@/components/editor/EditorTabs';
@@ -38,63 +39,99 @@ export function AppShell({ workspace }: { workspace: string }) {
     if (permission !== 'write') setShowTerminal(false);
   }, [permission]);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      if (e.key === '1') { e.preventDefault(); setSide('files'); }
+      else if (e.key === '2') { e.preventDefault(); setSide('search'); }
+      else if (e.key === '3') { e.preventDefault(); setSide('git'); }
+      else if (e.key === '4') { e.preventDefault(); setSide('extensions'); }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <div className="flex h-full flex-col">
       <ResizablePanelGroup direction="horizontal" className="flex-1">
+        <TooltipProvider delayDuration={600}>
         <div className="flex h-full w-10 shrink-0 flex-col items-center gap-1 border-r bg-muted/30 py-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-8 w-8', side === 'files' && 'bg-accent')}
-            onClick={() => setSide('files')}
-            title="Arquivos"
-          >
-            <span className="text-base">📁</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-8 w-8', side === 'search' && 'bg-accent')}
-            onClick={() => setSide('search')}
-            title="Buscar código"
-          >
-            <FileSearch className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('relative h-8 w-8', side === 'git' && 'bg-accent')}
-            onClick={() => setSide('git')}
-            title="Git"
-          >
-            <GitBranch className="h-4 w-4" />
-            {gitChangedCount > 0 && (
-              <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-emerald-500 px-1 text-[10px] font-semibold leading-4 text-emerald-950">
-                {gitChangedCount}
-              </span>
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-8 w-8', side === 'extensions' && 'bg-accent')}
-            onClick={() => setSide('extensions')}
-            title="Extensões"
-          >
-            <Blocks className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn('h-8 w-8', side === 'files' && 'bg-accent')}
+                onClick={() => setSide('files')}
+              >
+                <span className="text-base">📁</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Arquivos <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+1</kbd></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn('h-8 w-8', side === 'search' && 'bg-accent')}
+                onClick={() => setSide('search')}
+              >
+                <FileSearch className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Buscar código <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+2</kbd></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn('relative h-8 w-8', side === 'git' && 'bg-accent')}
+                onClick={() => setSide('git')}
+              >
+                <GitBranch className="h-4 w-4" />
+                {gitChangedCount > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-emerald-500 px-1 text-[10px] font-semibold leading-4 text-emerald-950">
+                    {gitChangedCount}
+                  </span>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Git <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+3</kbd></TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn('h-8 w-8', side === 'extensions' && 'bg-accent')}
+                onClick={() => setSide('extensions')}
+              >
+                <Blocks className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Extensões <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+4</kbd></TooltipContent>
+          </Tooltip>
           <div className="flex-1" />
-          <Button
-            variant="ghost"
-            size="icon"
-            className={cn('h-8 w-8', showTerminal && 'bg-accent')}
-            onClick={() => setShowTerminal((v) => !v)}
-            title={permission === 'write' ? 'Terminal' : 'Terminal indisponível em modo somente leitura'}
-            disabled={permission !== 'write'}
-          >
-            <TerminalSquare className="h-4 w-4" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className={cn('h-8 w-8', showTerminal && 'bg-accent')}
+                onClick={() => setShowTerminal((v) => !v)}
+                disabled={permission !== 'write'}
+              >
+                <TerminalSquare className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {permission === 'write' ? 'Terminal' : 'Terminal indisponível em modo somente leitura'}
+            </TooltipContent>
+          </Tooltip>
         </div>
+        </TooltipProvider>
 
         <ResizablePanel defaultSize={22} minSize={14} maxSize={45} className="border-r">
           {side === 'files' ? <FileTree workspace={workspace} /> : null}

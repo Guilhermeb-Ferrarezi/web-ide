@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp, GitBranch, RefreshCcw } from 'lucide-react';
+import { ArrowDown, ArrowUp, GitBranch, Loader2, RefreshCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -278,15 +278,16 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
         />
         <div className="flex gap-2">
           <Button size="sm" className="flex-1" disabled={busy !== null || readOnly} onClick={() => void handleCommit()}>
-            {busy === 'commit' ? '...' : 'Commit'}
+            {busy === 'commit' ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
+            Commit
           </Button>
           <Button size="sm" variant="outline" disabled={busy !== null || readOnly} onClick={() => void handlePush()}>
-            <ArrowUp className="mr-1 h-3.5 w-3.5" />
-            {busy === 'push' ? '...' : 'Push'}
+            {busy === 'push' ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ArrowUp className="mr-1 h-3.5 w-3.5" />}
+            Push
           </Button>
           <Button size="sm" variant="outline" disabled={busy !== null || readOnly} onClick={() => void handlePull()}>
-            <ArrowDown className="mr-1 h-3.5 w-3.5" />
-            {busy === 'pull' ? '...' : 'Pull'}
+            {busy === 'pull' ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <ArrowDown className="mr-1 h-3.5 w-3.5" />}
+            Pull
           </Button>
         </div>
       </div>
