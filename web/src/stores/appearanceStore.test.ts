@@ -30,4 +30,66 @@ describe('useAppearanceStore', () => {
     );
     expect(useAppearanceStore.getState().activeThemeId).toBe('github.github-vscode-theme-dark');
   });
+
+  it('substitui extensoes instaladas ao hidratar uma workspace', () => {
+    useAppearanceStore.getState().replaceInstalled({
+      themes: [
+        {
+          id: 'aura.dark',
+          extensionId: 'DaltonMenezes.aura-theme',
+          label: 'Aura Dark',
+          uiTheme: 'vs-dark',
+          colors: {},
+          rules: [],
+        },
+      ],
+      iconThemes: [],
+    });
+
+    expect(useAppearanceStore.getState().installedThemes).toEqual([
+      expect.objectContaining({ id: 'aura.dark' }),
+    ]);
+  });
+
+  it('reseta extensoes instaladas e volta para os temas padrao', () => {
+    useAppearanceStore.setState({
+      installedThemes: [
+        {
+          id: 'aura.dark',
+          extensionId: 'DaltonMenezes.aura-theme',
+          label: 'Aura Dark',
+          uiTheme: 'vs-dark',
+          colors: {},
+          rules: [],
+        },
+      ],
+      installedIconThemes: [
+        {
+          id: 'icons.dark',
+          extensionId: 'vscode-icons-team.vscode-icons',
+          label: 'VSCode Icons',
+          icons: {
+            file: 'file',
+            folder: 'folder',
+            folderExpanded: 'folder-open',
+            fileNames: {},
+            fileExtensions: {},
+            folderNames: {},
+            folderNamesExpanded: {},
+            languageIds: {},
+            iconDefinitions: {},
+          },
+        },
+      ],
+      activeThemeId: 'aura.dark',
+      activeIconThemeId: 'icons.dark',
+    });
+
+    useAppearanceStore.getState().resetInstalled();
+
+    expect(useAppearanceStore.getState().installedThemes).toEqual([]);
+    expect(useAppearanceStore.getState().installedIconThemes).toEqual([]);
+    expect(useAppearanceStore.getState().activeThemeId).toBe('default-dark');
+    expect(useAppearanceStore.getState().activeIconThemeId).toBe('material-default');
+  });
 });

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { InstalledIconTheme, InstalledTheme } from '@/types';
+import type { InstalledExtensionsStatePayload, InstalledIconTheme, InstalledTheme } from '@/types';
 
 export const DEFAULT_EDITOR_THEME_ID = 'default-dark';
 export const DEFAULT_ICON_THEME_ID = 'material-default';
@@ -11,6 +11,8 @@ type AppearanceState = {
   activeIconThemeId: string;
   installTheme: (theme: InstalledTheme) => void;
   installIconTheme: (iconTheme: InstalledIconTheme) => void;
+  replaceInstalled: (payload: InstalledExtensionsStatePayload) => void;
+  resetInstalled: () => void;
   setActiveTheme: (themeId: string) => void;
   setActiveIconTheme: (iconThemeId: string) => void;
 };
@@ -36,6 +38,18 @@ export const useAppearanceStore = create<AppearanceState>((set) => ({
     set((state) => ({
       installedIconThemes: upsertById(state.installedIconThemes, iconTheme),
     })),
+  replaceInstalled: (payload) =>
+    set({
+      installedThemes: payload.themes,
+      installedIconThemes: payload.iconThemes,
+    }),
+  resetInstalled: () =>
+    set({
+      installedThemes: [],
+      installedIconThemes: [],
+      activeThemeId: DEFAULT_EDITOR_THEME_ID,
+      activeIconThemeId: DEFAULT_ICON_THEME_ID,
+    }),
   setActiveTheme: (themeId) => set({ activeThemeId: themeId }),
   setActiveIconTheme: (iconThemeId) => set({ activeIconThemeId: iconThemeId }),
 }));

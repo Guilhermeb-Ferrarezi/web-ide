@@ -6,10 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { AppShell } from '@/components/layout/AppShell';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useEditorStore } from '@/stores/editorStore';
+import { useAppearanceStore } from '@/stores/appearanceStore';
 import { useWatcher } from '@/hooks/useWatcher';
 import { watcherBus } from '@/lib/watcherBus';
 import { fetchFile } from '@/api/fs';
 import { listLocalRepos } from '@/api/repos';
+import { getInstalledExtensions } from '@/api/extensions';
 
 export default function IDEPage() {
   const { workspace } = useParams<{ workspace: string }>();
@@ -18,17 +20,21 @@ export default function IDEPage() {
   const setPermission = useWorkspaceStore((s) => s.setPermission);
   const permission = useWorkspaceStore((s) => s.permission);
   const resetEditor = useEditorStore((s) => s.reset);
+  const replaceInstalled = useAppearanceStore((s) => s.replaceInstalled);
+  const resetInstalled = useAppearanceStore((s) => s.resetInstalled);
 
   useEffect(() => {
     setWorkspace(workspace ?? null);
     setPermission(null);
     resetEditor();
+    resetInstalled();
     return () => {
       setWorkspace(null);
       setPermission(null);
       resetEditor();
+      resetInstalled();
     };
-  }, [workspace, setWorkspace, setPermission, resetEditor]);
+  }, [workspace, setWorkspace, setPermission, resetEditor, resetInstalled]);
 
   useEffect(() => {
     if (!workspace) return;
@@ -48,6 +54,22 @@ export default function IDEPage() {
   }, [workspace, setPermission]);
 
   useWatcher(workspace ?? null, (e) => watcherBus.emit(e));
+
+  useEffect(() => {
+    if (!workspace) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const installed = await getInstalledExtensions();
+        if (!cancelled) replaceInstalled(installed);
+      } catch {
+        if (!cancelled) resetInstalled();
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace, replaceInstalled, resetInstalled]);
 
   useEffect(() => {
     if (!workspace) return;

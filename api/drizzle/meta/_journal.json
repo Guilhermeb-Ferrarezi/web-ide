@@ -8,6 +8,20 @@
       "when": 1777594583250,
       "tag": "0000_daffy_slyde",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777657489307,
+      "tag": "0001_striped_blockbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777657661218,
+      "tag": "0002_wonderful_warbound",
+      "breakpoints": true
     }
   ]
 }

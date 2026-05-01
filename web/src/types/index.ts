@@ -174,6 +174,11 @@ export type InstalledExtensionPayload = {
   iconThemes: InstalledIconTheme[];
 };
 
+export type InstalledExtensionsStatePayload = {
+  themes: InstalledTheme[];
+  iconThemes: InstalledIconTheme[];
+};
+
 export type ExtensionResource = {
   label: string;
   url: string;

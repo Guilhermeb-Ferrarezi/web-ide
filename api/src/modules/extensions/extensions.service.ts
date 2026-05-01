@@ -1,5 +1,8 @@
 import path from 'node:path';
+import { eq } from 'drizzle-orm';
 import { unzipSync } from 'fflate';
+import { db } from '../../db/client.ts';
+import { installedExtensions } from '../../db/schema.ts';
 
 type OpenVsxSearchResponse = {
   extensions?: Array<{
@@ -97,6 +100,11 @@ type InstalledIconTheme = {
 export type InstalledExtensionPayload = {
   extensionId: string;
   displayName: string;
+  themes: InstalledTheme[];
+  iconThemes: InstalledIconTheme[];
+};
+
+export type InstalledExtensionsStatePayload = {
   themes: InstalledTheme[];
   iconThemes: InstalledIconTheme[];
 };
@@ -273,6 +281,93 @@ function resolveArchivePath(rootPath: string, relativePath: string): string {
   return path.posix.join(path.posix.dirname(rootPath), normalized);
 }
 
+function flattenInstalledExtensions(rows: Array<{ themesJson: string; iconThemesJson: string }>): InstalledExtensionsStatePayload {
+  return rows.reduce<InstalledExtensionsStatePayload>(
+    (acc, row) => {
+      acc.themes.push(...(JSON.parse(row.themesJson) as InstalledTheme[]));
+      acc.iconThemes.push(...(JSON.parse(row.iconThemesJson) as InstalledIconTheme[]));
+      return acc;
+    },
+    { themes: [], iconThemes: [] },
+  );
+}
+
+async function buildInstalledExtensionPayload(extensionId: string): Promise<InstalledExtensionPayload> {
+  const extension = await findExtension(extensionId);
+  if (!extension) throw new Error('Extensão não encontrada');
+
+  const response = await fetch(extension.downloadUrl, { headers: { 'User-Agent': 'web-ide' } });
+  if (!response.ok) throw new Error('Falha ao baixar extensão');
+
+  const archive = unzipSync(new Uint8Array(await response.arrayBuffer()));
+  const entries = listArchiveEntries(archive);
+  const packageJsonPath = entries.find((entry) => entry.endsWith('extension/package.json'));
+  if (!packageJsonPath) throw new Error('Manifesto da extensão não encontrado');
+
+  const manifest = JSON.parse(readArchiveFile(archive, packageJsonPath));
+  const contributes = manifest.contributes ?? {};
+  const themes = Array.isArray(contributes.themes) ? contributes.themes : [];
+  const iconThemes = Array.isArray(contributes.iconThemes) ? contributes.iconThemes : [];
+
+  const installedThemes = themes.map((theme: { id?: string; label?: string; path: string; uiTheme?: string }) => {
+    const themePath = resolveArchivePath(packageJsonPath, theme.path);
+    const rawTheme = parseJsonc<Record<string, unknown>>(readArchiveFile(archive, themePath));
+    return {
+      id: `${extension.id}.${theme.id ?? theme.label ?? path.basename(theme.path, path.extname(theme.path))}`,
+      extensionId: extension.id,
+      label: theme.label ?? theme.id ?? extension.displayName,
+      uiTheme: mapUiTheme(theme.uiTheme),
+      colors: (rawTheme.colors as Record<string, string> | undefined) ?? {},
+      rules: convertTokenColors(rawTheme.tokenColors),
+    } satisfies InstalledTheme;
+  });
+
+  const installedIconThemes = iconThemes.map((theme: { id?: string; label?: string; path: string }) => {
+    const iconThemePath = resolveArchivePath(packageJsonPath, theme.path);
+    const rawTheme = parseJsonc<Record<string, unknown>>(readArchiveFile(archive, iconThemePath));
+    const rawDefinitions = (rawTheme.iconDefinitions as Record<string, { iconPath?: string }> | undefined) ?? {};
+
+    const iconDefinitions = Object.fromEntries(
+      Object.entries(rawDefinitions).map(([id, definition]) => {
+        const iconPath = definition.iconPath;
+        if (!iconPath) return [id, ''] as const;
+        const archiveIconPath = resolveArchivePath(iconThemePath, iconPath);
+        const iconBuffer = readArchiveBinary(archive, archiveIconPath);
+        const dataUrl = `data:${mimeFromPath(iconPath)};base64,${iconBuffer.toString('base64')}`;
+        return [id, dataUrl] as const;
+      }),
+    );
+
+    return {
+      id: `${extension.id}.${theme.id ?? theme.label ?? path.basename(theme.path, path.extname(theme.path))}`,
+      extensionId: extension.id,
+      label: theme.label ?? theme.id ?? extension.displayName,
+      icons: {
+        file: (rawTheme.file as string | undefined) ?? 'file',
+        folder: (rawTheme.folder as string | undefined) ?? 'folder',
+        folderExpanded: (rawTheme.folderExpanded as string | undefined) ?? ((rawTheme.folder as string | undefined) ?? 'folder'),
+        fileNames: (rawTheme.fileNames as Record<string, string> | undefined) ?? {},
+        fileExtensions: (rawTheme.fileExtensions as Record<string, string> | undefined) ?? {},
+        folderNames: (rawTheme.folderNames as Record<string, string> | undefined) ?? {},
+        folderNamesExpanded: (rawTheme.folderNamesExpanded as Record<string, string> | undefined) ?? {},
+        languageIds: (rawTheme.languageIds as Record<string, string> | undefined) ?? {},
+        iconDefinitions,
+      },
+    } satisfies InstalledIconTheme;
+  });
+
+  if (installedThemes.length === 0 && installedIconThemes.length === 0) {
+    throw new Error('A extensão não contém temas instaláveis');
+  }
+
+  return {
+    extensionId: extension.id,
+    displayName: extension.displayName,
+    themes: installedThemes,
+    iconThemes: installedIconThemes,
+  };
+}
+
 export async function searchExtensions(query: string): Promise<MarketplaceExtension[]> {
   const finalQuery = query.trim() || 'theme';
   const data = await fetchJson<OpenVsxSearchResponse>(
@@ -351,78 +446,40 @@ export async function getExtensionDetail(extensionId: string): Promise<Extension
   };
 }
 
-export async function installExtension(extensionId: string): Promise<InstalledExtensionPayload> {
-  const extension = await findExtension(extensionId);
-  if (!extension) throw new Error('Extensão não encontrada');
+export async function installExtension(input: {
+  extensionId: string;
+  userId: string;
+}): Promise<InstalledExtensionPayload> {
+  const payload = await buildInstalledExtensionPayload(input.extensionId);
 
-  const response = await fetch(extension.downloadUrl, { headers: { 'User-Agent': 'web-ide' } });
-  if (!response.ok) throw new Error('Falha ao baixar extensão');
-
-  const archive = unzipSync(new Uint8Array(await response.arrayBuffer()));
-  const entries = listArchiveEntries(archive);
-  const packageJsonPath = entries.find((entry) => entry.endsWith('extension/package.json'));
-  if (!packageJsonPath) throw new Error('Manifesto da extensão não encontrado');
-
-  const manifest = JSON.parse(readArchiveFile(archive, packageJsonPath));
-  const contributes = manifest.contributes ?? {};
-  const themes = Array.isArray(contributes.themes) ? contributes.themes : [];
-  const iconThemes = Array.isArray(contributes.iconThemes) ? contributes.iconThemes : [];
-
-  const installedThemes = themes.map((theme: { id?: string; label?: string; path: string; uiTheme?: string }) => {
-    const themePath = resolveArchivePath(packageJsonPath, theme.path);
-    const rawTheme = parseJsonc<Record<string, unknown>>(readArchiveFile(archive, themePath));
-    return {
-      id: `${extension.id}.${theme.id ?? theme.label ?? path.basename(theme.path, path.extname(theme.path))}`,
-      extensionId: extension.id,
-      label: theme.label ?? theme.id ?? extension.displayName,
-      uiTheme: mapUiTheme(theme.uiTheme),
-      colors: (rawTheme.colors as Record<string, string> | undefined) ?? {},
-      rules: convertTokenColors(rawTheme.tokenColors),
-    } satisfies InstalledTheme;
-  });
-
-  const installedIconThemes = iconThemes.map((theme: { id?: string; label?: string; path: string }) => {
-    const iconThemePath = resolveArchivePath(packageJsonPath, theme.path);
-    const rawTheme = parseJsonc<Record<string, unknown>>(readArchiveFile(archive, iconThemePath));
-    const rawDefinitions = (rawTheme.iconDefinitions as Record<string, { iconPath?: string }> | undefined) ?? {};
-
-    const iconDefinitions = Object.fromEntries(
-      Object.entries(rawDefinitions).map(([id, definition]) => {
-        const iconPath = definition.iconPath;
-        if (!iconPath) return [id, ''] as const;
-        const archiveIconPath = resolveArchivePath(iconThemePath, iconPath);
-        const iconBuffer = readArchiveBinary(archive, archiveIconPath);
-        const dataUrl = `data:${mimeFromPath(iconPath)};base64,${iconBuffer.toString('base64')}`;
-        return [id, dataUrl] as const;
-      }),
-    );
-
-    return {
-      id: `${extension.id}.${theme.id ?? theme.label ?? path.basename(theme.path, path.extname(theme.path))}`,
-      extensionId: extension.id,
-      label: theme.label ?? theme.id ?? extension.displayName,
-      icons: {
-        file: (rawTheme.file as string | undefined) ?? 'file',
-        folder: (rawTheme.folder as string | undefined) ?? 'folder',
-        folderExpanded: (rawTheme.folderExpanded as string | undefined) ?? ((rawTheme.folder as string | undefined) ?? 'folder'),
-        fileNames: (rawTheme.fileNames as Record<string, string> | undefined) ?? {},
-        fileExtensions: (rawTheme.fileExtensions as Record<string, string> | undefined) ?? {},
-        folderNames: (rawTheme.folderNames as Record<string, string> | undefined) ?? {},
-        folderNamesExpanded: (rawTheme.folderNamesExpanded as Record<string, string> | undefined) ?? {},
-        languageIds: (rawTheme.languageIds as Record<string, string> | undefined) ?? {},
-        iconDefinitions,
+  await db
+    .insert(installedExtensions)
+    .values({
+      userId: input.userId,
+      extensionId: payload.extensionId,
+      displayName: payload.displayName,
+      themesJson: JSON.stringify(payload.themes),
+      iconThemesJson: JSON.stringify(payload.iconThemes),
+    })
+    .onConflictDoUpdate({
+      target: [installedExtensions.userId, installedExtensions.extensionId],
+      set: {
+        displayName: payload.displayName,
+        themesJson: JSON.stringify(payload.themes),
+        iconThemesJson: JSON.stringify(payload.iconThemes),
+        updatedAt: new Date(),
       },
-    } satisfies InstalledIconTheme;
+    });
+
+  return payload;
+}
+
+export async function getInstalledExtensions(input: {
+  userId: string;
+}): Promise<InstalledExtensionsStatePayload> {
+  const rows = await db.query.installedExtensions.findMany({
+    where: eq(installedExtensions.userId, input.userId),
   });
 
-  if (installedThemes.length === 0 && installedIconThemes.length === 0) {
-    throw new Error('A extensão não contém temas instaláveis');
-  }
-
-  return {
-    extensionId: extension.id,
-    displayName: extension.displayName,
-    themes: installedThemes,
-    iconThemes: installedIconThemes,
-  };
+  return flattenInstalledExtensions(rows);
 }

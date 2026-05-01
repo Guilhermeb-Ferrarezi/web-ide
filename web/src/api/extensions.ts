@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { ExtensionDetail, InstalledExtensionPayload, MarketplaceExtension } from '@/types';
+import type { ExtensionDetail, InstalledExtensionPayload, InstalledExtensionsStatePayload, MarketplaceExtension } from '@/types';
 
 type SearchExtensionsResponse = {
   extensions: MarketplaceExtension[];
@@ -16,6 +16,11 @@ export async function installExtension(extensionId: string): Promise<InstalledEx
   const response = await api.post<InstalledExtensionPayload>('/extensions/install', {
     extensionId,
   });
+  return response.data;
+}
+
+export async function getInstalledExtensions(): Promise<InstalledExtensionsStatePayload> {
+  const response = await api.get<InstalledExtensionsStatePayload>('/extensions/installed');
   return response.data;
 }
 

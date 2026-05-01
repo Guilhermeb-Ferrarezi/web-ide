@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { appConfigSchema } from '../config.ts';
-import { globalRoles, repoPermissions, repos, sessions, users } from './schema.ts';
+import { globalRoles, installedExtensions, repoPermissions, repos, sessions, users } from './schema.ts';
 
 describe('database config', () => {
   it('requires DATABASE_URL', () => {
@@ -21,6 +21,7 @@ describe('database config', () => {
     expect(repoPermissions.permission.name).toBe('permission');
     expect(globalRoles.role.name).toBe('role');
     expect(sessions.id.name).toBe('id');
+    expect(installedExtensions.extensionId.name).toBe('extension_id');
   });
 
   it('accepts terminal superuser env config', () => {

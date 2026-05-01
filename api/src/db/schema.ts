@@ -81,3 +81,21 @@ export const sessions = pgTable('sessions', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const installedExtensions = pgTable(
+  'installed_extensions',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    extensionId: text('extension_id').notNull(),
+    displayName: text('display_name').notNull(),
+    themesJson: text('themes_json').notNull(),
+    iconThemesJson: text('icon_themes_json').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.extensionId] }),
+  }),
+);

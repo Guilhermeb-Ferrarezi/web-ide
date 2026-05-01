@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { getExtensionDetail, installExtension, searchExtensions } from './extensions.service.ts';
+import { getExtensionDetail, getInstalledExtensions, installExtension, searchExtensions } from './extensions.service.ts';
 
 const searchQuerySchema = z.object({
   query: z.string().optional(),
@@ -22,11 +22,19 @@ export async function getExtensions(req: FastifyRequest, reply: FastifyReply) {
 
 export async function postInstallExtension(req: FastifyRequest, reply: FastifyReply) {
   const body = installBodySchema.parse(req.body);
+  const user = req.session.user;
+  if (!user) return reply.code(401).send({ error: 'unauthenticated' });
   try {
-    return reply.send(await installExtension(body.extensionId));
+    return reply.send(await installExtension({ extensionId: body.extensionId, userId: user.userId }));
   } catch (err) {
     return reply.code(422).send({ error: 'extension_install_failed', message: (err as Error).message });
   }
+}
+
+export async function getInstalledExtensionsState(req: FastifyRequest, reply: FastifyReply) {
+  const user = req.session.user;
+  if (!user) return reply.code(401).send({ error: 'unauthenticated' });
+  return reply.send(await getInstalledExtensions({ userId: user.userId }));
 }
 
 export async function getExtensionById(req: FastifyRequest, reply: FastifyReply) {
