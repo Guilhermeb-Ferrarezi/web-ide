@@ -5,6 +5,7 @@ import { resolveRepoAccess } from '../../middlewares/repo-access.middleware.ts';
 import {
   deleteFile,
   getFile,
+  getProjectFiles,
   getSearch,
   getTree,
   getTypes,
@@ -19,6 +20,7 @@ export default async function fsRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireAuth);
   app.get('/fs/tree', { preHandler: resolveRepoAccess('read') }, getTree);
   app.get('/fs/types', { preHandler: resolveRepoAccess('read') }, getTypes);
+  app.get('/fs/project-files', { preHandler: resolveRepoAccess('read') }, getProjectFiles);
   app.get('/fs/search', { preHandler: resolveRepoAccess('read') }, getSearch);
   app.get('/fs/file', { preHandler: resolveRepoAccess('read') }, getFile);
   app.put('/fs/file', { preHandler: resolveRepoAccess('write') }, putFile);

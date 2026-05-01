@@ -1,7 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import path from 'node:path';
-import { collectTypeDefs, deletePath, makeDir, readFile, readTree, renamePath, searchFiles, uploadFile, writeFile } from './fs.service.ts';
+import { collectEditorProjectFiles, collectTypeDefs, deletePath, makeDir, readFile, readTree, renamePath, searchFiles, uploadFile, writeFile } from './fs.service.ts';
 
 const pathSchema = z.string().min(1).max(1024);
 const fileQuerySchema = z.object({
@@ -79,6 +79,11 @@ export async function postRename(req: FastifyRequest, reply: FastifyReply) {
 export async function getTypes(req: FastifyRequest, reply: FastifyReply) {
   const types = await collectTypeDefs(req.workspacePath!);
   return reply.send(types);
+}
+
+export async function getProjectFiles(req: FastifyRequest, reply: FastifyReply) {
+  const files = await collectEditorProjectFiles(req.workspacePath!);
+  return reply.send(files);
 }
 
 export async function postUpload(req: FastifyRequest, reply: FastifyReply) {

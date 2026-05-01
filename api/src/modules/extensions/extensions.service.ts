@@ -11,9 +11,12 @@ type OpenVsxSearchResponse = {
     name: string;
     namespace: string;
     version: string;
+    timestamp?: string;
     displayName?: string;
     description?: string;
     downloadCount?: number;
+    averageRating?: number;
+    verified?: boolean;
     files?: {
       download?: string;
       icon?: string;
@@ -30,6 +33,9 @@ type MarketplaceExtension = {
   version: string;
   iconUrl: string | null;
   downloadCount: number;
+  averageRating?: number;
+  verified?: boolean;
+  timestamp?: string;
 };
 
 type InstalledTheme = {
@@ -68,6 +74,15 @@ export type InstalledExtensionPayload = {
   displayName: string;
   themes: InstalledTheme[];
   iconThemes: InstalledIconTheme[];
+};
+
+export type ExtensionDetailPayload = {
+  extension: MarketplaceExtension;
+  readme: string | null;
+  resources: Array<{ label: string; url: string }>;
+  categories: string[];
+  publishedAt: string | null;
+  updatedAt: string | null;
 };
 
 function stripJsonComments(input: string): string {
@@ -141,6 +156,9 @@ async function findExtension(extensionId: string): Promise<(MarketplaceExtension
     version: match.version,
     iconUrl: match.files.icon ?? null,
     downloadCount: match.downloadCount ?? 0,
+    averageRating: match.averageRating,
+    verified: match.verified,
+    timestamp: match.timestamp,
     downloadUrl: match.files.download,
   };
 }
@@ -180,7 +198,64 @@ export async function searchExtensions(query: string): Promise<MarketplaceExtens
     version: extension.version,
     iconUrl: extension.files?.icon ?? null,
     downloadCount: extension.downloadCount ?? 0,
+    averageRating: extension.averageRating,
+    verified: extension.verified,
+    timestamp: extension.timestamp,
   }));
+}
+
+export async function getExtensionDetail(extensionId: string): Promise<ExtensionDetailPayload> {
+  const extension = await findExtension(extensionId);
+  if (!extension) throw new Error('Extensão não encontrada');
+
+  const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'web-ide-ext-detail-'));
+  const archivePath = path.join(tempDir, `${extensionId}.vsix`);
+
+  try {
+    const response = await fetch(extension.downloadUrl, { headers: { 'User-Agent': 'web-ide' } });
+    if (!response.ok) throw new Error('Falha ao baixar extensão');
+    await fs.writeFile(archivePath, Buffer.from(await response.arrayBuffer()));
+
+    const entries = await listArchiveEntries(archivePath);
+    const packageJsonPath = entries.find((entry) => entry.endsWith('extension/package.json'));
+    if (!packageJsonPath) throw new Error('Manifesto da extensão não encontrado');
+
+    const manifest = JSON.parse(await readArchiveFile(archivePath, packageJsonPath));
+    const readmePath = entries.find((entry) => /extension\/readme\.md$/i.test(entry)) ?? null;
+    const readme = readmePath ? await readArchiveFile(archivePath, readmePath) : null;
+
+    const repositoryUrl =
+      typeof manifest.repository === 'string'
+        ? manifest.repository
+        : typeof manifest.repository?.url === 'string'
+          ? manifest.repository.url
+          : null;
+    const issuesUrl =
+      typeof manifest.bugs === 'string'
+        ? manifest.bugs
+        : typeof manifest.bugs?.url === 'string'
+          ? manifest.bugs.url
+          : null;
+    const homepageUrl = typeof manifest.homepage === 'string' ? manifest.homepage : null;
+
+    const resources = [
+      repositoryUrl ? { label: 'Repository', url: repositoryUrl } : null,
+      issuesUrl ? { label: 'Issues', url: issuesUrl } : null,
+      homepageUrl ? { label: extension.namespace, url: homepageUrl } : null,
+      { label: 'Marketplace', url: `https://open-vsx.org/extension/${extension.namespace}/${extension.name}` },
+    ].filter(Boolean) as Array<{ label: string; url: string }>;
+
+    return {
+      extension,
+      readme,
+      resources,
+      categories: Array.isArray(manifest.categories) ? manifest.categories : [],
+      publishedAt: extension.timestamp ?? null,
+      updatedAt: extension.timestamp ?? null,
+    };
+  } finally {
+    await fs.rm(tempDir, { recursive: true, force: true });
+  }
 }
 
 export async function installExtension(extensionId: string): Promise<InstalledExtensionPayload> {

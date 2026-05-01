@@ -35,8 +35,31 @@ describe('<ExtensionsPanel />', () => {
         version: '6.3.5',
         iconUrl: 'https://example.com/icon.png',
         downloadCount: 100,
+        averageRating: 5,
+        verified: true,
       },
     ]);
+    vi.spyOn(extensionsApi, 'getExtensionDetail').mockResolvedValue({
+      extension: {
+        id: 'GitHub.github-vscode-theme',
+        name: 'github-vscode-theme',
+        namespace: 'GitHub',
+        displayName: 'GitHub Theme',
+        description: 'GitHub theme for VS Code',
+        version: '6.3.5',
+        iconUrl: 'https://example.com/icon.png',
+        downloadCount: 100,
+        averageRating: 5,
+        verified: true,
+      },
+      readme: '# GitHub Theme\n\nA beautiful dark theme for Visual Studio Code',
+      resources: [
+        { label: 'Repository', url: 'https://github.com/github/github-vscode-theme' },
+      ],
+      categories: ['Themes'],
+      publishedAt: '2024-10-04T03:33:27.439016Z',
+      updatedAt: '2024-10-04T03:33:27.439016Z',
+    });
     vi.spyOn(extensionsApi, 'installExtension').mockResolvedValue({
       extensionId: 'GitHub.github-vscode-theme',
       displayName: 'GitHub Theme',
@@ -55,12 +78,19 @@ describe('<ExtensionsPanel />', () => {
 
     render(<ExtensionsPanel />);
 
-    await userEvent.type(screen.getByPlaceholderText('Buscar temas e icon themes...'), 'github theme');
-    await userEvent.click(screen.getByRole('button', { name: 'Buscar' }));
+    expect(await screen.findByText('Popular')).toBeInTheDocument();
+    expect((await screen.findAllByText('GitHub Theme')).length).toBeGreaterThan(0);
+    await userEvent.click((await screen.findAllByText('GitHub Theme'))[0]);
 
-    expect(await screen.findByText('GitHub Theme')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'GitHub Theme' })).toBeInTheDocument();
+    expect(screen.getByText('Marketplace')).toBeInTheDocument();
+    expect(screen.getByText('Repository')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Instalar' }));
+    await userEvent.clear(screen.getByPlaceholderText('Search Extensions in Marketplace'));
+    await userEvent.type(screen.getByPlaceholderText('Search Extensions in Marketplace'), 'github theme');
+    await userEvent.click(screen.getByRole('button', { name: 'Buscar extensões' }));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Instalar extensão' }));
 
     await waitFor(() =>
       expect(useAppearanceStore.getState().installedThemes).toEqual(
@@ -69,6 +99,7 @@ describe('<ExtensionsPanel />', () => {
         ]),
       ),
     );
-    expect(screen.getByRole('button', { name: 'Aplicar GitHub Dark' })).toBeInTheDocument();
+    expect(screen.getByText('Installed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ativa' })).toBeInTheDocument();
   });
 });

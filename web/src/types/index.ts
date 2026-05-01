@@ -67,6 +67,11 @@ export type FileContent = {
   mimeType: string;
 };
 
+export type EditorProjectFile = {
+  path: string;
+  content: string;
+};
+
 export type CodeSearchMatch = {
   line: number;
   column: number;
@@ -155,6 +160,8 @@ export type MarketplaceExtension = {
   version: string;
   iconUrl: string | null;
   downloadCount: number;
+  averageRating?: number;
+  verified?: boolean;
 };
 
 export type InstalledExtensionPayload = {
@@ -162,4 +169,18 @@ export type InstalledExtensionPayload = {
   displayName: string;
   themes: InstalledTheme[];
   iconThemes: InstalledIconTheme[];
+};
+
+export type ExtensionResource = {
+  label: string;
+  url: string;
+};
+
+export type ExtensionDetail = {
+  extension: MarketplaceExtension;
+  readme: string | null;
+  resources: ExtensionResource[];
+  categories: string[];
+  publishedAt: string | null;
+  updatedAt: string | null;
 };

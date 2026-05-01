@@ -107,6 +107,11 @@ export type SearchResult = {
   matches: SearchMatch[];
 };
 
+export type EditorProjectFile = {
+  path: string;
+  content: string;
+};
+
 function guessMime(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase() ?? '';
   const map: Record<string, string> = {
@@ -254,6 +259,48 @@ async function searchDir(
 }
 
 const MAX_DTS_FILE_SIZE = 500 * 1024;
+const MAX_EDITOR_PROJECT_FILES = 300;
+const MAX_EDITOR_PROJECT_FILE_SIZE = 256 * 1024;
+
+async function collectEditorProjectFilesInDir(
+  workspacePath: string,
+  depth: number,
+  relPath = '',
+  out: EditorProjectFile[] = [],
+): Promise<EditorProjectFile[]> {
+  if (depth <= 0 || out.length >= MAX_EDITOR_PROJECT_FILES) return out;
+  const fullDir = relPath ? resolveSafe(workspacePath, relPath) : workspacePath;
+  const entries = await fs.readdir(fullDir, { withFileTypes: true }).catch(() => null);
+  if (!entries) return out;
+
+  for (const entry of entries) {
+    if (out.length >= MAX_EDITOR_PROJECT_FILES) break;
+    if (IGNORED.has(entry.name)) continue;
+
+    const childRel = path.posix.join(relPath, entry.name);
+    const fullPath = path.join(fullDir, entry.name);
+
+    if (entry.isDirectory()) {
+      await collectEditorProjectFilesInDir(workspacePath, depth - 1, childRel, out);
+      continue;
+    }
+
+    if (!entry.isFile()) continue;
+
+    const stat = await fs.stat(fullPath).catch(() => null);
+    if (!stat || stat.size > MAX_EDITOR_PROJECT_FILE_SIZE) continue;
+
+    const buf = await fs.readFile(fullPath).catch(() => null);
+    if (!buf || !isProbablyText(entry.name, buf)) continue;
+
+    out.push({
+      path: childRel,
+      content: buf.toString('utf-8'),
+    });
+  }
+
+  return out;
+}
 
 async function walkDts(
   dir: string,
@@ -316,6 +363,10 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
   }
 
   return results;
+}
+
+export async function collectEditorProjectFiles(workspacePath: string): Promise<EditorProjectFile[]> {
+  return collectEditorProjectFilesInDir(workspacePath, MAX_DEPTH);
 }
 
 export async function searchFiles(

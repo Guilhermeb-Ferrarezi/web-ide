@@ -1,11 +1,12 @@
 import { useEffect, useRef } from 'react';
 import Editor, { useMonaco, type OnMount } from '@monaco-editor/react';
 import type { EditorTab } from '@/types';
+import { fetchProjectFiles, fetchTypes } from '@/api/fs';
+import { useEditor } from '@/hooks/useEditor';
 import { detectLanguage, isImage } from '@/lib/language';
 import { useEditorStore } from '@/stores/editorStore';
 import { DEFAULT_EDITOR_THEME_ID, useAppearanceStore } from '@/stores/appearanceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { fetchTypes } from '@/api/fs';
 
 type Props = {
   tab: EditorTab | null;
@@ -20,6 +21,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const setPendingJump = useEditorStore((s) => s.setPendingJump);
   const monaco = useMonaco();
   const workspace = useWorkspaceStore((s) => s.workspace);
+  const { openFile } = useEditor();
   const installedThemes = useAppearanceStore((s) => s.installedThemes);
   const activeThemeId = useAppearanceStore((s) => s.activeThemeId);
   const activeTheme = activeThemeId === DEFAULT_EDITOR_THEME_ID
@@ -39,17 +41,37 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
       strict: false,
       noEmit: true,
       skipLibCheck: true,
+      allowNonTsExtensions: true,
+      allowJs: true,
+      target: ts.ScriptTarget.ES2022,
+      baseUrl: 'file:///',
+      paths: {
+        '@/*': ['src/*'],
+      },
     };
     ts.typescriptDefaults.setCompilerOptions(opts);
     ts.javascriptDefaults.setCompilerOptions(opts);
+    ts.typescriptDefaults.setEagerModelSync(true);
+    ts.javascriptDefaults.setEagerModelSync(true);
 
     let cancelled = false;
-    fetchTypes(workspace).then((types) => {
+    void Promise.all([fetchTypes(workspace), fetchProjectFiles(workspace)]).then(([types, projectFiles]) => {
       if (cancelled) return;
+
       for (const { virtualPath, content } of types) {
-        const uri = `file:///${virtualPath}`;
-        ts.typescriptDefaults.addExtraLib(content, uri);
-        ts.javascriptDefaults.addExtraLib(content, uri);
+        const uri = monaco.Uri.parse(`file:///${virtualPath}`);
+        ts.typescriptDefaults.addExtraLib(content, uri.toString());
+        ts.javascriptDefaults.addExtraLib(content, uri.toString());
+      }
+
+      for (const file of projectFiles) {
+        const language = detectLanguage(file.path);
+        if (language === 'plaintext') continue;
+
+        const uri = monaco.Uri.parse(`file:///${file.path}`);
+        if (!monaco.editor.getModel(uri)) {
+          monaco.editor.createModel(file.content, language, uri);
+        }
       }
     });
 
@@ -88,6 +110,49 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
 
   const handleMount: OnMount = (ed) => {
     editorRef.current = ed;
+
+    async function openDefinition() {
+      if (!monaco) return;
+      const model = ed.getModel();
+      const position = ed.getPosition();
+      if (!model || !position) return;
+
+      // Monaco exposes the TS worker at runtime, but the bundled typings lag behind here.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tsApi = monaco.languages.typescript as any;
+      const workerFactory = await tsApi.getTypeScriptWorker();
+      const worker = await workerFactory(model.uri);
+      const offset = model.getOffsetAt(position);
+      const definitions = await worker.getDefinitionAtPosition(model.uri.toString(), offset);
+      const target = definitions?.[0];
+      if (!target) return;
+
+      const targetPath = target.fileName.replace(/^file:\/\//, '').replace(/^\/+/, '');
+      const targetUri = monaco.Uri.parse(`file:///${targetPath}`);
+      const targetModel = monaco.editor.getModel(targetUri);
+
+      if (targetModel) {
+        const nextPosition = targetModel.getPositionAt(target.textSpan.start);
+        await openFile(targetPath, {
+          line: nextPosition.lineNumber,
+          column: nextPosition.column,
+        });
+        return;
+      }
+
+      await openFile(targetPath);
+    }
+
+    ed.addCommand(monaco?.KeyCode.F12 ?? 68, () => {
+      void openDefinition();
+    });
+    ed.onMouseDown((event) => {
+      if (!event.target.position) return;
+      if (!event.event.ctrlKey && !event.event.metaKey) return;
+      ed.setPosition(event.target.position);
+      void openDefinition();
+    });
+
     const jump = useEditorStore.getState().pendingJump;
     if (jump) {
       ed.revealLineInCenter(jump.line);
@@ -129,6 +194,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     <Editor
       key={tab.path}
       height="100%"
+      path={`file:///${tab.path}`}
       theme={activeTheme?.id ?? 'vs-dark'}
       language={detectLanguage(tab.name)}
       value={tab.content}

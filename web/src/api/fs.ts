@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { CodeSearchOptions, CodeSearchResult, FileContent, TreeNode } from '@/types';
+import type { CodeSearchOptions, CodeSearchResult, EditorProjectFile, FileContent, TreeNode } from '@/types';
 
 export async function fetchTree(workspace: string): Promise<TreeNode[]> {
   const { data } = await api.get<TreeNode[]>('/fs/tree', { params: { workspace } });
@@ -41,6 +41,11 @@ export async function renamePath(workspace: string, from: string, to: string) {
 }
 
 export type TypeDef = { virtualPath: string; content: string };
+
+export async function fetchProjectFiles(workspace: string): Promise<EditorProjectFile[]> {
+  const { data } = await api.get<EditorProjectFile[]>('/fs/project-files', { params: { workspace } });
+  return data;
+}
 
 export async function fetchTypes(workspace: string): Promise<TypeDef[]> {
   const { data } = await api.get<TypeDef[]>('/fs/types', { params: { workspace } });
