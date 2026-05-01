@@ -70,12 +70,20 @@ export type FileContent = {
 export type CodeSearchMatch = {
   line: number;
   column: number;
+  length: number;
   preview: string;
+  previewOffset: number;
 };
 
 export type CodeSearchResult = {
   path: string;
   matches: CodeSearchMatch[];
+};
+
+export type CodeSearchOptions = {
+  caseSensitive?: boolean;
+  wholeWord?: boolean;
+  regex?: boolean;
 };
 
 export type GitFileStatus = {

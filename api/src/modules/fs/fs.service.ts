@@ -91,7 +91,15 @@ export type FileContent =
 export type SearchMatch = {
   line: number;
   column: number;
+  length: number;
   preview: string;
+  previewOffset: number;
+};
+
+export type SearchOptions = {
+  caseSensitive?: boolean;
+  wholeWord?: boolean;
+  regex?: boolean;
 };
 
 export type SearchResult = {
@@ -154,9 +162,34 @@ export async function uploadFile(workspacePath: string, relPath: string, buffer:
   await fs.writeFile(fullPath, buffer);
 }
 
+const PREVIEW_MAX = 240;
+const PREVIEW_BEFORE = 60;
+
+function buildMatcher(query: string, options: SearchOptions): RegExp {
+  const flags = options.caseSensitive ? 'g' : 'gi';
+  if (options.regex) {
+    return new RegExp(query, flags);
+  }
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = options.wholeWord ? `(?<![\\p{L}\\p{N}_])${escaped}(?![\\p{L}\\p{N}_])` : escaped;
+  return new RegExp(pattern, `${flags}u`);
+}
+
+function makePreview(line: string, column: number) {
+  if (line.length <= PREVIEW_MAX) {
+    return { preview: line, previewOffset: column };
+  }
+  const start = Math.max(0, column - PREVIEW_BEFORE);
+  const end = Math.min(line.length, start + PREVIEW_MAX);
+  const prefix = start > 0 ? '…' : '';
+  const suffix = end < line.length ? '…' : '';
+  const previewOffset = column - start + prefix.length;
+  return { preview: `${prefix}${line.slice(start, end)}${suffix}`, previewOffset };
+}
+
 async function searchDir(
   workspacePath: string,
-  query: string,
+  matcher: RegExp,
   depth: number,
   relPath = '',
   results: SearchResult[] = [],
@@ -171,7 +204,8 @@ async function searchDir(
     const fullPath = path.join(fullDir, entry.name);
 
     if (entry.isDirectory()) {
-      await searchDir(workspacePath, query, depth - 1, childRel, results);
+      await searchDir(workspacePath, matcher, depth - 1, childRel, results);
+      if (results.length >= 200) break;
       continue;
     }
 
@@ -187,29 +221,50 @@ async function searchDir(
     const lines = content.split(/\r?\n/);
     const matches: SearchMatch[] = [];
 
-    for (let index = 0; index < lines.length; index += 1) {
+    outer: for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index] ?? '';
-      const column = line.toLowerCase().indexOf(query);
-      if (column === -1) continue;
-      matches.push({
-        line: index + 1,
-        column: column + 1,
-        preview: line.trim() || line,
-      });
-      if (matches.length >= 20) break;
+      matcher.lastIndex = 0;
+      let exec: RegExpExecArray | null;
+      while ((exec = matcher.exec(line)) !== null) {
+        const length = exec[0].length;
+        if (length === 0) {
+          matcher.lastIndex += 1;
+          continue;
+        }
+        const column = exec.index;
+        const { preview, previewOffset } = makePreview(line, column);
+        matches.push({
+          line: index + 1,
+          column: column + 1,
+          length,
+          preview,
+          previewOffset,
+        });
+        if (matches.length >= 100) break outer;
+      }
     }
 
     if (matches.length > 0) {
       results.push({ path: childRel, matches });
-      if (results.length >= 100) break;
+      if (results.length >= 200) break;
     }
   }
 
   return results;
 }
 
-export async function searchFiles(workspacePath: string, rawQuery: string): Promise<SearchResult[]> {
-  const query = rawQuery.trim().toLowerCase();
+export async function searchFiles(
+  workspacePath: string,
+  rawQuery: string,
+  options: SearchOptions = {},
+): Promise<SearchResult[]> {
+  const query = rawQuery.trim();
   if (!query) return [];
-  return searchDir(workspacePath, query, MAX_DEPTH);
+  let matcher: RegExp;
+  try {
+    matcher = buildMatcher(query, options);
+  } catch {
+    return [];
+  }
+  return searchDir(workspacePath, matcher, MAX_DEPTH);
 }

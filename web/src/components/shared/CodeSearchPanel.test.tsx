@@ -21,7 +21,7 @@ describe('<CodeSearchPanel />', () => {
     vi.spyOn(fsApi, 'searchFiles').mockResolvedValue([
       {
         path: 'src/app.ts',
-        matches: [{ line: 3, column: 7, preview: 'const hello = "world";' }],
+        matches: [{ line: 3, column: 7, length: 5, previewOffset: 6, preview: 'const hello = "world";' }],
       },
     ]);
 

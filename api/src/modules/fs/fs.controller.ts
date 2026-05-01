@@ -10,14 +10,26 @@ export async function getTree(req: FastifyRequest, reply: FastifyReply) {
   return reply.send(tree);
 }
 
+const boolFlag = z
+  .union([z.boolean(), z.enum(['true', 'false', '1', '0'])])
+  .optional()
+  .transform((value) => value === true || value === 'true' || value === '1');
+
 const searchQuerySchema = z.object({
   workspace: z.string(),
   query: z.string().trim().min(1).max(200),
+  caseSensitive: boolFlag,
+  wholeWord: boolFlag,
+  regex: boolFlag,
 });
 
 export async function getSearch(req: FastifyRequest, reply: FastifyReply) {
   const query = searchQuerySchema.parse(req.query);
-  const results = await searchFiles(req.workspacePath!, query.query);
+  const results = await searchFiles(req.workspacePath!, query.query, {
+    caseSensitive: query.caseSensitive,
+    wholeWord: query.wholeWord,
+    regex: query.regex,
+  });
   return reply.send(results);
 }
 
