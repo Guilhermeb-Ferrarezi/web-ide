@@ -401,11 +401,10 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
       if (results.length >= MAX_TYPEDEF_FILES) break;
       const depDir = path.join(nodeModulesPath, dep);
       const depPkg = await readPackageJson(depDir);
+      addFallbackModuleDeclaration(dep);
       if (depPkg?.types || depPkg?.typings) {
         await walkDts(depDir, `${packagePrefix}node_modules/${dep}`, results);
-        continue;
       }
-      addFallbackModuleDeclaration(dep);
     }
   }
 
