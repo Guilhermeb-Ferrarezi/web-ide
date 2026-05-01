@@ -89,7 +89,7 @@ export default function IDEPage() {
         <span className="text-sm font-medium">{workspace}</span>
         {permission && (
           <Badge variant={permission === 'write' ? 'default' : 'secondary'}>
-            {permission === 'write' ? 'Pode editar' : 'Somente leitura'}
+            {permission === 'write' ? 'Pode alterar' : 'Somente leitura'}
           </Badge>
         )}
       </header>
