@@ -165,4 +165,19 @@ describe('<EditorTabs />', () => {
     await user.keyboard('{End}');
     expect(onSelect).toHaveBeenCalledWith('src/main.ts');
   });
+
+  it('mostra dica de navegação para Home e End', () => {
+    render(
+      <EditorTabs
+        tabs={[
+          { path: 'README.md', name: 'README.md', content: '', originalContent: '', encoding: 'utf-8', mimeType: 'text/markdown', dirty: false },
+        ]}
+        activePath="README.md"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTitle('README.md')).toHaveAttribute('aria-description', 'Home vai para a primeira aba • End vai para a última aba');
+  });
 });

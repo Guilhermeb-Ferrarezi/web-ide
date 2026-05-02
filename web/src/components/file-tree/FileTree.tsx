@@ -79,6 +79,14 @@ function findNodeByPath(nodes: TreeNode[], path: string): TreeNode | null {
   return null;
 }
 
+function resolveUploadTargetPath(tree: TreeNode[], selectedPath: string | null, fallbackPath: string): string {
+  if (fallbackPath) return fallbackPath;
+  if (!selectedPath) return fallbackPath;
+  const node = findNodeByPath(tree, selectedPath);
+  if (!node) return fallbackPath;
+  return node.type === 'directory' ? node.path : getParentPath(node.path);
+}
+
 async function snapshotNode(workspace: string, node: TreeNode): Promise<FileSnapshot> {
   if (node.type === 'file') {
     const file = await fetchFile(workspace, node.path);
@@ -337,7 +345,7 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
     if (readOnly) return;
 
     if (files.length > 0) {
-      await uploadFilesToPath(targetPath, files);
+      await uploadFilesToPath(resolveUploadTargetPath(tree, selectedPath ?? activePath ?? null, targetPath), files);
       return;
     }
 

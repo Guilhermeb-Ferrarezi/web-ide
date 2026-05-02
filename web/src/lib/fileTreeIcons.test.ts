@@ -2,11 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveFileIcon,
   resolveFolderIcon,
+  resolveFolderFallbackIcon,
 } from './fileTreeIcons';
 import { useAppearanceStore } from '@/stores/appearanceStore';
 
 const BASE_URL =
   'https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/v5.34.0/icons';
+const GENERIC_FOLDER_ICON =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23eab308" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>';
+const GENERIC_FOLDER_OPEN_ICON =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v1.2a2 2 0 0 1-.1.6l-1.7 5.6A2.5 2.5 0 0 1 16.8 19H5.7a2.5 2.5 0 0 1-2.4-3.1l1.4-5A2.5 2.5 0 0 1 7.1 9H21"/></svg>';
 
 describe('fileTreeIcons', () => {
   it('prioritizes exact file name matches', () => {
@@ -128,5 +133,10 @@ describe('fileTreeIcons', () => {
 
     expect(resolveFileIcon('.dockerignore')).toBe(`${BASE_URL}/file.svg`);
     expect(resolveFolderIcon('docs')).toBe(`${BASE_URL}/folder.svg`);
+  });
+
+  it('exposes local folder fallback icons for broken remote images', () => {
+    expect(resolveFolderFallbackIcon()).toBe(GENERIC_FOLDER_ICON);
+    expect(resolveFolderFallbackIcon({ expanded: true })).toBe(GENERIC_FOLDER_OPEN_ICON);
   });
 });

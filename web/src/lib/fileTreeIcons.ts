@@ -142,6 +142,10 @@ export function resolveDefaultFolderIcon(path: string, options?: { expanded?: bo
   return resolveFolderIconFromTheme(defaultIconTheme, path, options);
 }
 
+export function resolveFolderFallbackIcon(options?: { expanded?: boolean }): string {
+  return options?.expanded ? GENERIC_FOLDER_OPEN_ICON : GENERIC_FOLDER_ICON;
+}
+
 function resolveFolderIconFromTheme(
   iconTheme: ResolvedIconTheme,
   path: string,

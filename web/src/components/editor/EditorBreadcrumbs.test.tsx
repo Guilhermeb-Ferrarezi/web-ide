@@ -55,6 +55,274 @@ describe('<EditorBreadcrumbs />', () => {
     expect(screen.getByText('layout')).toBeInTheDocument();
   });
 
+  it('expande os segmentos ocultos com Space', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+    await user.keyboard(' ');
+
+    expect(screen.getByText('src')).toBeInTheDocument();
+    expect(screen.getByText('components')).toBeInTheDocument();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('mantém o foco nas reticências antes da expansão manual', async () => {
+    const user = userEvent.setup();
+
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    await user.tab();
+
+    expect(screen.getByRole('button', { name: 'Mostrar pastas intermediárias' })).toHaveFocus();
+  });
+
+  it('nao renderiza nada sem path ativo', () => {
+    const { container } = render(<EditorBreadcrumbs path={null} />);
+    expect(container.firstChild).toBeNull();
+  });
+});
+
   it('nao renderiza nada sem path ativo', () => {
     const { container } = render(<EditorBreadcrumbs path={null} />);
     expect(container.firstChild).toBeNull();

@@ -330,4 +330,32 @@ describe('<FileTree />', () => {
 
     await waitFor(() => expect(uploadSpy).toHaveBeenCalledWith('repo', 'notes.txt', file));
   });
+
+  it('envia arquivo externo para a pasta selecionada quando solto na raiz', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      {
+        name: 'src',
+        path: 'src',
+        type: 'directory',
+        children: [],
+      },
+    ]);
+    const uploadSpy = vi.spyOn(fsApi, 'uploadFile').mockResolvedValue();
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('src')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('src'));
+    const rootDropZone = screen.getByTestId('file-tree-drop-root');
+    const file = new File(['hello'], 'notes.txt', { type: 'text/plain' });
+
+    fireEvent.dragOver(rootDropZone, {
+      dataTransfer: { files: [file] },
+    });
+    fireEvent.drop(rootDropZone, {
+      dataTransfer: { files: [file] },
+    });
+
+    await waitFor(() => expect(uploadSpy).toHaveBeenCalledWith('repo', 'src/notes.txt', file));
+  });
 });

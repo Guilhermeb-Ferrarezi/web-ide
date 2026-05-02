@@ -165,4 +165,27 @@ describe('<ExtensionsPanel />', () => {
 
     expect(await screen.findByText('2 resultados para “python”')).toBeInTheDocument();
   });
+
+  it('mostra resumo quando a busca usa o fallback theme', async () => {
+    vi.spyOn(extensionsApi, 'searchExtensions').mockResolvedValue([
+      {
+        id: 'GitHub.github-vscode-theme',
+        name: 'github-vscode-theme',
+        namespace: 'GitHub',
+        displayName: 'GitHub Theme',
+        description: 'GitHub theme for VS Code',
+        version: '6.3.5',
+        iconUrl: 'https://example.com/icon.png',
+        downloadCount: 100,
+        averageRating: 5,
+        verified: true,
+      },
+    ]);
+
+    render(<ExtensionsPanel />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Buscar extensões' }));
+
+    expect(await screen.findByText('1 resultado para “theme”')).toBeInTheDocument();
+  });
 });

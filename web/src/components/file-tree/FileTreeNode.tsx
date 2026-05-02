@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { TreeNode } from '@/types';
 import { cn } from '@/lib/utils';
-import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
+import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileIcon, resolveFolderFallbackIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
 import { IconWithFallback } from '@/components/shared/IconWithFallback';
 
 type InlineActionState =
@@ -110,7 +110,7 @@ export function FileTreeNode({
         : resolveFileIcon(inlineAction.value || 'untitled');
     const fallbackIcon =
       inlineAction.mode === 'create-folder'
-        ? resolveDefaultFolderIcon('', { expanded: false })
+        ? resolveFolderFallbackIcon({ expanded: false })
         : resolveDefaultFileIcon(inlineAction.value || 'untitled');
 
     return (
@@ -140,7 +140,7 @@ export function FileTreeNode({
 
   if (node.type === 'directory') {
     const folderIcon = resolveFolderIcon(node.path, { expanded: open || Boolean(isCreatingHere) });
-    const fallbackFolderIcon = resolveDefaultFolderIcon(node.path, { expanded: open || Boolean(isCreatingHere) });
+    const fallbackFolderIcon = resolveFolderFallbackIcon({ expanded: open || Boolean(isCreatingHere) });
     const isDropTarget = dropTargetPath === node.path;
 
     return (
@@ -222,7 +222,7 @@ export function FileTreeNode({
                   }
                   fallbackIcon={
                     inlineAction.mode === 'create-folder'
-                      ? resolveDefaultFolderIcon('', { expanded: false })
+                      ? resolveFolderFallbackIcon({ expanded: false })
                       : resolveDefaultFileIcon(inlineAction.value || 'untitled')
                   }
                   level={level + 1}

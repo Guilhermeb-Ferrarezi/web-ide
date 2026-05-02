@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
+import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileIcon, resolveFolderFallbackIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
 import { IconWithFallback } from '@/components/shared/IconWithFallback';
 
 type Props = {
@@ -39,7 +39,7 @@ export function EditorBreadcrumbs({ path, dirty = false }: Props) {
           : resolveFolderIcon(segmentPath);
         const fallbackSrc = isLast
           ? resolveDefaultFileIcon(segmentPath)
-          : resolveDefaultFolderIcon(segmentPath);
+          : resolveFolderFallbackIcon({ expanded: false });
 
         return (
           <div key={`${segmentPath}-${index}`} className="flex shrink-0 items-center gap-1">
