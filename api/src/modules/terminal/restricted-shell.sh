@@ -5,10 +5,6 @@ set -u
 export PATH="/usr/local/bin:/usr/bin:/bin"
 export HISTFILE=/dev/null
 
-trap 'printf "[terminal] shell received HUP\n"; exit 129' HUP
-trap 'printf "[terminal] shell received TERM\n"; exit 143' TERM
-trap 'printf "[terminal] shell exiting\n"' EXIT
-
 readonly TERMINAL_ALLOWED_COMMANDS="pwd cd ls eza tree cat less more head tail grep rg find fd stat file du df echo printf clear mkdir rmdir touch cp mv rm sed awk cut sort uniq wc xargs git bun bunx npm npx pnpm yarn"
 readonly TERMINAL_ALLOWED_GIT_SUBCOMMANDS="status diff log show branch switch checkout restore add reset commit stash grep blame rev-parse rev-list ls-files"
 
