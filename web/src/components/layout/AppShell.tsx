@@ -393,17 +393,10 @@ export function AppShell({ workspace }: { workspace: string }) {
           {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
           {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
           {side === 'extensions' ? <ExtensionsPanel /> : null}
-          {side === 'assistant' ? (
-            <AssistantPanel
-              workspace={workspace}
-              activePath={activeTab?.path ?? null}
-              activeContent={activeTab?.content ?? null}
-            />
-          ) : null}
         </ResizablePanel>
         <ResizableHandle />
 
-        <ResizablePanel defaultSize={78}>
+        <ResizablePanel defaultSize={side === 'assistant' ? 56 : 78}>
           <ResizablePanelGroup direction="vertical">
             <ResizablePanel defaultSize={showTerminal ? 65 : 100}>
               <div className="flex h-full flex-col">
@@ -435,6 +428,18 @@ export function AppShell({ workspace }: { workspace: string }) {
             )}
           </ResizablePanelGroup>
         </ResizablePanel>
+        {side === 'assistant' && (
+          <>
+            <ResizableHandle />
+            <ResizablePanel defaultSize={22} minSize={18} maxSize={35} className="border-l">
+              <AssistantPanel
+                workspace={workspace}
+                activePath={activeTab?.path ?? null}
+                activeContent={activeTab?.content ?? null}
+              />
+            </ResizablePanel>
+          </>
+        )}
       </ResizablePanelGroup>
       {settingsDialogOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm">

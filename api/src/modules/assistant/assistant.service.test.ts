@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 type SpawnArgs = {
   command: string;
   args: string[];
-  options: { cwd?: string };
+  options: { cwd?: string; stdio?: ['pipe', 'pipe', 'pipe'] };
 };
 
 let lastSpawn: SpawnArgs | null = null;
