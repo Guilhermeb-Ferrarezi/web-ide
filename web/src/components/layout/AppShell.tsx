@@ -96,13 +96,14 @@ export function AppShell({ workspace }: { workspace: string }) {
     setSideRaw(panel);
     persistSidePanelPreference(panel);
   };
-  const [showTerminal, setShowTerminal] = useState(true);
+  const [showTerminal, setShowTerminal] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState<'editor' | 'account' | 'terminal'>('editor');
   const fileFilterRef = useRef<HTMLInputElement>(null) as RefObject<HTMLInputElement>;
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   const autoSaveTimersRef = useRef<Map<string, number>>(new Map());
+  const lastWorkspaceRef = useRef(workspace);
   const gitChangedCount = gitStatus
     ? new Set([
         ...gitStatus.staged.map((file) => file.path),
@@ -119,6 +120,13 @@ export function AppShell({ workspace }: { workspace: string }) {
   useEffect(() => {
     if (permission !== 'write') setShowTerminal(false);
   }, [permission]);
+
+  useEffect(() => {
+    if (lastWorkspaceRef.current !== workspace) {
+      lastWorkspaceRef.current = workspace;
+      setShowTerminal(false);
+    }
+  }, [workspace]);
 
   useEffect(() => {
     if (permission !== 'write') setAssistantOpen(false);

@@ -96,6 +96,18 @@ describe('<AppShell />', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
+  it('fecha o terminal quando o workspace muda', async () => {
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
+
+    const { rerender } = render(<AppShell workspace="repo" />);
+
+    expect(screen.queryByText('terminal-pane')).not.toBeInTheDocument();
+
+    rerender(<AppShell workspace="repo-novo" />);
+
+    expect(screen.queryByText('terminal-pane')).not.toBeInTheDocument();
+  });
+
   it('expõe rótulos acessíveis nos botões da barra lateral', () => {
     useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
 

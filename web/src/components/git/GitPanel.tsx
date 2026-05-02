@@ -485,34 +485,36 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
 function DiffPreview({ diff }: { diff: string }) {
   const rows = parseUnifiedDiff(diff);
   return (
-    <div className="max-h-72 overflow-auto px-2 py-2 text-[12px] leading-5">
-      {rows.map((row, index) => {
-        if (row.kind === 'hunk') {
+    <div className="max-h-72 overflow-x-auto overflow-y-auto px-2 py-2 text-[12px] leading-5">
+      <div className="min-w-[42rem]">
+        {rows.map((row, index) => {
+          if (row.kind === 'hunk') {
+            return (
+              <div key={`hunk-${index}-${row.text}`} className="rounded bg-sky-500/10 px-2 py-1 font-mono text-sky-300 whitespace-pre">
+                {row.text}
+              </div>
+            );
+          }
+
+          const tone =
+            row.type === 'add'
+              ? 'bg-emerald-500/10 text-emerald-100'
+              : row.type === 'remove'
+                ? 'bg-rose-500/10 text-rose-100'
+                : 'text-[#ddd7ef]';
+
           return (
-            <div key={`hunk-${index}-${row.text}`} className="rounded bg-sky-500/10 px-2 py-1 font-mono text-sky-300">
-              {row.text}
+            <div
+              key={`line-${index}-${row.text}`}
+              className={cn('grid grid-cols-[3.5rem_3.5rem_minmax(0,1fr)] gap-2 rounded px-2 py-0.5 font-mono', tone)}
+            >
+              <span className="text-right text-[#8d87a5]">{row.oldLine ?? '\u00a0'}</span>
+              <span className="text-right text-[#8d87a5]">{row.newLine ?? '\u00a0'}</span>
+              <span className="whitespace-pre">{row.text.length === 0 ? '\u00a0' : row.text}</span>
             </div>
           );
-        }
-
-        const tone =
-          row.type === 'add'
-            ? 'bg-emerald-500/10 text-emerald-100'
-            : row.type === 'remove'
-              ? 'bg-rose-500/10 text-rose-100'
-              : 'text-[#ddd7ef]';
-
-        return (
-          <div
-            key={`line-${index}-${row.text}`}
-            className={cn('grid grid-cols-[3.5rem_3.5rem_1fr] gap-2 rounded px-2 py-0.5 font-mono', tone)}
-          >
-            <span className="text-right text-[#8d87a5]">{row.oldLine ?? '\u00a0'}</span>
-            <span className="text-right text-[#8d87a5]">{row.newLine ?? '\u00a0'}</span>
-            <span className="whitespace-pre-wrap break-words">{row.text.length === 0 ? '\u00a0' : row.text}</span>
-          </div>
-        );
-      })}
+        })}
+      </div>
     </div>
   );
 }
