@@ -94,9 +94,9 @@ describe('terminal session reuse', () => {
     pty.emitData('world');
 
     expect(createPty).toHaveBeenCalledTimes(1);
-    expect(firstSocket.close).toHaveBeenCalledTimes(1);
     expect(secondSocket.send).toHaveBeenCalledWith('world');
     expect(firstSocket.send).toHaveBeenCalledTimes(1);
+    expect(firstSocket.close).not.toHaveBeenCalled();
   });
 
   it('adia o kill apos o close do socket para permitir reconnect', () => {

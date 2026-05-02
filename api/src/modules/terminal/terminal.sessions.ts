@@ -95,13 +95,6 @@ export function getOrCreateTerminalSession(
       return entry?.socket ?? null;
     },
     attachSocket(socket: TerminalSocketLike) {
-      if (entry?.socket && entry.socket !== socket) {
-        try {
-          entry.socket.close();
-        } catch {
-          // ignore
-        }
-      }
       clearCleanupTimer(entry!, clearTimeoutFn);
       entry!.socket = socket;
     },
@@ -129,4 +122,3 @@ export function getOrCreateTerminalSession(
     },
   };
 }
-
