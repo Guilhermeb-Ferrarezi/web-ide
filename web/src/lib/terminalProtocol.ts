@@ -1,4 +1,4 @@
-export const TERMINAL_KEEPALIVE_INTERVAL_MS = 25_000;
+export const TERMINAL_KEEPALIVE_INTERVAL_MS = 5_000;
 
 type TerminalControlMessage =
   | { type: 'error'; message?: string }
