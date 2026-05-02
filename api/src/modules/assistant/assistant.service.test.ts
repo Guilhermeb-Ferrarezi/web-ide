@@ -49,9 +49,13 @@ mock.restore();
 mock.module('../../config.ts', () => ({
   config: {
     CODEX_BIN: 'codex',
-    CODEX_HOME: '',
+    CODEX_HOME: '/tmp/web-ide-terminal-home/.codex',
     CODEX_TIMEOUT_MS: 45_000,
   },
+}));
+
+mock.module('node:fs', () => ({
+  existsSync: (filePath: string) => String(filePath).includes('/tmp/web-ide-terminal-home/.codex/auth.json'),
 }));
 
 mock.module('node:child_process', () => ({

@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -107,15 +108,31 @@ function collectStream(stream: NodeJS.ReadableStream | null | undefined): Promis
   });
 }
 
+function resolveCodexHome(): { home?: string; codexHome?: string } {
+  const candidates = [
+    config.CODEX_HOME,
+    process.env.CODEX_HOME,
+    '/tmp/web-ide-terminal-home/.codex',
+    process.env.HOME ? path.join(process.env.HOME, '.codex') : null,
+  ].filter((value): value is string => Boolean(value));
+
+  for (const candidate of candidates) {
+    const authPath = path.join(candidate, 'auth.json');
+    if (fsSync.existsSync(authPath)) {
+      if (path.basename(candidate) === '.codex') {
+        return { home: path.dirname(candidate), codexHome: candidate };
+      }
+      return { home: candidate, codexHome: path.join(candidate, '.codex') };
+    }
+  }
+
+  return {};
+}
+
 async function runCodex(prompt: string, cwd: string): Promise<string> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'web-ide-codex-'));
   const outputPath = path.join(tempDir, 'last-message.txt');
-  const codexEnv = config.CODEX_HOME
-    ? {
-        HOME: config.CODEX_HOME,
-        CODEX_HOME: config.CODEX_HOME,
-      }
-    : {};
+  const codexHome = resolveCodexHome();
   const args = [
     'exec',
     '--output-last-message',
@@ -133,7 +150,8 @@ async function runCodex(prompt: string, cwd: string): Promise<string> {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: {
       ...process.env,
-      ...codexEnv,
+      ...(codexHome.home ? { HOME: codexHome.home } : {}),
+      ...(codexHome.codexHome ? { CODEX_HOME: codexHome.codexHome } : {}),
     },
   });
 
@@ -195,6 +213,11 @@ async function runCodex(prompt: string, cwd: string): Promise<string> {
 export async function chatWithAssistant(input: AssistantChatInput): Promise<AssistantChatResult> {
   if (!config.CODEX_BIN) {
     throw new AssistantNotConfiguredError();
+  }
+
+  const codexHome = resolveCodexHome();
+  if (!codexHome.home && !codexHome.codexHome) {
+    throw new AssistantAuthError();
   }
 
   const messages = input.messages.slice(-12).map((message) => ({
