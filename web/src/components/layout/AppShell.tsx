@@ -63,6 +63,7 @@ export function AppShell({ workspace }: { workspace: string }) {
     if (autoSaveMode !== 'afterDelay') return 'Auto Save desativado';
     return `Auto Save em ${autoSaveDelayMs >= 3000 ? '3s' : '1.2s'}`;
   }, [autoSaveDelayMs, autoSaveMode]);
+  const sidebarIconClass = 'h-8 w-8 stroke-[1.8]';
 
   useEffect(() => {
     if (permission !== 'write') setShowTerminal(false);
@@ -175,7 +176,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 )}
                 onClick={() => setSide('files')}
               >
-                <Files className="h-7.5 w-7.5 stroke-[1.7]" />
+                <Files className={sidebarIconClass} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Arquivos <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+1</kbd> · Filtrar <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+P</kbd></TooltipContent>
@@ -194,7 +195,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 )}
                 onClick={() => setSide('search')}
               >
-                <Search className="h-7.5 w-7.5 stroke-[1.7]" />
+                <Search className={sidebarIconClass} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Buscar código <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+2</kbd></TooltipContent>
@@ -213,7 +214,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 )}
                 onClick={() => setSide('git')}
               >
-                <GitFork className="h-7.5 w-7.5 stroke-[1.7]" />
+                <GitFork className={sidebarIconClass} />
                 {gitChangedCount > 0 && (
                   <span className="absolute bottom-1 right-1 min-w-4 rounded-full bg-[#8b5cf6] px-1 text-[10px] font-semibold leading-4 text-white shadow-sm">
                     {gitChangedCount}
@@ -237,7 +238,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 )}
                 onClick={() => setSide('extensions')}
               >
-                <Blocks className="h-7.5 w-7.5 stroke-[1.7]" />
+                <Blocks className={sidebarIconClass} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Extensões <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+4</kbd></TooltipContent>
@@ -256,7 +257,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 onClick={() => setShowTerminal((v) => !v)}
                 disabled={permission !== 'write'}
               >
-                <TerminalSquare className="h-7.5 w-7.5 stroke-[1.7]" />
+                <TerminalSquare className={sidebarIconClass} />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
@@ -282,7 +283,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                   {user?.avatarUrl ? (
                     <img src={user.avatarUrl} alt={user.login} className="h-8 w-8 rounded-full border border-white/10 object-cover" />
                   ) : (
-                    <Github className="h-7.5 w-7.5 stroke-[1.7]" />
+                    <Github className={sidebarIconClass} />
                   )}
                 </Button>
               </TooltipTrigger>
