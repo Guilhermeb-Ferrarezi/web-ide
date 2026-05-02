@@ -7,6 +7,12 @@ const manifest = generateManifest();
 const MATERIAL_ICON_THEME_VERSION = '5.34.0';
 const MATERIAL_ICON_THEME_BASE_URL =
   `https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/v${MATERIAL_ICON_THEME_VERSION}/icons`;
+const GENERIC_FILE_ICON =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5"/></svg>';
+const GENERIC_FOLDER_ICON =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23eab308" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H10l2 2h6.5A2.5 2.5 0 0 1 21 8.5v9A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5z"/></svg>';
+const GENERIC_FOLDER_OPEN_ICON =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H10l2 2h6.5A2.5 2.5 0 0 1 21 9.5v1.2a2 2 0 0 1-.1.6l-1.7 5.6A2.5 2.5 0 0 1 16.8 19H5.7a2.5 2.5 0 0 1-2.4-3.1l1.4-5A2.5 2.5 0 0 1 7.1 9H21"/></svg>';
 
 type ResolvedIconTheme = InstalledIconTheme['icons'];
 
@@ -57,6 +63,7 @@ function iconIdToUrl(
   iconId: string | undefined,
   fallbackId: string,
   defaultFallbackId = fallbackId,
+  absoluteFallbackUrl = GENERIC_FILE_ICON,
 ): string {
   const resolvedId = iconId ?? fallbackId;
   return pickDefinedIconUrl(
@@ -65,7 +72,7 @@ function iconIdToUrl(
     getDefaultIconUrl(resolvedId),
     getDefaultIconUrl(fallbackId),
     getDefaultIconUrl(defaultFallbackId),
-  ) ?? '';
+  ) ?? absoluteFallbackUrl;
 }
 
 function matchAssociation(
@@ -99,31 +106,50 @@ function getExtensionCandidates(name: string): string[] {
 }
 
 export function resolveFileIcon(path: string): string {
-  const iconTheme = getActiveIconTheme();
+  return resolveFileIconFromTheme(getActiveIconTheme(), path);
+}
+
+export function resolveDefaultFileIcon(path: string): string {
+  return resolveFileIconFromTheme(defaultIconTheme, path);
+}
+
+function resolveFileIconFromTheme(iconTheme: ResolvedIconTheme, path: string): string {
   const { name, parent } = splitPath(path);
   const normalizedName = normalizeSegment(name);
 
   const fileNameMatch = matchAssociation(iconTheme.fileNames, normalizedName, parent);
   if (fileNameMatch) {
-    return iconIdToUrl(iconTheme, fileNameMatch, iconTheme.file, defaultIconTheme.file);
+    return iconIdToUrl(iconTheme, fileNameMatch, iconTheme.file, defaultIconTheme.file, GENERIC_FILE_ICON);
   }
 
   for (const extension of getExtensionCandidates(normalizedName)) {
     const extensionMatch = matchAssociation(iconTheme.fileExtensions, extension, parent);
     if (extensionMatch) {
-      return iconIdToUrl(iconTheme, extensionMatch, iconTheme.file, defaultIconTheme.file);
+      return iconIdToUrl(iconTheme, extensionMatch, iconTheme.file, defaultIconTheme.file, GENERIC_FILE_ICON);
     }
   }
 
   const languageId = detectLanguage(normalizedName);
   const languageMatch = languageId === 'plaintext' ? undefined : iconTheme.languageIds[languageId];
-  return iconIdToUrl(iconTheme, languageMatch, iconTheme.file, defaultIconTheme.file);
+  return iconIdToUrl(iconTheme, languageMatch, iconTheme.file, defaultIconTheme.file, GENERIC_FILE_ICON);
 }
 
 export function resolveFolderIcon(path: string, options?: { expanded?: boolean }): string {
-  const iconTheme = getActiveIconTheme();
+  return resolveFolderIconFromTheme(getActiveIconTheme(), path, options);
+}
+
+export function resolveDefaultFolderIcon(path: string, options?: { expanded?: boolean }): string {
+  return resolveFolderIconFromTheme(defaultIconTheme, path, options);
+}
+
+function resolveFolderIconFromTheme(
+  iconTheme: ResolvedIconTheme,
+  path: string,
+  options?: { expanded?: boolean },
+): string {
   const { name, parent } = splitPath(path);
   const normalizedName = normalizeSegment(name);
+  const absoluteFallbackUrl = options?.expanded ? GENERIC_FOLDER_OPEN_ICON : GENERIC_FOLDER_ICON;
 
   const specificAssociation = options?.expanded
     ? matchAssociation(iconTheme.folderNamesExpanded, normalizedName, parent)
@@ -136,6 +162,7 @@ export function resolveFolderIcon(path: string, options?: { expanded?: boolean }
       specificAssociation,
       options?.expanded ? iconTheme.folderExpanded : iconTheme.folder,
       options?.expanded ? defaultIconTheme.folderExpanded : defaultIconTheme.folder,
+      absoluteFallbackUrl,
     );
   }
 
@@ -144,6 +171,7 @@ export function resolveFolderIcon(path: string, options?: { expanded?: boolean }
     options?.expanded ? iconTheme.folderExpanded : iconTheme.folder,
     options?.expanded ? iconTheme.folderExpanded : iconTheme.folder,
     options?.expanded ? defaultIconTheme.folderExpanded : defaultIconTheme.folder,
+    absoluteFallbackUrl,
   );
 }
 

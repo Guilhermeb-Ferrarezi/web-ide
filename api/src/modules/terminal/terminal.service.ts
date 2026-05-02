@@ -21,6 +21,7 @@ export type TerminalAccess = {
 
 const DEFAULT_PATH = '/usr/local/bin:/usr/bin:/bin';
 const DEFAULT_HOME = '/tmp/web-ide-terminal-home';
+const DEFAULT_PROMPT = 'web-ide:\\W\\$ ';
 
 export function resolveTerminalAccess(
   cwd: string,
@@ -36,11 +37,15 @@ export function resolveTerminalAccess(
     options?.restrictedShellPath ??
     path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'restricted-shell.sh');
   const shell = restricted ? '/bin/bash' : configuredShell;
+  const shellBase = path.basename(shell).toLowerCase();
+  const unrestrictedArgs = shellBase === 'bash'
+    ? ['--noprofile', '--norc', '-i']
+    : [];
 
   return {
     restricted,
     shell,
-    args: restricted ? ['--noprofile', '--norc', restrictedShellPath] : [],
+    args: restricted ? ['--noprofile', '--norc', restrictedShellPath] : unrestrictedArgs,
     env: {
       ...process.env,
       TERM: 'xterm-256color',
@@ -51,6 +56,9 @@ export function resolveTerminalAccess(
       HISTSIZE: '0',
       HISTFILESIZE: '0',
       SHELL: shell,
+      PS1: DEFAULT_PROMPT,
+      PROMPT_COMMAND: '',
+      PROMPT_DIRTRIM: '2',
       TERMINAL_WORKSPACE_ROOT: cwd,
       TERMINAL_ACCESS_MODE: restricted ? 'restricted' : 'unrestricted',
     },

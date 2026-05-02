@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { EditorTabs } from './EditorTabs';
@@ -106,5 +107,35 @@ describe('<EditorTabs />', () => {
 
     expect(screen.getByLabelText('Extension: My Theme')).toBeInTheDocument();
     expect(screen.queryByRole('presentation')).not.toBeInTheDocument();
+  });
+
+  it('troca para o icone padrao quando a URL do icone falha', () => {
+    render(
+      <EditorTabs
+        tabs={[
+          {
+            path: 'src/components/FileTree.tsx',
+            name: 'FileTree.tsx',
+            content: '',
+            originalContent: '',
+            encoding: 'utf-8',
+            mimeType: 'text/plain',
+            dirty: false,
+            iconUrl: 'https://example.com/broken-icon.svg',
+          },
+        ]}
+        activePath="src/components/FileTree.tsx"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const icon = screen.getByRole('presentation');
+    fireEvent.error(icon);
+
+    expect(icon).toHaveAttribute(
+      'src',
+      'https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/v5.34.0/icons/react_ts.svg',
+    );
   });
 });

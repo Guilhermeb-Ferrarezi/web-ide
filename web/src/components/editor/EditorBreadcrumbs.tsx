@@ -1,5 +1,6 @@
 import { ChevronRight } from 'lucide-react';
-import { resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
+import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
+import { IconWithFallback } from '@/components/shared/IconWithFallback';
 
 type Props = {
   path: string | null;
@@ -34,11 +35,14 @@ export function EditorBreadcrumbs({ path, dirty = false }: Props) {
         const iconSrc = isLast
           ? resolveFileIcon(segmentPath)
           : resolveFolderIcon(segmentPath);
+        const fallbackSrc = isLast
+          ? resolveDefaultFileIcon(segmentPath)
+          : resolveDefaultFolderIcon(segmentPath);
 
         return (
           <div key={`${segmentPath}-${index}`} className="flex shrink-0 items-center gap-1">
             {index > 0 && <ChevronRight className="h-3 w-3 opacity-60" />}
-            <img src={iconSrc} alt="" role="presentation" className="h-4 w-4 shrink-0" />
+            <IconWithFallback src={iconSrc} fallbackSrc={fallbackSrc} alt="" role="presentation" className="h-4 w-4 shrink-0" />
             <span
               className={isLast ? 'font-medium text-foreground' : undefined}
               title={isCollapsed ? middleSegments.join(' / ') : undefined}

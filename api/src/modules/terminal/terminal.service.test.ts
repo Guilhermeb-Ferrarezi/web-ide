@@ -29,8 +29,10 @@ describe('resolveTerminalAccess', () => {
 
     expect(access.restricted).toBe(false);
     expect(access.shell).toBe('/bin/bash');
-    expect(access.args).toEqual([]);
+    expect(access.args).toEqual(['--noprofile', '--norc', '-i']);
     expect(access.env.TERM).toBe('xterm-256color');
+    expect(access.env.PS1).toBe('web-ide:\\W\\$ ');
+    expect(access.env.PROMPT_COMMAND).toBe('');
   });
 
   it('treats owner and admin as restricted by default', () => {

@@ -1,9 +1,10 @@
-import { useState, type KeyboardEvent, type MouseEvent } from 'react';
+import { useState, type DragEvent, type KeyboardEvent, type MouseEvent } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { TreeNode } from '@/types';
 import { cn } from '@/lib/utils';
-import { resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
+import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
+import { IconWithFallback } from '@/components/shared/IconWithFallback';
 
 type InlineActionState =
   | { mode: 'create-file'; parentPath: string; value: string }
@@ -16,6 +17,11 @@ type Props = {
   activePath?: string | null;
   onOpenFile: (path: string) => void;
   onOpenContextMenu: (node: TreeNode, event: MouseEvent<HTMLElement>) => void;
+  onDragStart: (node: TreeNode) => void;
+  onDragEnd: () => void;
+  onDragOverDirectory: (targetPath: string, event: DragEvent<HTMLElement>) => void;
+  onDropIntoDirectory: (targetPath: string, event: DragEvent<HTMLElement>) => void;
+  dropTargetPath?: string | null;
   inlineAction: InlineActionState | null;
   onInlineValueChange: (value: string) => void;
   onInlineSubmit: () => void;
@@ -24,6 +30,7 @@ type Props = {
 
 type InlineInputProps = {
   icon: string;
+  fallbackIcon: string;
   level: number;
   value: string;
   folder?: boolean;
@@ -48,14 +55,14 @@ function handleInlineKeyDown(
   }
 }
 
-function InlineTreeInput({ icon, level, value, folder, onChange, onSubmit, onCancel }: InlineInputProps) {
+function InlineTreeInput({ icon, fallbackIcon, level, value, folder, onChange, onSubmit, onCancel }: InlineInputProps) {
   return (
     <div
       className="flex items-center gap-1 rounded px-1 py-0.5"
       style={{ paddingLeft: 4 + level * 12 + (folder ? 0 : 14) }}
     >
       {folder ? <ChevronRight className="h-3.5 w-3.5 opacity-0" /> : null}
-      <img src={icon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+      <IconWithFallback src={icon} fallbackSrc={fallbackIcon} alt="" ariaHidden className="h-4 w-4 shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <Input
           value={value}
@@ -78,6 +85,11 @@ export function FileTreeNode({
   activePath,
   onOpenFile,
   onOpenContextMenu,
+  onDragStart,
+  onDragEnd,
+  onDragOverDirectory,
+  onDropIntoDirectory,
+  dropTargetPath,
   inlineAction,
   onInlineValueChange,
   onInlineSubmit,
@@ -92,11 +104,16 @@ export function FileTreeNode({
       inlineAction.mode === 'create-folder'
         ? resolveFolderIcon('', { expanded: false })
         : resolveFileIcon(inlineAction.value || 'untitled');
+    const fallbackIcon =
+      inlineAction.mode === 'create-folder'
+        ? resolveDefaultFolderIcon('', { expanded: false })
+        : resolveDefaultFileIcon(inlineAction.value || 'untitled');
 
     return (
       <li>
         <InlineTreeInput
           icon={icon}
+          fallbackIcon={fallbackIcon}
           level={level}
           value={inlineAction.value}
           folder={inlineAction.mode === 'create-folder'}
@@ -118,12 +135,15 @@ export function FileTreeNode({
 
   if (node.type === 'directory') {
     const folderIcon = resolveFolderIcon(node.path, { expanded: open || Boolean(isCreatingHere) });
+    const fallbackFolderIcon = resolveDefaultFolderIcon(node.path, { expanded: open || Boolean(isCreatingHere) });
+    const isDropTarget = dropTargetPath === node.path;
 
     return (
       <li>
         {isRenamingHere ? (
           <InlineTreeInput
             icon={folderIcon}
+            fallbackIcon={fallbackFolderIcon}
             level={level}
             value={inlineAction.value}
             folder
@@ -134,14 +154,23 @@ export function FileTreeNode({
         ) : (
           <button
             type="button"
+            draggable
             onClick={() => setOpen((v) => !v)}
             onContextMenu={(event) => onOpenContextMenu(node, event)}
+            onDragStart={(event) => {
+              if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+              onDragStart(node);
+            }}
+            onDragEnd={onDragEnd}
+            onDragOver={(event) => onDragOverDirectory(node.path, event)}
+            onDrop={(event) => onDropIntoDirectory(node.path, event)}
             className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-sm hover:bg-accent"
+            data-drop-target={isDropTarget ? 'true' : 'false'}
             style={{ paddingLeft: 4 + level * 12 }}
           >
             <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', (open || isCreatingHere) && 'rotate-90')} />
-            <img src={folderIcon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
-            <span className="truncate">{node.name}</span>
+            <IconWithFallback src={folderIcon} fallbackSrc={fallbackFolderIcon} alt="" ariaHidden className="h-4 w-4 shrink-0" />
+            <span className={cn('truncate', isDropTarget && 'font-medium text-foreground')}>{node.name}</span>
           </button>
         )}
         {(open || isCreatingHere) && (
@@ -154,6 +183,11 @@ export function FileTreeNode({
                 activePath={activePath}
                 onOpenFile={onOpenFile}
                 onOpenContextMenu={onOpenContextMenu}
+                onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
+                onDragOverDirectory={onDragOverDirectory}
+                onDropIntoDirectory={onDropIntoDirectory}
+                dropTargetPath={dropTargetPath}
                 inlineAction={inlineAction}
                 onInlineValueChange={onInlineValueChange}
                 onInlineSubmit={onInlineSubmit}
@@ -167,6 +201,11 @@ export function FileTreeNode({
                     inlineAction.mode === 'create-folder'
                       ? resolveFolderIcon('', { expanded: false })
                       : resolveFileIcon(inlineAction.value || 'untitled')
+                  }
+                  fallbackIcon={
+                    inlineAction.mode === 'create-folder'
+                      ? resolveDefaultFolderIcon('', { expanded: false })
+                      : resolveDefaultFileIcon(inlineAction.value || 'untitled')
                   }
                   level={level + 1}
                   value={inlineAction.value}
@@ -184,12 +223,14 @@ export function FileTreeNode({
   }
 
   const fileIcon = resolveFileIcon(node.path);
+  const fallbackFileIcon = resolveDefaultFileIcon(node.path);
 
   return (
     <li>
       {isRenamingHere ? (
         <InlineTreeInput
           icon={fileIcon}
+          fallbackIcon={fallbackFileIcon}
           level={level}
           value={inlineAction.value}
           onChange={onInlineValueChange}
@@ -199,15 +240,21 @@ export function FileTreeNode({
       ) : (
         <button
           type="button"
+          draggable
           onClick={() => onOpenFile(node.path)}
           onContextMenu={(event) => onOpenContextMenu(node, event)}
+          onDragStart={(event) => {
+            if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+            onDragStart(node);
+          }}
+          onDragEnd={onDragEnd}
           className={cn(
             'flex w-full items-center gap-1 rounded px-1 py-0.5 text-sm hover:bg-accent',
             isActive && 'bg-accent',
           )}
           style={{ paddingLeft: 4 + level * 12 + 14 }}
         >
-          <img src={fileIcon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
+          <IconWithFallback src={fileIcon} fallbackSrc={fallbackFileIcon} alt="" ariaHidden className="h-4 w-4 shrink-0" />
           <span className="truncate">{node.name}</span>
         </button>
       )}

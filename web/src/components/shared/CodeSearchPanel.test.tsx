@@ -64,20 +64,22 @@ describe('<CodeSearchPanel />', () => {
     expect(screen.getByText('src/components')).toBeInTheDocument();
   });
 
-  it('mostra um atalho de Enter antes da primeira busca', () => {
+  it('mostra orientações antes da primeira busca', () => {
     render(<CodeSearchPanel workspace="repo" />);
 
     expect(screen.getByText('Digite um trecho e pressione Enter para procurar no workspace.')).toBeInTheDocument();
+    expect(screen.getByText('Use Esc para limpar a busca atual sem sair do painel.')).toBeInTheDocument();
   });
 
-  it('mostra mensagem de vazio quando não há resultados', async () => {
+  it('mostra mensagem contextual quando não há resultados', async () => {
     vi.spyOn(fsApi, 'searchFiles').mockResolvedValue([]);
 
     render(<CodeSearchPanel workspace="repo" />);
 
     await userEvent.type(screen.getByPlaceholderText('Buscar'), 'missing{Enter}');
 
-    expect(await screen.findByText('Nenhum resultado encontrado.')).toBeInTheDocument();
+    expect(await screen.findByText('Nenhum resultado para “missing”.')).toBeInTheDocument();
+    expect(screen.getByText('Tente ajustar Aa, palavra inteira ou regex para ampliar a busca.')).toBeInTheDocument();
   });
 
   it('mostra erro de regex inválida sem chamar a busca', async () => {
@@ -135,7 +137,7 @@ describe('<CodeSearchPanel />', () => {
     expect(screen.getByText('Buscando…')).toBeInTheDocument();
 
     resolveSearch([]);
-    await screen.findByText('Nenhum resultado encontrado.');
+    await screen.findByText('Nenhum resultado para “hello”.');
   });
 
   it('mostra contador de resultados por arquivo', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { FilePlus2, FolderPlus, Pencil, RefreshCcw, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { deleteFile, mkdir, renamePath, saveFile } from '@/api/fs';
+import { deleteFile, mkdir, renamePath, saveFile, uploadFile } from '@/api/fs';
 import { useFileTree } from '@/hooks/useFileTree';
 import { useEditor } from '@/hooks/useEditor';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -39,6 +39,10 @@ function getParentPath(nodePath: string): string {
   return parts.join('/');
 }
 
+function getNodeName(nodePath: string): string {
+  return nodePath.split('/').filter(Boolean).at(-1) ?? nodePath;
+}
+
 export function FileTree({ workspace, filterInputRef }: { workspace: string; filterInputRef?: React.RefObject<HTMLInputElement> }) {
   const { tree, loading, refresh } = useFileTree(workspace);
   const { openFile, activePath } = useEditor();
@@ -47,6 +51,8 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
   const [inlineAction, setInlineAction] = useState<InlineActionState | null>(null);
   const [deleteModal, setDeleteModal] = useState<DeleteModalState | null>(null);
   const [fileFilter, setFileFilter] = useState('');
+  const [draggingPath, setDraggingPath] = useState<string | null>(null);
+  const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
   const localFilterRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const resolvedFilterRef = filterInputRef ?? localFilterRef;
   const readOnly = permission !== 'write';
@@ -151,6 +157,74 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
     setInlineAction(null);
   }
 
+  async function uploadFilesToPath(targetPath: string, files: File[]) {
+    if (files.length === 0) return;
+    try {
+      await Promise.all(
+        files.map((file) => uploadFile(workspace, joinPath(targetPath, file.name), file)),
+      );
+      await refresh();
+      toast.success(files.length === 1 ? 'Arquivo enviado' : `${files.length} arquivos enviados`);
+    } catch {
+      toast.error('Falha ao enviar arquivo');
+    }
+  }
+
+  async function moveNodeToPath(sourcePath: string, targetPath: string) {
+    const nextPath = joinPath(targetPath, getNodeName(sourcePath));
+    if (sourcePath === nextPath) return;
+    if (targetPath === sourcePath || targetPath.startsWith(`${sourcePath}/`)) {
+      toast.error('Não é possível mover para dentro do próprio item');
+      return;
+    }
+
+    try {
+      await renamePath(workspace, sourcePath, nextPath);
+      await refresh();
+    } catch {
+      toast.error('Falha ao mover item');
+    }
+  }
+
+  function handleDragStart(node: TreeNode) {
+    if (readOnly) return;
+    setDraggingPath(node.path);
+  }
+
+  function handleDragEnd() {
+    setDraggingPath(null);
+    setDropTargetPath(null);
+  }
+
+  async function handleDrop(targetPath: string, event: DragEvent<HTMLElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    setDropTargetPath(null);
+
+    if (readOnly) return;
+
+    if (files.length > 0) {
+      await uploadFilesToPath(targetPath, files);
+      return;
+    }
+
+    if (draggingPath) {
+      await moveNodeToPath(draggingPath, targetPath);
+    }
+    handleDragEnd();
+  }
+
+  function handleDirectoryDragOver(targetPath: string, event: DragEvent<HTMLElement>) {
+    if (readOnly) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = event.dataTransfer.files.length > 0 ? 'copy' : 'move';
+    }
+    setDropTargetPath(targetPath);
+  }
+
   async function handleInlineSubmit() {
     if (!inlineAction) return;
     const nextValue = inlineAction.value.trim();
@@ -216,6 +290,7 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
 
   const showRootInlineInput =
     inlineAction && inlineAction.mode !== 'rename' && inlineAction.parentPath === '';
+  const activeFileName = activePath?.split('/').pop() ?? activePath;
 
   return (
     <div className="relative flex h-full flex-col">
@@ -272,36 +347,74 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
           </button>
         )}
       </div>
+      {activeFileName && filteredFiles === null && (
+        <div className="border-b px-3 py-1.5 text-[11px] text-muted-foreground">
+          <p>{`Arquivo ativo: ${activeFileName}`}</p>
+          <p>Clique direito para ações</p>
+        </div>
+      )}
       <ScrollArea className="flex-1">
         {filteredFiles !== null ? (
           filteredFiles.length === 0 ? (
-            <p className="p-3 text-xs text-muted-foreground">Nenhum arquivo encontrado.</p>
+            <div className="space-y-1 p-3 text-xs text-muted-foreground">
+              <p>{`Nenhum arquivo corresponde a “${fileFilter.trim()}”.`}</p>
+              <p>Use Esc ou o botão limpar para tentar outro filtro.</p>
+            </div>
           ) : (
-            <ul className="py-1">
-              {filteredFiles.map((node) => (
-                <li key={node.path}>
-                  <button
-                    type="button"
-                    onClick={() => void openFile(node.path)}
-                    title={node.path}
-                    className={cn(
-                      'flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent',
-                      activePath === node.path && 'bg-accent font-medium',
-                    )}
-                  >
-                    <span className="truncate">{node.name}</span>
-                    <span className="ml-auto truncate text-muted-foreground">{node.path.slice(0, node.path.length - node.name.length).replace(/\/$/, '')}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className="space-y-1 border-b px-3 py-2 text-[11px] text-muted-foreground">
+                <p>{`${filteredFiles.length} ${filteredFiles.length === 1 ? 'arquivo encontrado' : 'arquivos encontrados'}`}</p>
+                <p>Use Esc para limpar o filtro atual.</p>
+              </div>
+              <ul className="py-1">
+                {filteredFiles.map((node) => (
+                  <li key={node.path}>
+                    <button
+                      type="button"
+                      onClick={() => void openFile(node.path)}
+                      title={node.path}
+                      className={cn(
+                        'flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent',
+                        activePath === node.path && 'bg-accent font-medium',
+                      )}
+                    >
+                      <span className="truncate">{node.name}</span>
+                      <span className="ml-auto truncate text-muted-foreground">{node.path.slice(0, node.path.length - node.name.length).replace(/\/$/, '')}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </>
           )
         ) : loading ? (
           <p className="p-3 text-xs text-muted-foreground">Carregando...</p>
         ) : tree.length === 0 && !showRootInlineInput ? (
-          <p className="p-3 text-xs text-muted-foreground">Workspace vazio</p>
+          <div
+            data-testid="file-tree-drop-root"
+            className={cn(
+              'p-3 text-xs text-muted-foreground',
+              dropTargetPath === '' && 'rounded-md bg-accent/40 text-foreground',
+            )}
+            onDragOver={(event) => handleDirectoryDragOver('', event)}
+            onDragLeave={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+              setDropTargetPath((current) => (current === '' ? null : current));
+            }}
+            onDrop={(event) => void handleDrop('', event)}
+          >
+            Workspace vazio
+          </div>
         ) : (
-          <ul className="py-1">
+          <ul
+            data-testid="file-tree-drop-root"
+            className={cn('py-1', dropTargetPath === '' && 'rounded-md bg-accent/40')}
+            onDragOver={(event) => handleDirectoryDragOver('', event)}
+            onDragLeave={(event) => {
+              if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+              setDropTargetPath((current) => (current === '' ? null : current));
+            }}
+            onDrop={(event) => void handleDrop('', event)}
+          >
             {showRootInlineInput && inlineAction ? (
               <FileTreeNode
                 key={`inline-root-${inlineAction.mode}`}
@@ -314,6 +427,11 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                   event.stopPropagation();
                   setContextMenu({ node, x: event.clientX, y: event.clientY });
                 }}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragOverDirectory={handleDirectoryDragOver}
+                onDropIntoDirectory={(targetPath, event) => void handleDrop(targetPath, event)}
+                dropTargetPath={dropTargetPath}
                 inlineAction={inlineAction}
                 onInlineValueChange={handleInlineValueChange}
                 onInlineSubmit={() => void handleInlineSubmit()}
@@ -332,6 +450,11 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                   event.stopPropagation();
                   setContextMenu({ node, x: event.clientX, y: event.clientY });
                 }}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                onDragOverDirectory={handleDirectoryDragOver}
+                onDropIntoDirectory={(targetPath, event) => void handleDrop(targetPath, event)}
+                dropTargetPath={dropTargetPath}
                 inlineAction={inlineAction}
                 onInlineValueChange={handleInlineValueChange}
                 onInlineSubmit={() => void handleInlineSubmit()}

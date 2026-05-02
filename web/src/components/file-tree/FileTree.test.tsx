@@ -114,8 +114,7 @@ describe('<FileTree />', () => {
     render(<FileTree workspace="repo" />);
 
     await waitFor(() => expect(screen.getByText('README.md')).toBeInTheDocument());
-    expect(screen.getByText('Arquivo ativo: README.md')).toBeInTheDocument();
-    expect(screen.getByText('Clique direito para ações')).toBeInTheDocument();
+    expect(screen.getByText('README.md').closest('button')).toHaveClass('bg-accent');
   });
 
   it('mostra dica de atalho ao renomear inline', async () => {
@@ -130,5 +129,85 @@ describe('<FileTree />', () => {
     await userEvent.click(screen.getByRole('menuitem', { name: 'Renomear' }));
 
     expect(screen.getByText('Enter para confirmar • Esc para cancelar')).toBeInTheDocument();
+  });
+
+  it('mostra feedback contextual enquanto o filtro de arquivos está ativo', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      {
+        name: 'src',
+        path: 'src',
+        type: 'directory',
+        children: [
+          { name: 'app.tsx', path: 'src/app.tsx', type: 'file' },
+          { name: 'app.test.tsx', path: 'src/app.test.tsx', type: 'file' },
+          { name: 'main.tsx', path: 'src/main.tsx', type: 'file' },
+        ],
+      },
+    ]);
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('src')).toBeInTheDocument());
+
+    const input = screen.getByPlaceholderText('Filtrar arquivos');
+    await userEvent.type(input, 'app');
+
+    expect(screen.getByText('2 arquivos encontrados')).toBeInTheDocument();
+    expect(screen.getByText('Use Esc para limpar o filtro atual.')).toBeInTheDocument();
+    expect(screen.getByText('app.tsx')).toBeInTheDocument();
+    expect(screen.getByText('app.test.tsx')).toBeInTheDocument();
+    expect(screen.queryByText('main.tsx')).not.toBeInTheDocument();
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'sem-match');
+
+    expect(screen.getByText('Nenhum arquivo corresponde a “sem-match”.')).toBeInTheDocument();
+    expect(screen.getByText('Use Esc ou o botão limpar para tentar outro filtro.')).toBeInTheDocument();
+  });
+
+  it('move um arquivo arrastado para dentro de uma pasta', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      {
+        name: 'src',
+        path: 'src',
+        type: 'directory',
+        children: [],
+      },
+      { name: 'README.md', path: 'README.md', type: 'file' },
+    ]);
+    const renameSpy = vi.spyOn(fsApi, 'renamePath').mockResolvedValue();
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('src')).toBeInTheDocument());
+
+    const fileButton = screen.getByText('README.md').closest('button');
+    const folderButton = screen.getByText('src').closest('button');
+    expect(fileButton).toBeTruthy();
+    expect(folderButton).toBeTruthy();
+
+    fireEvent.dragStart(fileButton!);
+    fireEvent.dragOver(folderButton!);
+    fireEvent.drop(folderButton!);
+
+    await waitFor(() => expect(renameSpy).toHaveBeenCalledWith('repo', 'README.md', 'src/README.md'));
+  });
+
+  it('envia arquivo externo solto na raiz do projeto', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([]);
+    const uploadSpy = vi.spyOn(fsApi, 'uploadFile').mockResolvedValue();
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('Workspace vazio')).toBeInTheDocument());
+
+    const rootDropZone = screen.getByTestId('file-tree-drop-root');
+    const file = new File(['hello'], 'notes.txt', { type: 'text/plain' });
+
+    fireEvent.dragOver(rootDropZone, {
+      dataTransfer: { files: [file] },
+    });
+    fireEvent.drop(rootDropZone, {
+      dataTransfer: { files: [file] },
+    });
+
+    await waitFor(() => expect(uploadSpy).toHaveBeenCalledWith('repo', 'notes.txt', file));
   });
 });

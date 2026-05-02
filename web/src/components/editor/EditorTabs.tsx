@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Blocks, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { resolveFileIcon } from '@/lib/fileTreeIcons';
+import { resolveDefaultFileIcon, resolveFileIcon } from '@/lib/fileTreeIcons';
 import type { EditorTab } from '@/types';
 import { cn } from '@/lib/utils';
+import { IconWithFallback } from '@/components/shared/IconWithFallback';
 
 type Props = {
   tabs: EditorTab[];
@@ -36,7 +37,9 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
   useEffect(() => {
     if (!activePath || !scrollRef.current) return;
     const el = scrollRef.current.querySelector<HTMLElement>(`[data-tab-path="${CSS.escape(activePath)}"]`);
-    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
   }, [activePath]);
 
   function scrollBy(delta: number) {
@@ -60,6 +63,7 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
       {tabs.map((tab) => {
         const active = tab.path === activePath;
         const fileIcon = tab.iconUrl ?? resolveFileIcon(tab.path);
+        const fallbackIcon = resolveDefaultFileIcon(tab.path);
         const showExtensionFallback = tab.kind === 'extension' && !tab.iconUrl;
         return (
           <div
@@ -100,7 +104,13 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
                 <Blocks className="h-3 w-3" />
               </span>
             ) : (
-              <img src={fileIcon} alt="" role="presentation" className="h-4 w-4 shrink-0" />
+              <IconWithFallback
+                src={fileIcon}
+                fallbackSrc={fallbackIcon}
+                alt=""
+                role="presentation"
+                className="h-4 w-4 shrink-0"
+              />
             )}
             <span className={cn('truncate', tab.dirty && 'italic')}>{tab.name}</span>
             {tab.isLoading && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky-400" />}

@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { StatusBar } from './StatusBar';
 import { useEditorStore } from '@/stores/editorStore';
@@ -87,5 +88,35 @@ describe('<StatusBar />', () => {
     render(<StatusBar workspace="repo" />);
 
     expect(screen.getByText('Nenhum arquivo ativo')).toBeInTheDocument();
+  });
+
+  it('permite copiar o caminho do arquivo ativo pela barra de status', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    mockUseEditor.mockReturnValue({
+      tabs: [
+        {
+          path: 'src/main.tsx',
+          name: 'main.tsx',
+          content: 'a',
+          originalContent: 'a',
+          encoding: 'utf-8',
+          mimeType: 'text/typescript',
+          dirty: false,
+        },
+      ],
+      activePath: 'src/main.tsx',
+    });
+
+    render(<StatusBar workspace="repo" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'src/main.tsx' }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('src/main.tsx'));
+    expect(screen.getByText('Caminho copiado!')).toBeInTheDocument();
   });
 });

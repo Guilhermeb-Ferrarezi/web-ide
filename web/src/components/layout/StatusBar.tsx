@@ -16,12 +16,12 @@ export function StatusBar({ workspace }: { workspace: string }) {
   const dirtyCount = tabs.filter((current) => current.dirty).length;
   const permissionLabel = permission === 'read' ? 'Somente leitura' : permission === 'write' ? 'Edição habilitada' : null;
   const language = tab && tab.kind === 'file' ? detectLanguage(tab.name) : null;
-  const [copied, setCopied] = useState(false);
+  const [copiedTarget, setCopiedTarget] = useState<'workspace' | 'path' | null>(null);
 
-  function copyWorkspace() {
-    void navigator.clipboard.writeText(workspace).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+  function copyValue(value: string, target: 'workspace' | 'path') {
+    void navigator.clipboard.writeText(value).then(() => {
+      setCopiedTarget(target);
+      setTimeout(() => setCopiedTarget(null), 1500);
     });
   }
 
@@ -30,11 +30,11 @@ export function StatusBar({ workspace }: { workspace: string }) {
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
-          onClick={copyWorkspace}
+          onClick={() => copyValue(workspace, 'workspace')}
           title="Copiar nome do workspace"
-          className="shrink-0 font-mono text-foreground hover:text-primary transition-colors"
+          className="shrink-0 font-mono text-foreground transition-colors hover:text-primary"
         >
-          {copied ? 'Copiado!' : workspace}
+          {copiedTarget === 'workspace' ? 'Copiado!' : workspace}
         </button>
         {permissionLabel && (
           <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium">
@@ -61,10 +61,15 @@ export function StatusBar({ workspace }: { workspace: string }) {
           </span>
         )}
         {tab ? (
-          <span className="truncate" title={tab.path}>
-            {tab.name}
-            {tab.dirty ? ' • Não salvo' : ''}
-          </span>
+          <button
+            type="button"
+            onClick={() => copyValue(tab.path, 'path')}
+            aria-label={tab.path}
+            title={tab.path}
+            className="min-w-0 truncate text-left transition-colors hover:text-foreground"
+          >
+            {copiedTarget === 'path' ? 'Caminho copiado!' : `${tab.name}${tab.dirty ? ' • Não salvo' : ''}`}
+          </button>
         ) : (
           <span className="truncate text-muted-foreground/80">Nenhum arquivo ativo</span>
         )}

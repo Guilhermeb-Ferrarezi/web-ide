@@ -604,6 +604,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
         options={{
           minimap: { enabled: false },
           fontSize: 13,
+          lineHeight: 22,
           scrollBeyondLastLine: false,
           wordWrap: wordWrap ? 'on' : 'off',
           automaticLayout: true,

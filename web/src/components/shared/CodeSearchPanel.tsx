@@ -178,12 +178,16 @@ export function CodeSearchPanel({ workspace }: Props) {
       <ScrollArea className="flex-1">
         <div className="py-1">
           {!searched && !loading && !error && (
-            <p className="px-3 py-2 text-xs text-muted-foreground">
-              Digite um trecho e pressione Enter para procurar no workspace.
-            </p>
+            <div className="space-y-1 px-3 py-2 text-xs text-muted-foreground">
+              <p>Digite um trecho e pressione Enter para procurar no workspace.</p>
+              <p>Use Esc para limpar a busca atual sem sair do painel.</p>
+            </div>
           )}
           {searched && !loading && !error && results.length === 0 && (
-            <p className="px-3 py-2 text-xs text-muted-foreground">Nenhum resultado encontrado.</p>
+            <div className="space-y-1 px-3 py-2 text-xs text-muted-foreground">
+              <p>{`Nenhum resultado para “${query.trim()}”.`}</p>
+              <p>Tente ajustar Aa, palavra inteira ou regex para ampliar a busca.</p>
+            </div>
           )}
           {results.map((result) => {
             const isCollapsed = collapsed[result.path];
