@@ -150,4 +150,33 @@ describe('<StatusBar />', () => {
     expect(screen.getByRole('button', { name: 'src/main.tsx' })).toHaveTextContent('main.tsx');
     expect(screen.queryByText('Caminho copiado!')).not.toBeInTheDocument();
   });
+
+  it('não quebra quando a Clipboard API não existe', async () => {
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    });
+
+    mockUseEditor.mockReturnValue({
+      tabs: [
+        {
+          path: 'src/main.tsx',
+          name: 'main.tsx',
+          content: 'a',
+          originalContent: 'a',
+          encoding: 'utf-8',
+          mimeType: 'text/typescript',
+          dirty: false,
+        },
+      ],
+      activePath: 'src/main.tsx',
+    });
+
+    render(<StatusBar workspace="repo" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'src/main.tsx' }));
+
+    expect(screen.getByRole('button', { name: 'src/main.tsx' })).toHaveTextContent('main.tsx');
+    expect(screen.queryByText('Caminho copiado!')).not.toBeInTheDocument();
+  });
 });

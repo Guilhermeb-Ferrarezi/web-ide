@@ -15,8 +15,10 @@ type Props = {
   node: TreeNode | null;
   level: number;
   activePath?: string | null;
+  selectedPath?: string | null;
   onOpenFile: (path: string) => void;
   onOpenContextMenu: (node: TreeNode, event: MouseEvent<HTMLElement>) => void;
+  onSelectNode: (node: TreeNode) => void;
   onDragStart: (node: TreeNode) => void;
   onDragEnd: () => void;
   onDragOverDirectory: (targetPath: string, event: DragEvent<HTMLElement>) => void;
@@ -83,8 +85,10 @@ export function FileTreeNode({
   node,
   level,
   activePath,
+  selectedPath,
   onOpenFile,
   onOpenContextMenu,
+  onSelectNode,
   onDragStart,
   onDragEnd,
   onDragOverDirectory,
@@ -126,6 +130,7 @@ export function FileTreeNode({
   }
 
   const isActive = activePath === node.path;
+  const isSelected = selectedPath === node.path;
   const isRenamingHere = inlineAction?.mode === 'rename' && inlineAction.node.path === node.path;
   const isCreatingHere =
     inlineAction &&
@@ -155,16 +160,27 @@ export function FileTreeNode({
           <button
             type="button"
             draggable
-            onClick={() => setOpen((v) => !v)}
+            onClick={() => {
+              onSelectNode(node);
+              setOpen((v) => !v);
+            }}
             onContextMenu={(event) => onOpenContextMenu(node, event)}
             onDragStart={(event) => {
               if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
               onDragStart(node);
             }}
             onDragEnd={onDragEnd}
+            onDragEnter={(event) => {
+              onDragOverDirectory(node.path, event);
+              if (!open) setOpen(true);
+            }}
             onDragOver={(event) => onDragOverDirectory(node.path, event)}
             onDrop={(event) => onDropIntoDirectory(node.path, event)}
-            className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-sm hover:bg-accent"
+            className={cn(
+              'flex w-full items-center gap-1 rounded px-1 py-0.5 text-sm transition-all hover:bg-accent',
+              (isSelected || isActive) && 'bg-accent',
+              isDropTarget && 'ring-2 ring-primary/40 bg-accent/70 shadow-sm',
+            )}
             data-drop-target={isDropTarget ? 'true' : 'false'}
             style={{ paddingLeft: 4 + level * 12 }}
           >
@@ -181,8 +197,10 @@ export function FileTreeNode({
                 node={child}
                 level={level + 1}
                 activePath={activePath}
+                selectedPath={selectedPath}
                 onOpenFile={onOpenFile}
                 onOpenContextMenu={onOpenContextMenu}
+                onSelectNode={onSelectNode}
                 onDragStart={onDragStart}
                 onDragEnd={onDragEnd}
                 onDragOverDirectory={onDragOverDirectory}
@@ -241,7 +259,10 @@ export function FileTreeNode({
         <button
           type="button"
           draggable
-          onClick={() => onOpenFile(node.path)}
+          onClick={() => {
+            onSelectNode(node);
+            onOpenFile(node.path);
+          }}
           onContextMenu={(event) => onOpenContextMenu(node, event)}
           onDragStart={(event) => {
             if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
@@ -249,8 +270,8 @@ export function FileTreeNode({
           }}
           onDragEnd={onDragEnd}
           className={cn(
-            'flex w-full items-center gap-1 rounded px-1 py-0.5 text-sm hover:bg-accent',
-            isActive && 'bg-accent',
+            'flex w-full items-center gap-1 rounded px-1 py-0.5 text-sm transition-all hover:bg-accent',
+            (isActive || isSelected) && 'bg-accent',
           )}
           style={{ paddingLeft: 4 + level * 12 + 14 }}
         >

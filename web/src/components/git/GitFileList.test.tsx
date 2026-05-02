@@ -67,4 +67,19 @@ describe('<GitFileList />', () => {
 
     expect(screen.getByText('1 de 1 selecionados')).toBeInTheDocument();
   });
+
+  it('expõe o nome do arquivo no checkbox de cada linha', () => {
+    render(
+      <GitFileList
+        title="Staged"
+        items={[{ path: 'README.md', tag: 'M' }]}
+        selected={new Set()}
+        onToggle={vi.fn()}
+        onToggleAll={vi.fn()}
+        emptyText="Nada"
+      />,
+    );
+
+    expect(screen.getByRole('checkbox', { name: 'Selecionar README.md' })).toBeInTheDocument();
+  });
 });

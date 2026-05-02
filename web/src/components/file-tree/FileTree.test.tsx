@@ -91,6 +91,100 @@ describe('<FileTree />', () => {
     expect(renameSpy).toHaveBeenCalledWith('repo', '.env', '.env.local');
   });
 
+  it('usa F2 para renomear o item selecionado', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      { name: 'README.md', path: 'README.md', type: 'file' },
+    ]);
+    const renameSpy = vi.spyOn(fsApi, 'renamePath').mockResolvedValue();
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('README.md')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('README.md'));
+    fireEvent.keyDown(window, { key: 'F2' });
+
+    const input = screen.getByDisplayValue('README.md');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'DOCS.md');
+    await userEvent.keyboard('{Enter}');
+
+    expect(renameSpy).toHaveBeenCalledWith('repo', 'README.md', 'DOCS.md');
+  });
+
+  it('usa Delete para excluir o item selecionado', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      { name: 'README.md', path: 'README.md', type: 'file' },
+    ]);
+    vi.spyOn(fsApi, 'fetchFile').mockResolvedValue({
+      encoding: 'utf-8',
+      content: '# Hello',
+      size: 7,
+      mimeType: 'text/plain',
+    });
+    const deleteSpy = vi.spyOn(fsApi, 'deleteFile').mockResolvedValue();
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('README.md')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('README.md'));
+    fireEvent.keyDown(window, { key: 'Delete' });
+
+    expect(screen.getByText('Excluir arquivo')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+
+    expect(deleteSpy).toHaveBeenCalledWith('repo', 'README.md');
+  });
+
+  it('usa Ctrl+Z para desfazer o último rename', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      { name: 'README.md', path: 'README.md', type: 'file' },
+    ]);
+    const renameSpy = vi.spyOn(fsApi, 'renamePath').mockResolvedValue();
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('README.md')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('README.md'));
+    fireEvent.keyDown(window, { key: 'F2' });
+
+    const input = screen.getByDisplayValue('README.md');
+    await userEvent.clear(input);
+    await userEvent.type(input, 'DOCS.md');
+    await userEvent.keyboard('{Enter}');
+
+    await waitFor(() => expect(renameSpy).toHaveBeenCalledWith('repo', 'README.md', 'DOCS.md'));
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
+
+    await waitFor(() => expect(renameSpy).toHaveBeenNthCalledWith(2, 'repo', 'DOCS.md', 'README.md'));
+  });
+
+  it('usa Ctrl+Z para desfazer a última exclusão de arquivo', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      { name: 'README.md', path: 'README.md', type: 'file' },
+    ]);
+    vi.spyOn(fsApi, 'fetchFile').mockResolvedValue({
+      encoding: 'utf-8',
+      content: '# Hello',
+      size: 7,
+      mimeType: 'text/plain',
+    });
+    const deleteSpy = vi.spyOn(fsApi, 'deleteFile').mockResolvedValue();
+    const saveSpy = vi.spyOn(fsApi, 'saveFile').mockResolvedValue();
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('README.md')).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('README.md'));
+    fireEvent.keyDown(window, { key: 'Delete' });
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir' }));
+
+    await waitFor(() => expect(deleteSpy).toHaveBeenCalledWith('repo', 'README.md'));
+
+    fireEvent.keyDown(window, { key: 'z', ctrlKey: true });
+
+    await waitFor(() => expect(saveSpy).toHaveBeenCalledWith('repo', 'README.md', '# Hello', 'utf-8'));
+  });
+
   it('abre menu de contexto em arquivo com a ação abrir', async () => {
     vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
       { name: 'README.md', path: 'README.md', type: 'file' },
@@ -189,6 +283,32 @@ describe('<FileTree />', () => {
     fireEvent.drop(folderButton!);
 
     await waitFor(() => expect(renameSpy).toHaveBeenCalledWith('repo', 'README.md', 'src/README.md'));
+  });
+
+  it('destaca a pasta alvo com mais força durante o drag', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      {
+        name: 'src',
+        path: 'src',
+        type: 'directory',
+        children: [{ name: 'nested', path: 'src/nested', type: 'directory', children: [] }],
+      },
+      { name: 'README.md', path: 'README.md', type: 'file' },
+    ]);
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('nested')).toBeInTheDocument());
+
+    const fileButton = screen.getByText('README.md').closest('button');
+    const folderButton = screen.getByText('src').closest('button');
+    expect(fileButton).toBeTruthy();
+    expect(folderButton).toBeTruthy();
+
+    fireEvent.dragStart(fileButton!);
+    fireEvent.dragOver(folderButton!);
+
+    expect(folderButton).toHaveAttribute('data-drop-target', 'true');
+    expect(folderButton).toHaveClass('ring-2');
   });
 
   it('envia arquivo externo solto na raiz do projeto', async () => {

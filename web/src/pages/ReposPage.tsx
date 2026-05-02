@@ -78,6 +78,10 @@ export default function ReposPage() {
   }
 
   useEffect(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     if (!sharingRepoId) return;
     void (async () => {
       try {

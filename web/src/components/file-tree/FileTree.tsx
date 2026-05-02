@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { deleteFile, mkdir, renamePath, saveFile, uploadFile } from '@/api/fs';
+import { fetchFile } from '@/api/fs';
 import { useFileTree } from '@/hooks/useFileTree';
 import { useEditor } from '@/hooks/useEditor';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -29,6 +30,30 @@ type DeleteModalState = {
   node: TreeNode;
 };
 
+type FileSnapshot =
+  | {
+      kind: 'file';
+      node: TreeNode;
+      content: string;
+      encoding: 'utf-8' | 'base64';
+    }
+  | {
+      kind: 'directory';
+      node: TreeNode;
+      children: FileSnapshot[];
+    };
+
+type HistoryEntry =
+  | {
+      kind: 'rename';
+      from: string;
+      to: string;
+    }
+  | {
+      kind: 'delete';
+      snapshot: FileSnapshot;
+    };
+
 function joinPath(parent: string, child: string): string {
   return parent ? `${parent}/${child}` : child;
 }
@@ -43,6 +68,47 @@ function getNodeName(nodePath: string): string {
   return nodePath.split('/').filter(Boolean).at(-1) ?? nodePath;
 }
 
+function findNodeByPath(nodes: TreeNode[], path: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    if (node.children) {
+      const match = findNodeByPath(node.children, path);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+
+async function snapshotNode(workspace: string, node: TreeNode): Promise<FileSnapshot> {
+  if (node.type === 'file') {
+    const file = await fetchFile(workspace, node.path);
+    return {
+      kind: 'file',
+      node,
+      content: file.content,
+      encoding: file.encoding,
+    };
+  }
+
+  return {
+    kind: 'directory',
+    node,
+    children: await Promise.all((node.children ?? []).map((child) => snapshotNode(workspace, child))),
+  };
+}
+
+async function restoreSnapshot(workspace: string, snapshot: FileSnapshot): Promise<void> {
+  if (snapshot.kind === 'file') {
+    await saveFile(workspace, snapshot.node.path, snapshot.content, snapshot.encoding);
+    return;
+  }
+
+  await mkdir(workspace, snapshot.node.path);
+  for (const child of snapshot.children) {
+    await restoreSnapshot(workspace, child);
+  }
+}
+
 export function FileTree({ workspace, filterInputRef }: { workspace: string; filterInputRef?: React.RefObject<HTMLInputElement> }) {
   const { tree, loading, refresh } = useFileTree(workspace);
   const { openFile, activePath } = useEditor();
@@ -53,9 +119,15 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
   const [fileFilter, setFileFilter] = useState('');
   const [draggingPath, setDraggingPath] = useState<string | null>(null);
   const [dropTargetPath, setDropTargetPath] = useState<string | null>(null);
+  const [selectedPath, setSelectedPath] = useState<string | null>(activePath ?? null);
+  const historyRef = useRef<HistoryEntry[]>([]);
   const localFilterRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
   const resolvedFilterRef = filterInputRef ?? localFilterRef;
   const readOnly = permission !== 'write';
+
+  useEffect(() => {
+    if (activePath) setSelectedPath((current) => current ?? activePath);
+  }, [activePath]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -88,6 +160,65 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [deleteModal]);
+
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null) {
+      if (!(target instanceof HTMLElement)) return false;
+      return target.matches('input, textarea, select') || target.isContentEditable;
+    }
+
+    async function undoLastAction() {
+      const last = historyRef.current.at(-1);
+      if (!last || readOnly) return;
+
+      try {
+        if (last.kind === 'rename') {
+          await renamePath(workspace, last.to, last.from);
+          setSelectedPath(last.from);
+        } else {
+          await restoreSnapshot(workspace, last.snapshot);
+          setSelectedPath(last.snapshot.node.path);
+        }
+        await refresh();
+        historyRef.current = historyRef.current.slice(0, -1);
+      } catch {
+        toast.error('Falha ao desfazer');
+      }
+    }
+
+    function handleShortcut(event: KeyboardEvent) {
+      if (isTypingTarget(event.target)) return;
+
+      if (event.ctrlKey && event.key.toLowerCase() === 'z') {
+        event.preventDefault();
+        void undoLastAction();
+        return;
+      }
+
+      const selectedNode = selectedPath ? findNodeByPath(tree, selectedPath) : null;
+      const fallbackNode = activePath ? findNodeByPath(tree, activePath) : null;
+      const node = selectedNode ?? fallbackNode;
+
+      if (!node) return;
+
+      if (event.key === 'F2') {
+        event.preventDefault();
+        if (deleteModal || inlineAction) return;
+        if (!readOnly) openInlineAction({ mode: 'rename', node, value: node.name });
+        return;
+      }
+
+      if (event.key === 'Delete') {
+        event.preventDefault();
+        if (deleteModal || inlineAction) return;
+        if (!readOnly) openDeleteModal(node);
+        return;
+      }
+    }
+
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, [activePath, deleteModal, inlineAction, openDeleteModal, openInlineAction, readOnly, refresh, selectedPath, tree, workspace]);
 
   const menuItems = useMemo(() => {
     if (!contextMenu) return [];
@@ -189,6 +320,7 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
   function handleDragStart(node: TreeNode) {
     if (readOnly) return;
     setDraggingPath(node.path);
+    setSelectedPath(node.path);
   }
 
   function handleDragEnd() {
@@ -247,12 +379,14 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
           setInlineAction(null);
           return;
         }
-        await renamePath(
-          workspace,
-          inlineAction.node.path,
-          joinPath(getParentPath(inlineAction.node.path), nextValue),
-        );
+        const nextPath = joinPath(getParentPath(inlineAction.node.path), nextValue);
+        await renamePath(workspace, inlineAction.node.path, nextPath);
+        historyRef.current = [
+          ...historyRef.current,
+          { kind: 'rename' as const, from: inlineAction.node.path, to: nextPath },
+        ].slice(-20);
         await refresh();
+        setSelectedPath(nextPath);
       }
     } catch {
       if (inlineAction.mode === 'create-file') toast.error('Falha ao criar arquivo');
@@ -265,8 +399,12 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
 
   async function handleDelete(node: TreeNode) {
     try {
+      const snapshot = await snapshotNode(workspace, node);
+
       await deleteFile(workspace, node.path);
+      historyRef.current = [...historyRef.current, { kind: 'delete' as const, snapshot }].slice(-20);
       await refresh();
+      setSelectedPath(null);
     } catch {
       toast.error('Falha ao excluir');
     } finally {
@@ -371,7 +509,10 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                   <li key={node.path}>
                     <button
                       type="button"
-                      onClick={() => void openFile(node.path)}
+                      onClick={() => {
+                        setSelectedPath(node.path);
+                        void openFile(node.path);
+                      }}
                       title={node.path}
                       className={cn(
                         'flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent',
@@ -386,8 +527,8 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
               </ul>
             </>
           )
-        ) : loading ? (
-          <p className="p-3 text-xs text-muted-foreground">Carregando...</p>
+          ) : loading ? (
+            <p className="p-3 text-xs text-muted-foreground">Carregando...</p>
         ) : tree.length === 0 && !showRootInlineInput ? (
           <div
             data-testid="file-tree-drop-root"
@@ -426,6 +567,7 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                   event.preventDefault();
                   event.stopPropagation();
                   setContextMenu({ node, x: event.clientX, y: event.clientY });
+                  setSelectedPath(node.path);
                 }}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
@@ -436,6 +578,8 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                 onInlineValueChange={handleInlineValueChange}
                 onInlineSubmit={() => void handleInlineSubmit()}
                 onInlineCancel={handleInlineCancel}
+                onSelectNode={(node) => setSelectedPath(node.path)}
+                selectedPath={selectedPath ?? activePath ?? null}
               />
             ) : null}
             {tree.map((node) => (
@@ -449,6 +593,7 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                   event.preventDefault();
                   event.stopPropagation();
                   setContextMenu({ node, x: event.clientX, y: event.clientY });
+                  setSelectedPath(node.path);
                 }}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
@@ -459,6 +604,8 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                 onInlineValueChange={handleInlineValueChange}
                 onInlineSubmit={() => void handleInlineSubmit()}
                 onInlineCancel={handleInlineCancel}
+                onSelectNode={(node) => setSelectedPath(node.path)}
+                selectedPath={selectedPath ?? activePath ?? null}
               />
             ))}
           </ul>

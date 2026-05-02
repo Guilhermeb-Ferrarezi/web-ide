@@ -21,7 +21,10 @@ export function StatusBar({ workspace }: { workspace: string }) {
   const [copiedTarget, setCopiedTarget] = useState<'workspace' | 'path' | null>(null);
 
   function copyValue(value: string, target: 'workspace' | 'path') {
-    void navigator.clipboard.writeText(value)
+    const clipboard = navigator.clipboard;
+    if (!clipboard?.writeText) return;
+
+    void clipboard.writeText(value)
       .then(() => {
         setCopiedTarget(target);
         setTimeout(() => setCopiedTarget(null), 1500);

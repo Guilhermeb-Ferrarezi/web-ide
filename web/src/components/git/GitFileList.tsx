@@ -51,6 +51,7 @@ export function GitFileList({ title, items, selected, onToggle, onToggleAll, emp
               <Checkbox
                 checked={selected.has(item.path)}
                 onCheckedChange={() => onToggle(item.path)}
+                aria-label={`Selecionar ${item.path}`}
               />
               <span className={cn('flex-1 truncate font-mono text-xs', variant === 'destructive' && 'text-destructive')}>
                 {item.path}

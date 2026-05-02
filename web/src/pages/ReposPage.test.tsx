@@ -232,6 +232,16 @@ describe('<ReposPage />', () => {
     );
   });
 
+  it('foca a busca de repositórios ao abrir a página', async () => {
+    render(
+      <MemoryRouter>
+        <ReposPage />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByPlaceholderText('Buscar repositório...')).toHaveFocus());
+  });
+
   it('mostra um botão para limpar a busca de repositórios', async () => {
     render(
       <MemoryRouter>
