@@ -5,6 +5,7 @@ import { getRepoPermissionForUser } from '../permissions/permissions.service.ts'
 import { resolveCurrentAppRole } from '../users/users.service.ts';
 import { parseTerminalClientMessage } from './terminal.protocol.ts';
 import { createPty } from './terminal.service.ts';
+import { getOrCreateTerminalSession } from './terminal.sessions.ts';
 
 export default async function terminalRoutes(app: FastifyInstance) {
   app.get('/terminal', { websocket: true }, async (socket, req) => {
@@ -57,44 +58,32 @@ export default async function terminalRoutes(app: FastifyInstance) {
       return;
     }
 
-    req.log.info({ userId: user.userId, workspace, cwd }, '[terminal] spawning pty');
-    let handle: ReturnType<typeof createPty>;
+    req.log.info({ userId: user.userId, workspace, cwd }, '[terminal] attaching session');
+    let session;
     try {
-      handle = createPty(cwd, role);
+      session = getOrCreateTerminalSession(user.userId, workspace, cwd, role, {
+        createPty,
+      });
     } catch (err) {
       req.log.error({ err, userId: user.userId, workspace, cwd }, '[terminal] failed to spawn pty');
       socket.send(JSON.stringify({ type: 'error', message: 'pty_spawn_failed' }));
       socket.close();
       return;
     }
-    req.log.info({ userId: user.userId, workspace, pid: handle.pty.pid }, '[terminal] pty spawned');
+    req.log.info({ userId: user.userId, workspace, pid: session.handle.pty.pid }, '[terminal] pty ready');
 
-    handle.pty.onData((data) => {
-      try {
-        socket.send(data);
-      } catch (err) {
-        req.log.warn({ err }, '[terminal] socket.send failed');
-      }
-    });
-
-    handle.pty.onExit((info) => {
-      req.log.info({ info }, '[terminal] pty exited');
-      try {
-        socket.close();
-      } catch {
-        // ignore
-      }
-    });
+    session.attachSocket(socket);
 
     socket.on('message', (raw: Buffer) => {
+      if (session.socket !== socket) return;
       const msg = raw.toString();
       const parsed = parseTerminalClientMessage(msg);
       if (parsed.type === 'resize') {
-        handle.pty.resize(parsed.cols, parsed.rows);
+        session.handle.pty.resize(parsed.cols, parsed.rows);
         return;
       }
       if (parsed.type === 'input' || parsed.type === 'raw') {
-        handle.pty.write(parsed.data);
+        session.handle.pty.write(parsed.data);
         return;
       }
       if (parsed.type === 'ping') {
@@ -108,11 +97,11 @@ export default async function terminalRoutes(app: FastifyInstance) {
 
     socket.on('close', (code: number, reason: Buffer) => {
       req.log.info({ userId: user.userId, workspace, code, reason: reason.toString() }, '[terminal] socket closed');
-      handle.kill();
+      session.detachSocket(socket);
     });
     socket.on('error', (err: Error) => {
       req.log.warn({ err, userId: user.userId, workspace }, '[terminal] socket error');
-      handle.kill();
+      session.detachSocket(socket);
     });
   });
 }
