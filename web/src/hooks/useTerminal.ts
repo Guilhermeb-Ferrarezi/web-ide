@@ -31,9 +31,8 @@ function safeFit(fit: FitAddon, container: HTMLElement): boolean {
 
 export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, workspace: string) {
   useEffect(() => {
-    if (import.meta.env.DEV) {
-      console.info('[terminal] hook mount', { workspace });
-    }
+    const sessionId = `${workspace}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    console.info('[terminal] hook mount', { workspace, sessionId });
     const container = containerRef.current;
     if (!container) return;
 
@@ -193,6 +192,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     const connect = () => {
       if (disposed) return;
 
+      console.info('[terminal] websocket connecting', { workspace, sessionId });
       const socket = new WebSocket(
         buildWorkspaceWsUrl({
           apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
@@ -206,9 +206,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
 
       socket.onopen = () => {
         if (disposed || !term || ws !== socket) return;
-        if (import.meta.env.DEV) {
-          console.info('[terminal] websocket open', { workspace });
-        }
+        console.info('[terminal] websocket open', { workspace, sessionId });
         if (hasConnected) {
           term.write('\r\n[reconectado]\r\n');
         } else {
@@ -232,7 +230,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         const data = typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data);
         const { text, control } = parseTerminalSocketPayload(data);
         if (control?.type === 'error') {
-          console.error('[terminal] websocket error', control.message);
+          console.error('[terminal] websocket control error', { workspace, sessionId, message: control.message });
           reconnectEnabled = false;
           clearKeepalive();
           clearReconnectReset();
@@ -247,14 +245,16 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         if (ws !== socket) return;
         clearKeepalive();
         clearReconnectReset();
-        if (import.meta.env.DEV) {
-          console.info('[terminal] websocket close', {
-            workspace,
-            code: event.code,
-            reason: event.reason,
-            wasClean: event.wasClean,
-          });
-        }
+        console.info('[terminal] websocket close', {
+          workspace,
+          sessionId,
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+          reconnectEnabled,
+          closingIntentionally,
+          disposed,
+        });
         if (disposed || !term || closingIntentionally) return;
         if (!reconnectEnabled) return;
         term.write('\r\n[conexão encerrada; reconectando...]\r\n');
@@ -265,9 +265,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
       };
       socket.onerror = () => {
         if (ws !== socket) return;
-        if (import.meta.env.DEV) {
-          console.info('[terminal] websocket error', { workspace });
-        }
+        console.info('[terminal] websocket error', { workspace, sessionId });
         if (disposed || !term) return;
         term.write('\r\n[erro de conexão]\r\n');
       };
@@ -292,9 +290,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     ro.observe(container);
 
     return () => {
-      if (import.meta.env.DEV) {
-        console.info('[terminal] hook unmount', { workspace });
-      }
+      console.info('[terminal] hook unmount', { workspace, sessionId });
       disposed = true;
       reconnectEnabled = false;
       closingIntentionally = true;

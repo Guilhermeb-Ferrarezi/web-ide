@@ -1,13 +1,18 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTerminal } from '@/hooks/useTerminal';
 
 export function TerminalPane({ workspace }: { workspace: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useTerminal(ref, workspace);
 
-  if (import.meta.env.DEV) {
-    console.info('[terminal] render', { workspace });
-  }
+  useEffect(() => {
+    console.info('[terminal-pane] mount', { workspace });
+    return () => {
+      console.info('[terminal-pane] unmount', { workspace });
+    };
+  }, [workspace]);
+
+  console.info('[terminal-pane] render', { workspace });
 
   return (
     <div className="flex h-full w-full flex-col bg-[#0a0a0a]">

@@ -94,8 +94,23 @@ export function AppShell({ workspace }: { workspace: string }) {
   const sidebarIconClass = '!h-7 !w-7 stroke-[1.75]';
 
   useEffect(() => {
-    if (permission !== 'write') setShowTerminal(false);
-  }, [permission]);
+    console.info('[app-shell] state', {
+      workspace,
+      permission,
+      showTerminal,
+      tabs: tabs.length,
+      activePath,
+    });
+  }, [workspace, permission, showTerminal, tabs.length, activePath]);
+
+  useEffect(() => {
+    if (permission !== 'write') {
+      if (showTerminal) {
+        console.info('[app-shell] forcing terminal hidden due permission', { workspace, permission, showTerminal });
+      }
+      setShowTerminal(false);
+    }
+  }, [permission, showTerminal, workspace]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
