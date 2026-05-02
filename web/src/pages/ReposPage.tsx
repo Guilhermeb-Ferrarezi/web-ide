@@ -467,6 +467,7 @@ export default function ReposPage() {
                               value={shareLogin}
                               onChange={(e) => setShareLogin(e.target.value)}
                               placeholder="login do GitHub"
+                              autoFocus
                             />
                             {(searchingUsers || shareCandidates.length > 0) && (
                               <div className="absolute z-10 mt-2 max-h-64 w-full overflow-auto rounded-md border bg-background shadow-md">

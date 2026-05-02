@@ -235,7 +235,7 @@ export function ExtensionDetailView({
               <section>
                 <h2 className="mb-4 text-3xl font-semibold tracking-tight">Resources</h2>
                 <div className="space-y-2">
-                  {detail.resources.map((resource) => (
+                  {detail.resources.length > 0 ? detail.resources.map((resource) => (
                     <a
                       key={`${resource.label}-${resource.url}`}
                       href={resource.url}
@@ -246,7 +246,7 @@ export function ExtensionDetailView({
                       <ExternalLink className="h-4 w-4" />
                       {resource.label}
                     </a>
-                  ))}
+                  )) : <p className="text-sm text-muted-foreground">Nenhum recurso externo disponível.</p>}
                 </div>
               </section>
             </div>

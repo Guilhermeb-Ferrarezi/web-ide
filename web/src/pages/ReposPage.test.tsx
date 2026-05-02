@@ -242,6 +242,18 @@ describe('<ReposPage />', () => {
     await waitFor(() => expect(screen.getByPlaceholderText('Buscar repositório...')).toHaveFocus());
   });
 
+  it('foca o login ao abrir o painel de compartilhamento', async () => {
+    render(
+      <MemoryRouter>
+        <ReposPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Compartilhar' }));
+
+    await waitFor(() => expect(screen.getByPlaceholderText('login do GitHub')).toHaveFocus());
+  });
+
   it('mostra um botão para limpar a busca de repositórios', async () => {
     render(
       <MemoryRouter>

@@ -63,7 +63,7 @@ export function AppShell({ workspace }: { workspace: string }) {
     if (autoSaveMode !== 'afterDelay') return 'Auto Save desativado';
     return `Auto Save em ${autoSaveDelayMs >= 3000 ? '3s' : '1.2s'}`;
   }, [autoSaveDelayMs, autoSaveMode]);
-  const sidebarIconClass = 'h-8 w-8 stroke-[1.8]';
+  const sidebarIconClass = '!h-8 !w-8 stroke-[1.8]';
 
   useEffect(() => {
     if (permission !== 'write') setShowTerminal(false);
@@ -477,6 +477,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                         ? 'Ações da sua conta conectada ao GitHub.'
                         : 'Atalhos e comportamento do terminal integrado.'}
                   </p>
+                  <p className="mt-1 text-xs text-[#7f7895]">Pressione Esc para fechar</p>
                 </div>
                 <button
                   type="button"

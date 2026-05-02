@@ -150,4 +150,15 @@ describe('<AppShell />', () => {
     expect(screen.getByRole('button', { name: 'Após 1.2s' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
   });
+
+  it('mostra uma dica para fechar o painel de configurações com Escape', async () => {
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
+
+    render(<AppShell workspace="repo" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Conta e configurações' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Configurações' }));
+
+    expect(screen.getByText('Configurações do editor')).toBeInTheDocument();
+  });
 });

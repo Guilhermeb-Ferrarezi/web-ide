@@ -63,4 +63,18 @@ describe('<ExtensionDetailView />', () => {
 
     expect(screen.getByText('1 recurso externo')).toBeInTheDocument();
   });
+
+  it('mostra estado vazio quando não há recursos externos', () => {
+    render(
+      <ExtensionDetailView
+        detail={{ ...detail, resources: [] }}
+        installing={false}
+        canInstall
+        installedAction={null}
+        onInstall={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Nenhum recurso externo disponível.')).toBeInTheDocument();
+  });
 });
