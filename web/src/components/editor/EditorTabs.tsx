@@ -70,6 +70,7 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
             key={tab.path}
             role="button"
             aria-pressed={active}
+            aria-description="Home vai para a primeira aba • End vai para a última aba"
             tabIndex={0}
             title={tab.path}
             data-tab-path={tab.path}

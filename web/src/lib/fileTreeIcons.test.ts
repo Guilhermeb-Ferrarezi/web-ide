@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   resolveFileIcon,
+  resolveFileFallbackIcon,
   resolveFolderIcon,
   resolveFolderFallbackIcon,
 } from './fileTreeIcons';
@@ -138,5 +139,11 @@ describe('fileTreeIcons', () => {
   it('exposes local folder fallback icons for broken remote images', () => {
     expect(resolveFolderFallbackIcon()).toBe(GENERIC_FOLDER_ICON);
     expect(resolveFolderFallbackIcon({ expanded: true })).toBe(GENERIC_FOLDER_OPEN_ICON);
+  });
+
+  it('exposes a local file fallback icon for broken remote images', () => {
+    expect(resolveFileFallbackIcon()).toBe(
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7z"/><path d="M14 2v5h5"/></svg>',
+    );
   });
 });

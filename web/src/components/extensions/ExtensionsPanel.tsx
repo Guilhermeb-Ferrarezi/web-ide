@@ -296,9 +296,9 @@ export function ExtensionsPanel() {
       </div>
 
       <ScrollArea className="flex-1">
-        {query.trim() && !searching && results.length > 0 && (
+        {!searching && results.length > 0 && (
           <div className="border-b px-4 py-2 text-xs text-muted-foreground">
-            {`${results.length} resultados para “${query.trim()}”`}
+            {`${results.length} ${results.length === 1 ? 'resultado' : 'resultados'} para “${query.trim() || 'theme'}”`}
           </div>
         )}
         {!query.trim() && !searching && (

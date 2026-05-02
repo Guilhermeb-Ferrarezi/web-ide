@@ -113,6 +113,10 @@ export function resolveDefaultFileIcon(path: string): string {
   return resolveFileIconFromTheme(defaultIconTheme, path);
 }
 
+export function resolveFileFallbackIcon(): string {
+  return GENERIC_FILE_ICON;
+}
+
 function resolveFileIconFromTheme(iconTheme: ResolvedIconTheme, path: string): string {
   const { name, parent } = splitPath(path);
   const normalizedName = normalizeSegment(name);

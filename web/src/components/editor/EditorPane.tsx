@@ -493,8 +493,9 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
 
   if (!tab) {
     return (
-      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        Selecione um arquivo na árvore
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+        <p>Selecione um arquivo na árvore</p>
+        <p className="text-xs">Dica: Ctrl+P abre a busca rápida de arquivos.</p>
       </div>
     );
   }

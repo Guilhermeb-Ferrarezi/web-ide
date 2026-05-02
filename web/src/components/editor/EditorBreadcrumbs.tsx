@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileIcon, resolveFolderFallbackIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
+import { resolveFileFallbackIcon, resolveFolderFallbackIcon, resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
 import { IconWithFallback } from '@/components/shared/IconWithFallback';
 
 type Props = {
@@ -38,7 +38,7 @@ export function EditorBreadcrumbs({ path, dirty = false }: Props) {
           ? resolveFileIcon(segmentPath)
           : resolveFolderIcon(segmentPath);
         const fallbackSrc = isLast
-          ? resolveDefaultFileIcon(segmentPath)
+          ? resolveFileFallbackIcon()
           : resolveFolderFallbackIcon({ expanded: false });
 
         return (

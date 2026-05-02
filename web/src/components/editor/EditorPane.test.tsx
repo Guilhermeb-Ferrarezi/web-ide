@@ -76,6 +76,13 @@ describe('<EditorPane />', () => {
     expect(screen.getByText('README.md')).toBeInTheDocument();
   });
 
+  it('mostra dica de atalho quando nenhum arquivo está selecionado', () => {
+    render(<EditorPane tab={null} onChange={vi.fn()} onSave={vi.fn()} />);
+
+    expect(screen.getByText('Selecione um arquivo na árvore')).toBeInTheDocument();
+    expect(screen.getByText('Dica: Ctrl+P abre a busca rápida de arquivos.')).toBeInTheDocument();
+  });
+
   it('mantem o tema base ate o Monaco carregar o tema customizado', () => {
     useAppearanceStore.setState({
       installedThemes: [

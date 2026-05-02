@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { TreeNode } from '@/types';
 import { cn } from '@/lib/utils';
-import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileIcon, resolveFolderFallbackIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
+import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileFallbackIcon, resolveFileIcon, resolveFolderFallbackIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
 import { IconWithFallback } from '@/components/shared/IconWithFallback';
 
 type InlineActionState =
@@ -64,7 +64,7 @@ function InlineTreeInput({ icon, fallbackIcon, level, value, folder, onChange, o
       style={{ paddingLeft: 4 + level * 12 + (folder ? 0 : 14) }}
     >
       {folder ? <ChevronRight className="h-3.5 w-3.5 opacity-0" /> : null}
-      <IconWithFallback src={icon} fallbackSrc={fallbackIcon} alt="" ariaHidden className="h-4 w-4 shrink-0" />
+      <IconWithFallback src={icon} fallbackSrc={fallbackIcon} alt="" ariaHidden className="h-5 w-5 shrink-0" />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <Input
           value={value}
@@ -111,7 +111,7 @@ export function FileTreeNode({
     const fallbackIcon =
       inlineAction.mode === 'create-folder'
         ? resolveFolderFallbackIcon({ expanded: false })
-        : resolveDefaultFileIcon(inlineAction.value || 'untitled');
+        : resolveFileFallbackIcon();
 
     return (
       <li>
@@ -185,7 +185,7 @@ export function FileTreeNode({
             style={{ paddingLeft: 4 + level * 12 }}
           >
             <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', (open || isCreatingHere) && 'rotate-90')} />
-            <IconWithFallback src={folderIcon} fallbackSrc={fallbackFolderIcon} alt="" ariaHidden className="h-4 w-4 shrink-0" />
+            <IconWithFallback src={folderIcon} fallbackSrc={fallbackFolderIcon} alt="" ariaHidden className="h-5 w-5 shrink-0" />
             <span className={cn('truncate', isDropTarget && 'font-medium text-foreground')}>{node.name}</span>
           </button>
         )}
@@ -223,7 +223,7 @@ export function FileTreeNode({
                   fallbackIcon={
                     inlineAction.mode === 'create-folder'
                       ? resolveFolderFallbackIcon({ expanded: false })
-                      : resolveDefaultFileIcon(inlineAction.value || 'untitled')
+                      : resolveFileFallbackIcon()
                   }
                   level={level + 1}
                   value={inlineAction.value}
@@ -275,7 +275,7 @@ export function FileTreeNode({
           )}
           style={{ paddingLeft: 4 + level * 12 + 14 }}
         >
-          <IconWithFallback src={fileIcon} fallbackSrc={fallbackFileIcon} alt="" ariaHidden className="h-4 w-4 shrink-0" />
+          <IconWithFallback src={fileIcon} fallbackSrc={fallbackFileIcon} alt="" ariaHidden className="h-5 w-5 shrink-0" />
           <span className="truncate">{node.name}</span>
         </button>
       )}
