@@ -112,7 +112,7 @@ function resolveCodexHome(): { home?: string; codexHome?: string } {
   const candidates = [
     config.CODEX_HOME,
     process.env.CODEX_HOME,
-    '/tmp/web-ide-terminal-home/.codex',
+    '/root/.codex',
     process.env.HOME ? path.join(process.env.HOME, '.codex') : null,
   ].filter((value): value is string => Boolean(value));
 
