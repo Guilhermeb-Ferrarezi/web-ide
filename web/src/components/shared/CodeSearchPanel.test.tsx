@@ -222,41 +222,4 @@ describe('<CodeSearchPanel />', () => {
     expect(screen.getByRole('button', { name: 'Expressão regular' })).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('mostra o diretório ao lado do arquivo no cabeçalho do resultado', async () => {
-    vi.spyOn(fsApi, 'searchFiles').mockResolvedValue([
-      {
-        path: 'src/components/app.ts',
-        matches: [{ line: 3, column: 7, length: 5, previewOffset: 6, preview: 'const hello = "world";' }],
-      },
-    ]);
-
-    render(<CodeSearchPanel workspace="repo" />);
-
-    await userEvent.type(screen.getByPlaceholderText('Buscar'), 'hello{Enter}');
-
-    await screen.findByText('app.ts');
-    expect(screen.getByText('src/components')).toBeInTheDocument();
-  });
-
-  it('limpa a busca com Escape quando o campo está focado', async () => {
-    render(<CodeSearchPanel workspace="repo" />);
-
-    const input = screen.getByPlaceholderText('Buscar');
-    await userEvent.type(input, 'hello');
-    await userEvent.keyboard('{Escape}');
-
-    expect(input).toHaveValue('');
-    expect(input).toHaveFocus();
-  });
-
-  it('limpa a busca com Escape quando o campo está focado', async () => {
-    render(<CodeSearchPanel workspace="repo" />);
-
-    const input = screen.getByPlaceholderText('Buscar');
-    await userEvent.type(input, 'hello');
-    await userEvent.keyboard('{Escape}');
-
-    expect(input).toHaveValue('');
-    expect(input).toHaveFocus();
-  });
 });

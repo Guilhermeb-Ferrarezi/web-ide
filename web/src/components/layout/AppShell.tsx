@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { Blocks, FileSearch, GitBranch, TerminalSquare } from 'lucide-react';
+import { Blocks, Files, GitFork, Search, TerminalSquare } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -84,7 +84,7 @@ export function AppShell({ workspace }: { workspace: string }) {
     <div className="flex h-full flex-col">
       <ResizablePanelGroup direction="horizontal" className="flex-1">
         <TooltipProvider delayDuration={600}>
-        <div className="flex h-full w-10 shrink-0 flex-col items-center gap-1 border-r bg-muted/30 py-2">
+        <div className="flex h-full w-14 shrink-0 flex-col items-center gap-2 border-r bg-[#191721] py-3">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -93,10 +93,13 @@ export function AppShell({ workspace }: { workspace: string }) {
                 aria-label="Arquivos"
                 aria-keyshortcuts="Ctrl+1"
                 aria-pressed={side === 'files'}
-                className={cn('h-8 w-8', side === 'files' && 'bg-accent')}
+                className={cn(
+                  'h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  side === 'files' && 'bg-white/8 text-[#f5f3ff]',
+                )}
                 onClick={() => setSide('files')}
               >
-                <span className="text-base">📁</span>
+                <Files className="h-5.5 w-5.5 stroke-[1.8]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Arquivos <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+1</kbd> · Filtrar <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+P</kbd></TooltipContent>
@@ -109,10 +112,13 @@ export function AppShell({ workspace }: { workspace: string }) {
                 aria-label="Buscar código"
                 aria-keyshortcuts="Ctrl+2"
                 aria-pressed={side === 'search'}
-                className={cn('h-8 w-8', side === 'search' && 'bg-accent')}
+                className={cn(
+                  'h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  side === 'search' && 'bg-white/8 text-[#f5f3ff]',
+                )}
                 onClick={() => setSide('search')}
               >
-                <FileSearch className="h-4 w-4" />
+                <Search className="h-5.5 w-5.5 stroke-[1.8]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Buscar código <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+2</kbd></TooltipContent>
@@ -125,12 +131,15 @@ export function AppShell({ workspace }: { workspace: string }) {
                 aria-label="Git"
                 aria-keyshortcuts="Ctrl+3"
                 aria-pressed={side === 'git'}
-                className={cn('relative h-8 w-8', side === 'git' && 'bg-accent')}
+                className={cn(
+                  'relative h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  side === 'git' && 'bg-white/8 text-[#f5f3ff]',
+                )}
                 onClick={() => setSide('git')}
               >
-                <GitBranch className="h-4 w-4" />
+                <GitFork className="h-5.5 w-5.5 stroke-[1.8]" />
                 {gitChangedCount > 0 && (
-                  <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-emerald-500 px-1 text-[10px] font-semibold leading-4 text-emerald-950">
+                  <span className="absolute bottom-1 right-1 min-w-4 rounded-full bg-[#8b5cf6] px-1 text-[10px] font-semibold leading-4 text-white shadow-sm">
                     {gitChangedCount}
                   </span>
                 )}
@@ -146,10 +155,13 @@ export function AppShell({ workspace }: { workspace: string }) {
                 aria-label="Extensões"
                 aria-keyshortcuts="Ctrl+4"
                 aria-pressed={side === 'extensions'}
-                className={cn('h-8 w-8', side === 'extensions' && 'bg-accent')}
+                className={cn(
+                  'relative h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  side === 'extensions' && 'bg-white/8 text-[#f5f3ff]',
+                )}
                 onClick={() => setSide('extensions')}
               >
-                <Blocks className="h-4 w-4" />
+                <Blocks className="h-5.5 w-5.5 stroke-[1.8]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Extensões <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+4</kbd></TooltipContent>
@@ -161,11 +173,14 @@ export function AppShell({ workspace }: { workspace: string }) {
                 variant="ghost"
                 size="icon"
                 aria-label="Terminal"
-                className={cn('h-8 w-8', showTerminal && 'bg-accent')}
+                className={cn(
+                  'h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  showTerminal && 'bg-white/8 text-[#f5f3ff]',
+                )}
                 onClick={() => setShowTerminal((v) => !v)}
                 disabled={permission !== 'write'}
               >
-                <TerminalSquare className="h-4 w-4" />
+                <TerminalSquare className="h-5.5 w-5.5 stroke-[1.8]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
