@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useGitStatus } from '@/hooks/useGitStatus';
 import { useEditor } from '@/hooks/useEditor';
-import { fetchBranches, gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntrack } from '@/api/git';
+import { fetchBranches, fetchDiff, gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntrack } from '@/api/git';
 import { cn } from '@/lib/utils';
 import { GitFileList } from './GitFileList';
 
@@ -22,6 +22,11 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
   const [busy, setBusy] = useState<'commit' | 'push' | 'pull' | null>(null);
   const [branchOptions, setBranchOptions] = useState<string[]>([]);
   const [targetBranch, setTargetBranch] = useState('');
+  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<'auto' | 'manual'>('auto');
+  const [previewDiff, setPreviewDiff] = useState('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,6 +69,53 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
     () => Array.from(new Set([...(status?.staged.map((f) => f.path) ?? []), ...(status?.unstaged.map((f) => f.path) ?? [])])),
     [status],
   );
+  const previewInfo = useMemo(() => {
+    if (!previewPath) return null;
+    const staged = stagedItems.some((item) => item.path === previewPath);
+    const unstaged = unstagedItems.some((item) => item.path === previewPath);
+    if (!staged && !unstaged) return null;
+    return { staged, path: previewPath };
+  }, [previewPath, stagedItems, unstagedItems]);
+
+  useEffect(() => {
+    if (previewMode === 'manual') return;
+
+    if (previewPath && (stagedItems.some((item) => item.path === previewPath) || unstagedItems.some((item) => item.path === previewPath))) {
+      return;
+    }
+    const nextPath = stagedItems[0]?.path ?? unstagedItems[0]?.path ?? null;
+    setPreviewPath(nextPath);
+  }, [previewMode, previewPath, stagedItems, unstagedItems]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!previewInfo) {
+      setPreviewDiff('');
+      setPreviewError(null);
+      setPreviewLoading(false);
+      return;
+    }
+
+    setPreviewLoading(true);
+    setPreviewError(null);
+    void (async () => {
+      try {
+        const diff = await fetchDiff(workspace, previewInfo.path, previewInfo.staged);
+        if (cancelled) return;
+        setPreviewDiff(diff);
+      } catch {
+        if (cancelled) return;
+        setPreviewError('Não consegui carregar o diff deste arquivo.');
+        setPreviewDiff('');
+      } finally {
+        if (!cancelled) setPreviewLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspace, previewInfo]);
 
   const toggle = (path: string) =>
     setSelected((prev) => {
@@ -227,7 +279,12 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
                 onToggle={toggle}
                 onToggleAll={() => toggleAll(stagedItems)}
                 emptyText=""
-                onOpenFile={(path) => void openFile(path)}
+                onOpenFile={(path) => {
+                  setPreviewMode('manual');
+                  setPreviewPath(path);
+                  void openFile(path);
+                }}
+                activePath={previewPath}
               />
               <div className="px-2">
                 <Button size="sm" variant="outline" className="w-full" onClick={() => void handleUnstage()} disabled={readOnly}>
@@ -247,7 +304,12 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
                 onToggle={toggle}
                 onToggleAll={() => toggleAll(unstagedItems)}
                 emptyText=""
-                onOpenFile={(path) => void openFile(path)}
+                onOpenFile={(path) => {
+                  setPreviewMode('manual');
+                  setPreviewPath(path);
+                  void openFile(path);
+                }}
+                activePath={previewPath}
               />
               <div className="px-2">
                 <Button size="sm" className="w-full" onClick={() => void handleStage()} disabled={readOnly}>
@@ -260,6 +322,45 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
               <p className="px-3 py-6 text-center text-xs text-muted-foreground">Sem mudanças</p>
             )
           )}
+          <Separator />
+          <div className="px-2">
+            <div className="mb-2 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Diff</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {previewInfo ? `${previewInfo.staged ? 'staged' : 'unstaged'} · ${previewInfo.path}` : 'Selecione um arquivo para ver o diff'}
+                </p>
+              </div>
+              {previewPath && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={() => {
+                    setPreviewMode('manual');
+                    setPreviewPath(null);
+                  }}
+                >
+                  Limpar
+                </Button>
+              )}
+            </div>
+            <div className="rounded-xl border border-white/10 bg-[#0d0c12]">
+              {previewLoading ? (
+                <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Carregando diff...
+                </div>
+              ) : previewError ? (
+                <div className="px-3 py-4 text-xs text-rose-200">{previewError}</div>
+              ) : previewDiff ? (
+                <DiffPreview diff={previewDiff} />
+              ) : (
+                <div className="px-3 py-4 text-xs text-muted-foreground">Abra um arquivo da lista para inspecionar as mudanças.</div>
+              )}
+            </div>
+          </div>
           {trackedPaths.length > 0 && (
             <>
               <Separator />
@@ -378,5 +479,29 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function DiffPreview({ diff }: { diff: string }) {
+  const lines = diff.split('\n');
+  return (
+    <pre className="max-h-72 overflow-auto px-3 py-3 text-[12px] leading-5">
+      {lines.map((line, index) => {
+        const tone =
+          line.startsWith('+') && !line.startsWith('+++')
+            ? 'text-emerald-300 bg-emerald-500/10'
+            : line.startsWith('-') && !line.startsWith('---')
+              ? 'text-rose-300 bg-rose-500/10'
+              : line.startsWith('@@')
+                ? 'text-sky-300 bg-sky-500/10'
+                : 'text-[#ddd7ef]';
+
+        return (
+          <div key={`${index}-${line}`} className={cn('whitespace-pre-wrap rounded px-2 py-0.5 font-mono', tone)}>
+            {line.length === 0 ? '\u00a0' : line}
+          </div>
+        );
+      })}
+    </pre>
   );
 }

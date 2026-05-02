@@ -56,7 +56,7 @@ describe('<AssistantPanel />', () => {
     await userEvent.type(input, 'como melhorar isso?');
     await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 
-    const copyButtons = await screen.findAllByRole('button', { name: 'Copiar mensagem' });
+    const copyButtons = await screen.findAllByRole('button', { name: 'Copiar' });
     await userEvent.click(copyButtons.at(-1)!);
 
     expect(writeText).toHaveBeenCalledWith('Você pode extrair isso para um helper.');

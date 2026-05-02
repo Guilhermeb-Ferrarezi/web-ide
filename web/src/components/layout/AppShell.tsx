@@ -559,6 +559,7 @@ export function AppShell({ workspace }: { workspace: string }) {
               workspace={workspace}
               activePath={activeTab?.path ?? null}
               activeContent={activeTab?.content ?? null}
+              canEdit={permission === 'write'}
               onClose={() => setAssistantOpen(false)}
             />
           </aside>

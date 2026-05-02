@@ -1,6 +1,8 @@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { resolveDefaultFileIcon, resolveFileIcon } from '@/lib/fileTreeIcons';
+import { IconWithFallback } from '@/components/shared/IconWithFallback';
 
 type Item = { path: string; tag: string };
 
@@ -13,9 +15,20 @@ type Props = {
   emptyText: string;
   variant?: 'default' | 'destructive';
   onOpenFile?: (path: string) => void;
+  activePath?: string | null;
 };
 
-export function GitFileList({ title, items, selected, onToggle, onToggleAll, emptyText, variant, onOpenFile }: Props) {
+export function GitFileList({
+  title,
+  items,
+  selected,
+  onToggle,
+  onToggleAll,
+  emptyText,
+  variant,
+  onOpenFile,
+  activePath,
+}: Props) {
   if (items.length === 0) return null;
   const selectedCount = items.filter((item) => selected.has(item.path)).length;
   const allSelected = selectedCount === items.length;
@@ -47,7 +60,10 @@ export function GitFileList({ title, items, selected, onToggle, onToggleAll, emp
           {items.map((item) => (
             <li
               key={item.path}
-              className="flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent"
+              className={cn(
+                'flex items-center gap-2 rounded px-2 py-1 text-sm hover:bg-accent',
+                activePath === item.path && 'bg-accent/80',
+              )}
             >
               <Checkbox
                 checked={selected.has(item.path)}
@@ -59,13 +75,32 @@ export function GitFileList({ title, items, selected, onToggle, onToggleAll, emp
                   type="button"
                   onClick={() => onOpenFile(item.path)}
                   title={`Abrir ${item.path}`}
-                  className={cn('flex-1 truncate text-left font-mono text-xs hover:underline', variant === 'destructive' && 'text-destructive')}
+                  className={cn(
+                    'flex flex-1 items-center gap-2 truncate text-left font-mono text-xs hover:underline',
+                    variant === 'destructive' && 'text-destructive',
+                  )}
                 >
-                  {item.path}
+                  <IconWithFallback
+                    src={resolveFileIcon(item.path)}
+                    fallbackSrc={resolveDefaultFileIcon(item.path)}
+                    alt=""
+                    ariaHidden
+                    className="h-4 w-4 shrink-0"
+                  />
+                  <span className="truncate">{item.path}</span>
                 </button>
               ) : (
-                <span className={cn('flex-1 truncate font-mono text-xs', variant === 'destructive' && 'text-destructive')}>
-                  {item.path}
+                <span
+                  className={cn('flex flex-1 items-center gap-2 truncate font-mono text-xs', variant === 'destructive' && 'text-destructive')}
+                >
+                  <IconWithFallback
+                    src={resolveFileIcon(item.path)}
+                    fallbackSrc={resolveDefaultFileIcon(item.path)}
+                    alt=""
+                    ariaHidden
+                    className="h-4 w-4 shrink-0"
+                  />
+                  <span className="truncate">{item.path}</span>
                 </span>
               )}
               <Badge variant="outline" className="font-mono text-[10px]">{item.tag}</Badge>

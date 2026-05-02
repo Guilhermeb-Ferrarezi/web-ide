@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { GitPanel } from './GitPanel';
@@ -24,6 +24,7 @@ vi.mock('@/api/git', async () => {
   return {
     ...actual,
     fetchBranches: vi.fn().mockResolvedValue({ current: 'main', all: ['main', 'develop'] }),
+    fetchDiff: vi.fn().mockResolvedValue('diff --git a/README.md b/README.md\n+hello world'),
     gitCommit: vi.fn().mockResolvedValue(undefined),
     gitUntrack: vi.fn().mockResolvedValue(undefined),
   };
@@ -79,6 +80,14 @@ describe('<GitPanel />', () => {
     await screen.findByRole('option', { name: 'develop' });
 
     expect(screen.getByText('Ctrl+Enter para commitar · Esc limpa a mensagem')).toBeInTheDocument();
+  });
+
+  it('mostra o diff do arquivo em foco com o preview automático', async () => {
+    const fetchDiffSpy = vi.mocked(gitApi.fetchDiff);
+
+    render(<GitPanel workspace="repo" />);
+
+    await waitFor(() => expect(fetchDiffSpy).toHaveBeenCalledWith('repo', 'README.md', true));
   });
 
   it('só habilita commit quando existe mensagem', async () => {
