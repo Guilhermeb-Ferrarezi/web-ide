@@ -18,4 +18,4 @@ COPY drizzle ./drizzle
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["bun", "src/server.ts"]
+CMD ["node", "./node_modules/tsx/dist/cli.mjs", "src/server.ts"]
