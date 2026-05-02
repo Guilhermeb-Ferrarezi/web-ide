@@ -109,7 +109,11 @@ terminal_cd_target_allowed() {
   [[ "$resolved_target" == "$workspace_root" || "$resolved_target" == "$workspace_root"/* ]]
 }
 
-cd "${TERMINAL_WORKSPACE_ROOT:-$PWD}" || exit 1
+workspace_root="${TERMINAL_WORKSPACE_ROOT:-$PWD}"
+if ! cd "$workspace_root" 2>/dev/null; then
+  printf '[terminal] workspace root unavailable: %s\n' "$workspace_root"
+  cd "${HOME:-$PWD}" 2>/dev/null || exit 1
+fi
 
 while true; do
   terminal_prompt
