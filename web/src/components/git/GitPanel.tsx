@@ -483,25 +483,91 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
 }
 
 function DiffPreview({ diff }: { diff: string }) {
-  const lines = diff.split('\n');
+  const rows = parseUnifiedDiff(diff);
   return (
-    <pre className="max-h-72 overflow-auto px-3 py-3 text-[12px] leading-5">
-      {lines.map((line, index) => {
+    <div className="max-h-72 overflow-auto px-2 py-2 text-[12px] leading-5">
+      {rows.map((row, index) => {
+        if (row.kind === 'hunk') {
+          return (
+            <div key={`hunk-${index}-${row.text}`} className="rounded bg-sky-500/10 px-2 py-1 font-mono text-sky-300">
+              {row.text}
+            </div>
+          );
+        }
+
         const tone =
-          line.startsWith('+') && !line.startsWith('+++')
-            ? 'text-emerald-300 bg-emerald-500/10'
-            : line.startsWith('-') && !line.startsWith('---')
-              ? 'text-rose-300 bg-rose-500/10'
-              : line.startsWith('@@')
-                ? 'text-sky-300 bg-sky-500/10'
-                : 'text-[#ddd7ef]';
+          row.type === 'add'
+            ? 'bg-emerald-500/10 text-emerald-100'
+            : row.type === 'remove'
+              ? 'bg-rose-500/10 text-rose-100'
+              : 'text-[#ddd7ef]';
 
         return (
-          <div key={`${index}-${line}`} className={cn('whitespace-pre-wrap rounded px-2 py-0.5 font-mono', tone)}>
-            {line.length === 0 ? '\u00a0' : line}
+          <div
+            key={`line-${index}-${row.text}`}
+            className={cn('grid grid-cols-[3.5rem_3.5rem_1fr] gap-2 rounded px-2 py-0.5 font-mono', tone)}
+          >
+            <span className="text-right text-[#8d87a5]">{row.oldLine ?? '\u00a0'}</span>
+            <span className="text-right text-[#8d87a5]">{row.newLine ?? '\u00a0'}</span>
+            <span className="whitespace-pre-wrap break-words">{row.text.length === 0 ? '\u00a0' : row.text}</span>
           </div>
         );
       })}
-    </pre>
+    </div>
   );
+}
+
+type DiffPreviewRow =
+  | { kind: 'hunk'; text: string }
+  | { kind: 'line'; type: 'add' | 'remove' | 'context'; oldLine: number | null; newLine: number | null; text: string };
+
+function parseUnifiedDiff(diff: string): DiffPreviewRow[] {
+  const rows: DiffPreviewRow[] = [];
+  const lines = diff.split('\n');
+  let oldLine = 0;
+  let newLine = 0;
+  let inHunk = false;
+
+  for (const line of lines) {
+    if (line.startsWith('@@')) {
+      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (match) {
+        oldLine = Number(match[1]);
+        newLine = Number(match[2]);
+      }
+      inHunk = true;
+      rows.push({ kind: 'hunk', text: line });
+      continue;
+    }
+
+    if (!inHunk) continue;
+    if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('--- ') || line.startsWith('+++ ')) {
+      continue;
+    }
+
+    if (line.startsWith('+') && !line.startsWith('+++')) {
+      rows.push({ kind: 'line', type: 'add', oldLine: null, newLine, text: line.slice(1) });
+      newLine += 1;
+      continue;
+    }
+
+    if (line.startsWith('-') && !line.startsWith('---')) {
+      rows.push({ kind: 'line', type: 'remove', oldLine, newLine: null, text: line.slice(1) });
+      oldLine += 1;
+      continue;
+    }
+
+    if (line.startsWith(' ')) {
+      rows.push({ kind: 'line', type: 'context', oldLine, newLine, text: line.slice(1) });
+      oldLine += 1;
+      newLine += 1;
+      continue;
+    }
+
+    if (line.length > 0) {
+      rows.push({ kind: 'line', type: 'context', oldLine: null, newLine: null, text: line });
+    }
+  }
+
+  return rows;
 }
