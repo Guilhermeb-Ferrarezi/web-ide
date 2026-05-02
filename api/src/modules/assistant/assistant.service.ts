@@ -101,6 +101,12 @@ function isNamespaceSandboxError(details: string): boolean {
   return /bwrap:.*no permissions to create a new namespace|failed to create a new namespace|sandbox.*namespace/i.test(details);
 }
 
+function shouldRetryWithBypass(message: string): boolean {
+  return /não consegui alterar arquivo|failed to write file|no permissions to create a new namespace|sandbox\/kernel|bloqueando execução|bloqueando tanto execução|failed to write/i.test(
+    message,
+  );
+}
+
 function collectStream(stream: NodeJS.ReadableStream | null | undefined): Promise<string> {
   if (!stream) return Promise.resolve('');
 
@@ -228,6 +234,10 @@ async function runCodexOnce(prompt: string, cwd: string, unsafeBypassSandbox: bo
     const message = (await fs.readFile(outputPath, 'utf8')).trim();
     if (!message) {
       throw new Error('Codex returned an empty response');
+    }
+
+    if (!unsafeBypassSandbox && shouldRetryWithBypass(message)) {
+      return runCodexOnce(prompt, cwd, true);
     }
 
     return message;

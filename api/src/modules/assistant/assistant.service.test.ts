@@ -15,7 +15,7 @@ let lastChild: EventEmitter & {
   stderr: EventEmitter;
   kill: ReturnType<typeof mock>;
 } | null = null;
-let spawnModes: Array<'success' | 'namespace-error'> = [];
+let spawnModes: Array<'success' | 'namespace-error' | 'sandbox-message'> = [];
 
 const spawnMock = mock((command: string, args: string[], options: { cwd?: string }) => {
   lastSpawn = { command, args, options };
@@ -40,6 +40,18 @@ const spawnMock = mock((command: string, args: string[], options: { cwd?: string
           child.stdout.emit('end');
           child.stderr.emit('end');
           child.emit('close', 1, null);
+          return;
+        }
+
+        if (mode === 'sandbox-message') {
+          await fs.writeFile(
+            outputPath,
+            'Não consegui alterar arquivo no workspace.\nMotivo objetivo:\n- O comando de inspeção (rg --files) falhou com erro de sandbox/kernel: No permissions to create a new namespace (bwrap).\n- A tentativa de escrita direta com patch também falhou.',
+            'utf8',
+          );
+          child.stdout.emit('end');
+          child.stderr.emit('end');
+          child.emit('close', 0, null);
           return;
         }
 
@@ -121,6 +133,20 @@ describe('chatWithAssistant', () => {
 
   it('refaz a chamada sem sandbox quando o ambiente bloqueia namespace', async () => {
     spawnModes = ['namespace-error', 'success'];
+
+    const result = await chatWithAssistant({
+      workspace: 'repo',
+      workspacePath: '/workspaces/alice/repo',
+      messages: [{ role: 'user', content: 'Faça uma alteração' }],
+    });
+
+    expect(result.message).toBe('Resposta do assistente');
+    expect(spawnMock).toHaveBeenCalledTimes(2);
+    expect(lastSpawn?.args).toContain('--dangerously-bypass-approvals-and-sandbox');
+  });
+
+  it('refaz a chamada sem sandbox quando a resposta final ainda reporta bloqueio', async () => {
+    spawnModes = ['sandbox-message', 'success'];
 
     const result = await chatWithAssistant({
       workspace: 'repo',
