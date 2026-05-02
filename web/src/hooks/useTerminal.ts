@@ -31,6 +31,9 @@ function safeFit(fit: FitAddon, container: HTMLElement): boolean {
 
 export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, workspace: string) {
   useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.info('[terminal] hook mount', { workspace });
+    }
     const container = containerRef.current;
     if (!container) return;
 
@@ -192,6 +195,9 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
 
       ws.onopen = () => {
         if (disposed || !term || !ws) return;
+        if (import.meta.env.DEV) {
+          console.info('[terminal] websocket open', { workspace });
+        }
         if (hasConnected) {
           term.write('\r\n[reconectado]\r\n');
         } else {
@@ -230,9 +236,17 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         if (control) return;
         if (text !== null) term.write(text);
       };
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         clearKeepalive();
         clearReconnectReset();
+        if (import.meta.env.DEV) {
+          console.info('[terminal] websocket close', {
+            workspace,
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+          });
+        }
         if (disposed || !term) return;
         if (!reconnectEnabled) return;
         term.write('\r\n[conexão encerrada; reconectando...]\r\n');
@@ -242,6 +256,9 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         scheduleReconnect();
       };
       ws.onerror = () => {
+        if (import.meta.env.DEV) {
+          console.info('[terminal] websocket error', { workspace });
+        }
         if (disposed || !term) return;
         term.write('\r\n[erro de conexão]\r\n');
       };
@@ -266,6 +283,9 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     ro.observe(container);
 
     return () => {
+      if (import.meta.env.DEV) {
+        console.info('[terminal] hook unmount', { workspace });
+      }
       disposed = true;
       if (rafId !== null) cancelAnimationFrame(rafId);
       clearKeepalive();

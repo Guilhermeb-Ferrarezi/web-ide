@@ -5,6 +5,10 @@ export function TerminalPane({ workspace }: { workspace: string }) {
   const ref = useRef<HTMLDivElement>(null);
   useTerminal(ref, workspace);
 
+  if (import.meta.env.DEV) {
+    console.info('[terminal] render', { workspace });
+  }
+
   return (
     <div className="flex h-full w-full flex-col bg-[#0a0a0a]">
       <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
