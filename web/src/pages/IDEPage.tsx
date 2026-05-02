@@ -17,10 +17,7 @@ import { getInstalledExtensions } from '@/api/extensions';
 export default function IDEPage() {
   const { workspace } = useParams<{ workspace: string }>();
   const navigate = useNavigate();
-  const setPermission = useWorkspaceStore((s) => s.setPermission);
   const permission = useWorkspaceStore((s) => s.permission);
-  const replaceInstalled = useAppearanceStore((s) => s.replaceInstalled);
-  const resetInstalled = useAppearanceStore((s) => s.resetInstalled);
   const [loadingPermission, setLoadingPermission] = useState(true);
   const [loadingExtensions, setLoadingExtensions] = useState(true);
 
@@ -51,9 +48,9 @@ export default function IDEPage() {
       try {
         const repos = await listLocalRepos();
         const repo = repos.find((entry) => entry.slug === workspace);
-        if (!cancelled) setPermission(repo?.permission ?? null);
+        if (!cancelled) useWorkspaceStore.getState().setPermission(repo?.permission ?? null);
       } catch {
-        if (!cancelled) setPermission(null);
+        if (!cancelled) useWorkspaceStore.getState().setPermission(null);
       } finally {
         if (!cancelled) setLoadingPermission(false);
       }
@@ -61,7 +58,7 @@ export default function IDEPage() {
     return () => {
       cancelled = true;
     };
-  }, [workspace, setPermission]);
+  }, [workspace]);
 
   useWatcher(workspace ?? null, (e) => watcherBus.emit(e));
 
@@ -72,9 +69,9 @@ export default function IDEPage() {
       setLoadingExtensions(true);
       try {
         const installed = await getInstalledExtensions();
-        if (!cancelled) replaceInstalled(installed, workspace);
+        if (!cancelled) useAppearanceStore.getState().replaceInstalled(installed, workspace);
       } catch {
-        if (!cancelled) resetInstalled();
+        if (!cancelled) useAppearanceStore.getState().resetInstalled();
       } finally {
         if (!cancelled) setLoadingExtensions(false);
       }
@@ -82,7 +79,7 @@ export default function IDEPage() {
     return () => {
       cancelled = true;
     };
-  }, [workspace, replaceInstalled, resetInstalled]);
+  }, [workspace]);
 
   useEffect(() => {
     if (!workspace) return;
