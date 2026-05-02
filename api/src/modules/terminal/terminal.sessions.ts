@@ -27,6 +27,7 @@ type CreateTerminalSessionOptions = {
   killDelayMs?: number;
   setTimeout?: typeof globalThis.setTimeout;
   clearTimeout?: typeof globalThis.clearTimeout;
+  onExit?: (info: { exitCode: number; signal?: number }) => void;
 };
 
 const DEFAULT_KILL_DELAY_MS = 15_000;
@@ -74,7 +75,8 @@ export function getOrCreateTerminalSession(
       }
     });
 
-    handle.pty.onExit(() => {
+    handle.pty.onExit((info) => {
+      options.onExit?.(info);
       clearCleanupTimer(entry!, clearTimeoutFn);
       sessions.delete(key);
       try {

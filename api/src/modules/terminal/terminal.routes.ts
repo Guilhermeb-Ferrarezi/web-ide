@@ -5,7 +5,7 @@ import { getRepoPermissionForUser } from '../permissions/permissions.service.ts'
 import { resolveCurrentAppRole } from '../users/users.service.ts';
 import { parseTerminalClientMessage } from './terminal.protocol.ts';
 import { createPty } from './terminal.service.ts';
-import { getOrCreateTerminalSession } from './terminal.sessions.ts';
+import { getOrCreateTerminalSession, type TerminalSession } from './terminal.sessions.ts';
 
 export default async function terminalRoutes(app: FastifyInstance) {
   app.get('/terminal', { websocket: true }, async (socket, req) => {
@@ -59,10 +59,16 @@ export default async function terminalRoutes(app: FastifyInstance) {
     }
 
     req.log.info({ userId: user.userId, workspace, cwd }, '[terminal] attaching session');
-    let session;
+    let session: TerminalSession | undefined;
     try {
       session = getOrCreateTerminalSession(user.userId, workspace, cwd, role, {
         createPty,
+        onExit: (info) => {
+          req.log.info(
+            { userId: user.userId, workspace, cwd, pid: session?.handle.pty.pid, ...info },
+            '[terminal] pty exited',
+          );
+        },
       });
     } catch (err) {
       req.log.error({ err, userId: user.userId, workspace, cwd }, '[terminal] failed to spawn pty');
