@@ -273,7 +273,6 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
       if (reconnectId !== null) window.clearTimeout(reconnectId);
       dataDispose.dispose();
       ro?.disconnect();
-      try { ws?.close(); } catch { /* ignore */ }
       try { term?.dispose(); } catch { /* ignore */ }
       term = null;
       fit = null;
