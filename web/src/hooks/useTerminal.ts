@@ -193,7 +193,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     const connect = () => {
       if (disposed) return;
 
-      ws = new WebSocket(
+      const socket = new WebSocket(
         buildWorkspaceWsUrl({
           apiBaseUrl: import.meta.env.VITE_API_BASE_URL,
           wsBaseUrl: import.meta.env.VITE_WS_BASE_URL,
@@ -201,10 +201,11 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
           workspace,
         }),
       );
-      ws.binaryType = 'arraybuffer';
+      ws = socket;
+      socket.binaryType = 'arraybuffer';
 
-      ws.onopen = () => {
-        if (disposed || !term || !ws) return;
+      socket.onopen = () => {
+        if (disposed || !term || ws !== socket) return;
         if (import.meta.env.DEV) {
           console.info('[terminal] websocket open', { workspace });
         }
@@ -218,16 +219,16 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         reconnectResetId = window.setTimeout(() => {
           reconnectAttempts = 0;
         }, TERMINAL_RECONNECT_RESET_MS);
-        ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
+        socket.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
         clearKeepalive();
         keepaliveId = window.setInterval(() => {
-          if (ws?.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'ping' }));
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: 'ping' }));
           }
         }, TERMINAL_KEEPALIVE_INTERVAL_MS);
       };
-      ws.onmessage = (e) => {
-        if (disposed || !term) return;
+      socket.onmessage = (e) => {
+        if (disposed || !term || ws !== socket) return;
         const data = typeof e.data === 'string' ? e.data : new TextDecoder().decode(e.data);
         const { text, control } = parseTerminalSocketPayload(data);
         if (control?.type === 'error') {
@@ -242,7 +243,8 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         if (control) return;
         if (text !== null) term.write(text);
       };
-      ws.onclose = (event) => {
+      socket.onclose = (event) => {
+        if (ws !== socket) return;
         clearKeepalive();
         clearReconnectReset();
         if (import.meta.env.DEV) {
@@ -261,7 +263,8 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         }
         scheduleReconnect();
       };
-      ws.onerror = () => {
+      socket.onerror = () => {
+        if (ws !== socket) return;
         if (import.meta.env.DEV) {
           console.info('[terminal] websocket error', { workspace });
         }
