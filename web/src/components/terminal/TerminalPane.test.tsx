@@ -32,4 +32,10 @@ describe('<TerminalPane />', () => {
 
     expect(screen.getByText('Ctrl+Alt+C copiar')).toBeInTheDocument();
   });
+
+  it('mostra uma dica para colar no terminal', () => {
+    render(<TerminalPane workspace="repo" />);
+
+    expect(screen.getByText('Ctrl+Shift+V colar')).toBeInTheDocument();
+  });
 });

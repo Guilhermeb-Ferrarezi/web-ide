@@ -23,6 +23,10 @@ describe('fileTreeIcons', () => {
     expect(resolveFileIcon('index.d.ts')).toBe(`${BASE_URL}/typescript-def.svg`);
   });
 
+  it('maps .dockerignore to the docker icon', () => {
+    expect(resolveFileIcon('.dockerignore')).toBe(`${BASE_URL}/docker.svg`);
+  });
+
   it('resolves specific folder icons for closed and expanded states', () => {
     expect(resolveFolderIcon('src')).toBe(`${BASE_URL}/folder-src.svg`);
     expect(resolveFolderIcon('src', { expanded: true })).toBe(`${BASE_URL}/folder-src-open.svg`);
@@ -110,9 +114,7 @@ describe('fileTreeIcons', () => {
             file: 'custom-file',
             folder: 'custom-folder',
             folderExpanded: 'custom-folder-open',
-            fileNames: {
-              '.dockerignore': 'dockerignore-missing',
-            },
+            fileNames: {},
             fileExtensions: {},
             folderNames: {
               docs: 'folder-docs-missing',
@@ -120,7 +122,6 @@ describe('fileTreeIcons', () => {
             folderNamesExpanded: {},
             languageIds: {},
             iconDefinitions: {
-              'dockerignore-missing': '',
               'folder-docs-missing': '',
               'custom-file': '',
               'custom-folder': '',
@@ -132,7 +133,7 @@ describe('fileTreeIcons', () => {
       activeIconThemeId: 'partial-theme',
     });
 
-    expect(resolveFileIcon('.dockerignore')).toBe(`${BASE_URL}/file.svg`);
+    expect(resolveFileIcon('.dockerignore')).toBe(`${BASE_URL}/docker.svg`);
     expect(resolveFolderIcon('docs')).toBe(`${BASE_URL}/folder.svg`);
   });
 

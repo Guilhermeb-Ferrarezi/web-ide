@@ -126,6 +126,10 @@ function resolveFileIconFromTheme(iconTheme: ResolvedIconTheme, path: string): s
     return iconIdToUrl(iconTheme, fileNameMatch, iconTheme.file, defaultIconTheme.file, GENERIC_FILE_ICON);
   }
 
+  if (normalizedName === '.dockerignore') {
+    return iconIdToUrl(iconTheme, 'docker', iconTheme.file, defaultIconTheme.file, GENERIC_FILE_ICON);
+  }
+
   for (const extension of getExtensionCandidates(normalizedName)) {
     const extensionMatch = matchAssociation(iconTheme.fileExtensions, extension, parent);
     if (extensionMatch) {
