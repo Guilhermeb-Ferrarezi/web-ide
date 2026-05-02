@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,25 +18,6 @@ type Props = {
   onClose?: () => void;
 };
 
-type PromptPreset = {
-  label: string;
-  prompt: string;
-};
-
-const FILE_PROMPTS: PromptPreset[] = [
-  { label: 'Explicar', prompt: 'Explique o arquivo aberto.' },
-  { label: 'Melhorar', prompt: 'Sugira melhorias nesse código.' },
-  { label: 'Testes', prompt: 'Crie ou melhore testes para o arquivo aberto.' },
-  { label: 'Bugs', prompt: 'Encontre bugs óbvios no arquivo aberto.' },
-  { label: 'Resumir', prompt: 'Resuma o arquivo aberto em 3 pontos.' },
-];
-
-const WORKSPACE_PROMPTS: PromptPreset[] = [
-  { label: 'Analisar', prompt: 'Explique como este workspace está organizado.' },
-  { label: 'Riscos', prompt: 'Aponte riscos e problemas óbvios neste workspace.' },
-  { label: 'Próximos passos', prompt: 'Sugira próximos passos práticos para este workspace.' },
-];
-
 export function AssistantPanel({ workspace, activePath, activeContent, canEdit = true, onClose }: Props) {
   const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -46,22 +26,6 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
-
-  const promptPresets = activePath ? FILE_PROMPTS : WORKSPACE_PROMPTS;
-
-  const contextLabel = useMemo(() => {
-    if (activePath) return activePath;
-    return 'nenhum arquivo aberto';
-  }, [activePath]);
-
-  const statusLabel = useMemo(() => {
-    if (sending) return 'Gerando';
-    if (error) return 'Erro';
-    if (messages.length > 0) return 'Ativo';
-    return 'Pronto';
-  }, [error, messages.length, sending]);
-
-  const statusTone: BadgeProps['variant'] = error ? 'destructive' : sending ? 'secondary' : 'outline';
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -88,7 +52,7 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
         : 'Não consegui responder agora. Verifique se o Codex está instalado e disponível na máquina.';
 
     if (/bwrap|namespace|sandbox/i.test(raw)) {
-      return 'O ambiente bloqueou a edição agora. Tente novamente ou peça uma sugestão sem aplicar alterações.';
+      return 'Não consegui aplicar a mudança nesta sessão. Tente novamente ou peça só uma sugestão.';
     }
 
     if (/unauthorized|login/i.test(raw)) {
@@ -155,29 +119,10 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
             <div className="flex items-center gap-2 text-sm font-medium">
               <Sparkles className="h-4 w-4 text-violet-300" />
               Codex
-              <Badge variant={statusTone} className="ml-1 h-5 px-2 text-[10px] uppercase tracking-wide">
-                {statusLabel}
-              </Badge>
-              <Badge variant="outline" className="h-5 px-2 text-[10px]">
-                {canEdit ? 'Escrita' : 'Leitura'}
-              </Badge>
             </div>
             <p className="mt-1 text-xs text-[#a59fba]">
-              Pergunte sobre o workspace, o arquivo aberto ou peça uma alteração. Respostas com código vêm em blocos copiáveis.
+              Pergunte sobre o workspace, o arquivo aberto ou peça uma alteração.
             </p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-[#b9b3cb]">
-                Contexto: <span className="text-white">{contextLabel}</span>
-              </div>
-              {activePath && (
-                <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-[#b9b3cb]">
-                  Arquivo ativo: <span className="text-white">{activePath}</span>
-                </div>
-              )}
-              <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-[#b9b3cb]">
-                Histórico persistido pelo Codex
-              </div>
-            </div>
           </div>
           <div className="flex items-center gap-1">
             {messages.length > 0 && (
@@ -217,20 +162,8 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
                 Pronto para ajudar
               </div>
               <p className="mt-2 text-sm leading-6 text-[#a59fba]">
-                Posso revisar o arquivo aberto, sugerir refatorações, criar testes ou gerar um patch menor para aplicar.
+                Posso revisar o arquivo aberto, sugerir refatorações, criar testes ou devolver uma alteração pronta para aplicar.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {promptPresets.map((prompt) => (
-                  <button
-                    key={prompt.label}
-                    type="button"
-                    onClick={() => void sendMessage(prompt.prompt)}
-                    className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-[#ece8f7] transition-colors hover:bg-white/10"
-                  >
-                    {prompt.label}
-                  </button>
-                ))}
-              </div>
             </div>
           ) : (
             messages.map((message, index) => (
@@ -275,18 +208,6 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
       </ScrollArea>
 
       <div className="border-t border-white/10 p-3">
-        <div className="mb-2 flex flex-wrap gap-2">
-          {promptPresets.map((prompt) => (
-            <button
-              key={prompt.label}
-              type="button"
-              onClick={() => void sendMessage(prompt.prompt)}
-              className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-[#ece8f7] transition-colors hover:bg-white/10"
-            >
-              {prompt.label}
-            </button>
-          ))}
-        </div>
         <Textarea
           ref={textareaRef}
           value={input}
