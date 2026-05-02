@@ -12,7 +12,6 @@ services:
       - FRONTEND_URL=http://localhost:8080
     volumes:
       - workspace_data:/data/workspaces
-      - ./.docker/npm-global:/opt/npm-global
     networks:
       - ide_net
     restart: unless-stopped
