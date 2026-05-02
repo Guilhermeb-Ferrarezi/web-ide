@@ -147,6 +147,7 @@ describe('<AppShell />', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Chat' }));
 
+    expect(screen.getByText('file-tree')).toBeInTheDocument();
     expect(screen.getByText('assistant-panel')).toBeInTheDocument();
   });
 

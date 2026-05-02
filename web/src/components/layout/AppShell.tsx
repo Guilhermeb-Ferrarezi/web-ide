@@ -22,14 +22,14 @@ import { cn } from '@/lib/utils';
 import { useEditorStore } from '@/stores/editorStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
-type SidePanel = 'files' | 'search' | 'git' | 'extensions' | 'assistant';
+type SidePanel = 'files' | 'search' | 'git' | 'extensions';
 
 function readSidePanelPreference(): SidePanel {
   try {
     const storage = globalThis.localStorage;
     if (!storage || typeof storage.getItem !== 'function') return 'files';
     const saved = storage.getItem('ide:side-panel');
-    return saved === 'search' || saved === 'git' || saved === 'extensions' || saved === 'assistant' ? saved : 'files';
+    return saved === 'search' || saved === 'git' || saved === 'extensions' ? saved : 'files';
   } catch {
     return 'files';
   }
@@ -90,12 +90,12 @@ export function AppShell({ workspace }: { workspace: string }) {
   const [side, setSideRaw] = useState<SidePanel>(() => {
     return initialSide;
   });
-  const [assistantMounted, setAssistantMounted] = useState(() => initialSide === 'assistant');
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantMounted, setAssistantMounted] = useState(false);
   const setSide = (panel: SidePanel) => {
     setSideRaw(panel);
     persistSidePanelPreference(panel);
   };
-  const assistantOpen = side === 'assistant';
   const [showTerminal, setShowTerminal] = useState(true);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -168,7 +168,7 @@ export function AppShell({ workspace }: { workspace: string }) {
       else if (e.key === '2') { e.preventDefault(); setSide('search'); }
       else if (e.key === '3') { e.preventDefault(); setSide('git'); }
       else if (e.key === '4') { e.preventDefault(); setSide('extensions'); }
-      else if (e.key === '5') { e.preventDefault(); setSide('assistant'); }
+      else if (e.key === '5') { e.preventDefault(); setAssistantOpen((current) => !current); }
       else if (e.key === 'p') {
         e.preventDefault();
         setSide('files');
@@ -239,15 +239,12 @@ export function AppShell({ workspace }: { workspace: string }) {
     };
   }, [tabs, permission, autoSaveMode, autoSaveDelayMs, save]);
 
+  const visibleSide = assistantOpen ? 'files' : side;
+
   return (
     <div className="flex h-full flex-col">
-      <div
-        className={cn(
-          'relative flex-1 min-w-0 overflow-hidden transition-[padding-right] duration-300 ease-out',
-          assistantMounted && 'pr-[420px]',
-        )}
-      >
-        <ResizablePanelGroup direction="horizontal" className="min-w-0">
+      <div className="flex flex-1 min-w-0 overflow-hidden">
+        <ResizablePanelGroup direction="horizontal" className="min-w-0 flex-1">
           <TooltipProvider delayDuration={600}>
             <div className="flex h-full w-14 shrink-0 flex-col items-center gap-2 border-r bg-[#191721] py-3">
               <Tooltip>
@@ -347,12 +344,12 @@ export function AppShell({ workspace }: { workspace: string }) {
                     size="icon"
                     aria-label="Chat"
                     aria-keyshortcuts="Ctrl+5"
-                    aria-pressed={side === 'assistant'}
+                    aria-pressed={assistantOpen}
                     className={cn(
                       'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                      side === 'assistant' && 'bg-white/8 text-[#f5f3ff]',
+                      assistantOpen && 'bg-white/8 text-[#f5f3ff]',
                     )}
-                    onClick={() => setSide('assistant')}
+                    onClick={() => setAssistantOpen((current) => !current)}
                   >
                     <MessageSquare className={sidebarIconClass} />
                   </Button>
@@ -496,10 +493,10 @@ export function AppShell({ workspace }: { workspace: string }) {
           </TooltipProvider>
 
           <ResizablePanel defaultSize={22} minSize={14} maxSize={45} className="border-r">
-            {side === 'files' ? <FileTree workspace={workspace} filterInputRef={fileFilterRef} /> : null}
-            {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
-            {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
-            {side === 'extensions' ? <ExtensionsPanel /> : null}
+            {visibleSide === 'files' ? <FileTree workspace={workspace} filterInputRef={fileFilterRef} /> : null}
+            {visibleSide === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
+            {visibleSide === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
+            {visibleSide === 'extensions' ? <ExtensionsPanel /> : null}
           </ResizablePanel>
           <ResizableHandle />
 
@@ -537,20 +534,20 @@ export function AppShell({ workspace }: { workspace: string }) {
           </ResizablePanel>
         </ResizablePanelGroup>
         {assistantMounted && (
-          <div
+          <aside
             className={cn(
-              'absolute inset-y-0 right-0 z-30 w-[420px] max-w-[calc(100vw-3.5rem)] border-l border-white/10 bg-[#121019] shadow-2xl',
-              'transform-gpu transition-all duration-300 ease-out',
-              assistantOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none',
+              'relative z-30 h-full shrink-0 overflow-hidden border-l border-white/10 bg-[#121019] shadow-2xl',
+              'transform-gpu transition-[width] duration-300 ease-out',
+              assistantOpen ? 'w-[420px]' : 'w-0',
             )}
           >
             <AssistantPanel
               workspace={workspace}
               activePath={activeTab?.path ?? null}
               activeContent={activeTab?.content ?? null}
-              onClose={() => setSide('files')}
+              onClose={() => setAssistantOpen(false)}
             />
-          </div>
+          </aside>
         )}
       </div>
       {settingsDialogOpen && (
