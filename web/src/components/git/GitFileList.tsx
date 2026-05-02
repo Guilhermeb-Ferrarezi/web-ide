@@ -19,14 +19,23 @@ export function GitFileList({ title, items, selected, onToggle, onToggleAll, emp
   const allSelected = items.every((i) => selected.has(i.path));
   return (
     <div>
-      <button
-        type="button"
-        onClick={onToggleAll}
-        className="flex w-full items-center justify-between px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:bg-accent"
-      >
-        <span>{title} ({items.length})</span>
-        <Checkbox checked={allSelected} onCheckedChange={onToggleAll} />
-      </button>
+      <div className="flex items-center justify-between px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <button
+          type="button"
+          onClick={onToggleAll}
+          className="flex-1 text-left hover:text-foreground"
+        >
+          <span>{title} ({items.length})</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] normal-case tracking-normal">Marque para selecionar tudo</span>
+          <Checkbox
+            checked={allSelected}
+            onCheckedChange={onToggleAll}
+            aria-label={`Selecionar todos em ${title}`}
+          />
+        </div>
+      </div>
       {items.length === 0 ? (
         <p className="px-2 py-1 text-xs text-muted-foreground">{emptyText}</p>
       ) : (

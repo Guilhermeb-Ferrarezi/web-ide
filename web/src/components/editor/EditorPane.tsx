@@ -217,6 +217,8 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const [hoverLoading, setHoverLoading] = useState<{ top: number; left: number; label: string } | null>(null);
   const pendingJump = useEditorStore((s) => s.pendingJump);
   const setPendingJump = useEditorStore((s) => s.setPendingJump);
+  const setCursorPosition = useEditorStore((s) => s.setCursorPosition);
+  const wordWrap = useEditorStore((s) => s.wordWrap);
   const monaco = useMonaco();
   const workspace = useWorkspaceStore((s) => s.workspace);
   const { openFile } = useEditor();
@@ -360,6 +362,10 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   }, [tab, readOnly, onSave]);
 
   useEffect(() => {
+    setCursorPosition(null);
+  }, [tab?.path, setCursorPosition]);
+
+  useEffect(() => {
     if (!pendingJump || !editorRef.current) return;
     const ed = editorRef.current;
     ed.revealLineInCenter(pendingJump.line);
@@ -470,6 +476,10 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
           clearHoverLoading();
         }
       })();
+    });
+
+    ed.onDidChangeCursorPosition((e) => {
+      setCursorPosition({ line: e.position.lineNumber, column: e.position.column });
     });
 
     const jump = useEditorStore.getState().pendingJump;
@@ -595,7 +605,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
           minimap: { enabled: false },
           fontSize: 13,
           scrollBeyondLastLine: false,
-          wordWrap: 'on',
+          wordWrap: wordWrap ? 'on' : 'off',
           automaticLayout: true,
           fixedOverflowWidgets: true,
           readOnly,
@@ -604,14 +614,25 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
       {preparingEditor && tab.kind !== 'extension' && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/92 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border bg-card/95 p-4 shadow-lg">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+            <div className="mb-1 flex items-center gap-2 text-sm font-medium">
               <div className="h-2 w-2 animate-pulse rounded-full bg-primary" />
-              Preparing editor
+              Preparando editor
             </div>
+            <p className="mb-3 text-xs text-muted-foreground">{tab.name}</p>
             <Skeleton className="mb-2 h-4 w-56" />
             <Skeleton className="mb-2 h-4 w-72" />
             <Skeleton className="h-4 w-48" />
           </div>
+        </div>
+      )}
+      {readOnly && tab.kind !== 'extension' && !preparingEditor && (
+        <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md border bg-background/95 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
+          Somente leitura
+        </div>
+      )}
+      {tab.dirty && tab.kind !== 'extension' && !preparingEditor && (
+        <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-md border bg-background/95 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
+          Não salvo · Ctrl+S para salvar
         </div>
       )}
       {hoverLoading && (

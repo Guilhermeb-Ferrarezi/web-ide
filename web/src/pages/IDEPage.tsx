@@ -163,6 +163,10 @@ export default function IDEPage() {
                 <Skeleton className="mb-2 h-8 w-10/12" />
               </div>
               <div className="flex flex-col p-3">
+                <div className="mb-3 space-y-1">
+                  <p className="text-sm font-medium text-foreground">Preparando permissões, extensões e editor...</p>
+                  <p className="text-xs text-muted-foreground">Aguarde enquanto o workspace {workspace} é carregado.</p>
+                </div>
                 <Skeleton className="mb-2 h-9 w-full" />
                 <Skeleton className="mb-2 h-8 w-56" />
                 <div className="flex-1 rounded-xl border bg-card/50 p-4">

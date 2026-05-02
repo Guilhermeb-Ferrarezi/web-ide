@@ -70,4 +70,36 @@ describe('<GitPanel />', () => {
 
     expect(commitSpy).toHaveBeenCalledWith('repo', 'feat: branch target', 'develop');
   });
+
+  it('mostra dica de atalho para criar commit', () => {
+    render(<GitPanel workspace="repo" />);
+
+    expect(screen.getByText('Ctrl+Enter para commitar')).toBeInTheDocument();
+  });
+
+  it('permite limpar a mensagem do commit com um botão dedicado', async () => {
+    const user = userEvent.setup();
+
+    render(<GitPanel workspace="repo" />);
+
+    const textarea = screen.getByPlaceholderText('Mensagem do commit');
+    await user.type(textarea, 'feat: clean me');
+    await user.click(screen.getByRole('button', { name: 'Limpar mensagem do commit' }));
+
+    expect(textarea).toHaveValue('');
+    expect(textarea).toHaveFocus();
+  });
+
+  it('limpa a mensagem do commit ao pressionar Escape', async () => {
+    const user = userEvent.setup();
+
+    render(<GitPanel workspace="repo" />);
+
+    const textarea = screen.getByPlaceholderText('Mensagem do commit');
+    await user.type(textarea, 'feat: escape');
+    await user.keyboard('{Escape}');
+
+    expect(textarea).toHaveValue('');
+    expect(textarea).toHaveFocus();
+  });
 });

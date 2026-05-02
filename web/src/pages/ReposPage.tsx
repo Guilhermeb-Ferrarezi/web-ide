@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Code2, Download, ExternalLink, FolderPlus, Lock, LogOut, Search, Share2, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -55,7 +55,27 @@ export default function ReposPage() {
   const [loadingBranchesByRepo, setLoadingBranchesByRepo] = useState<Record<string, boolean>>({});
   const localSentinelRef = useRef<HTMLDivElement | null>(null);
   const githubSentinelRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const navigate = useNavigate();
+
+  const closeInitModal = useCallback(() => {
+    setShowInitModal(false);
+    setInitName('');
+  }, []);
+
+  useEffect(() => {
+    if (!showInitModal) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') closeInitModal();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showInitModal, closeInitModal]);
+
+  function clearQuery() {
+    setQuery('');
+    searchInputRef.current?.focus();
+  }
 
   useEffect(() => {
     if (!sharingRepoId) return;
@@ -312,7 +332,7 @@ export default function ReposPage() {
               <button
                 type="button"
                 className="rounded-md p-1 hover:bg-accent"
-                onClick={() => { setShowInitModal(false); setInitName(''); }}
+                onClick={closeInitModal}
               >
                 <X className="h-4 w-4" />
               </button>
@@ -335,7 +355,7 @@ export default function ReposPage() {
                 </p>
               </div>
               <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => { setShowInitModal(false); setInitName(''); }}>
+                <Button variant="outline" onClick={closeInitModal}>
                   Cancelar
                 </Button>
                 <Button disabled={initBusy} onClick={() => void handleInit()}>
@@ -348,13 +368,32 @@ export default function ReposPage() {
       )}
 
       <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
+          ref={searchInputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' && query) {
+              e.stopPropagation();
+              clearQuery();
+            }
+          }}
           placeholder="Buscar repositório..."
-          className="pl-9"
+          className={query ? 'pl-9 pr-10' : 'pl-9'}
         />
+        {query && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Limpar busca de repositórios"
+            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            onClick={clearQuery}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
       </div>
 
       {loading ? (
@@ -365,6 +404,12 @@ export default function ReposPage() {
         </div>
       ) : (
         <div className="space-y-8">
+          {query.trim() && filteredLocal.length === 0 && filteredGithub.length === 0 && (
+            <div className="rounded-lg border border-dashed px-4 py-3 text-sm">
+              <p className="font-medium text-foreground">Nenhum repositório corresponde a “{query.trim()}”.</p>
+              <p className="mt-1 text-muted-foreground">Use Esc ou o botão limpar para buscar novamente.</p>
+            </div>
+          )}
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-medium text-muted-foreground">Compartilhados comigo</h2>

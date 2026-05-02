@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Blocks, RefreshCcw, Search, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { getExtensionDetail, searchExtensions } from '@/api/extensions';
@@ -98,6 +98,7 @@ export function ExtensionsPanel() {
   const [results, setResults] = useState<MarketplaceExtension[]>([]);
   const [searching, setSearching] = useState(false);
   const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const installedThemes = useAppearanceStore((state) => state.installedThemes);
   const installedIconThemes = useAppearanceStore((state) => state.installedIconThemes);
   const upsertTab = useEditorStore((state) => state.upsertTab);
@@ -186,6 +187,11 @@ export function ExtensionsPanel() {
     await runSearch(nextQuery);
   }
 
+  function clearQuery() {
+    setQuery('');
+    searchInputRef.current?.focus();
+  }
+
   async function handleSelect(extensionId: string) {
     setSelectedExtensionId(extensionId);
     const previewEntry = [...installedItems, ...popularItems, ...recommendedItems].find((item) => item.extensionId === extensionId);
@@ -244,14 +250,35 @@ export function ExtensionsPanel() {
           <div className="relative min-w-0 flex-1">
             <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
+              ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search Extensions in Marketplace"
               className="h-9 border-border/80 bg-muted/20 pl-9 text-sm"
               onKeyDown={(event) => {
                 if (event.key === 'Enter') void handleSearch();
+                if (event.key === 'Escape' && query) {
+                  event.preventDefault();
+                  clearQuery();
+                }
               }}
             />
+            {query && (
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={clearQuery}
+                aria-label="Limpar busca de extensões"
+                title="Limpar busca de extensões"
+              >
+                ×
+              </button>
+            )}
+            {!query && (
+              <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground/80">
+                Enter
+              </div>
+            )}
           </div>
           <Button
             type="button"
@@ -274,6 +301,11 @@ export function ExtensionsPanel() {
             <Skeleton className="h-14 w-full" />
             <Skeleton className="h-14 w-full" />
             <Skeleton className="h-14 w-full" />
+          </div>
+        ) : !searching && query.trim() && results.length === 0 ? (
+          <div className="space-y-2 p-4 text-sm">
+            <p className="font-medium text-foreground">Nenhuma extensão encontrada para “{query.trim()}”.</p>
+            <p className="text-muted-foreground">Tente outro termo ou pressione Enter para buscar por “theme”.</p>
           </div>
         ) : (
           <>

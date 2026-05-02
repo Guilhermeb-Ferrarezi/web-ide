@@ -231,4 +231,33 @@ describe('<ReposPage />', () => {
       'develop',
     );
   });
+
+  it('mostra um botão para limpar a busca de repositórios', async () => {
+    render(
+      <MemoryRouter>
+        <ReposPage />
+      </MemoryRouter>,
+    );
+
+    const input = screen.getByPlaceholderText('Buscar repositório...');
+    await userEvent.type(input, 'my-repo');
+    expect(input).toHaveValue('my-repo');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Limpar busca de repositórios' }));
+
+    expect(input).toHaveValue('');
+  });
+
+  it('mostra um aviso contextual quando a busca não encontra repositórios', async () => {
+    render(
+      <MemoryRouter>
+        <ReposPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByPlaceholderText('Buscar repositório...'), 'sem-match');
+
+    expect(screen.getByText('Nenhum repositório corresponde a “sem-match”.')).toBeInTheDocument();
+    expect(screen.getByText('Use Esc ou o botão limpar para buscar novamente.')).toBeInTheDocument();
+  });
 });

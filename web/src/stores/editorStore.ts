@@ -7,6 +7,8 @@ type EditorState = {
   tabs: EditorTab[];
   activePath: string | null;
   pendingJump: EditorJump | null;
+  cursorPosition: { line: number; column: number } | null;
+  wordWrap: boolean;
   openTab: (tab: EditorTab) => void;
   upsertTab: (tab: EditorTab) => void;
   closeTab: (path: string) => void;
@@ -14,6 +16,8 @@ type EditorState = {
   updateContent: (path: string, content: string) => void;
   markSaved: (path: string) => void;
   setPendingJump: (jump: EditorJump | null) => void;
+  setCursorPosition: (pos: { line: number; column: number } | null) => void;
+  toggleWordWrap: () => void;
   reset: () => void;
 };
 
@@ -21,6 +25,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   tabs: [],
   activePath: null,
   pendingJump: null,
+  cursorPosition: null,
+  wordWrap: true,
   openTab: (tab) => {
     const exists = get().tabs.find((t) => t.path === tab.path);
     if (exists) return set({ activePath: tab.path });
@@ -57,5 +63,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       ),
     })),
   setPendingJump: (jump) => set({ pendingJump: jump }),
-  reset: () => set({ tabs: [], activePath: null, pendingJump: null }),
+  setCursorPosition: (pos) => set({ cursorPosition: pos }),
+  toggleWordWrap: () => set((s) => ({ wordWrap: !s.wordWrap })),
+  reset: () => set({ tabs: [], activePath: null, pendingJump: null, cursorPosition: null }),
 }));

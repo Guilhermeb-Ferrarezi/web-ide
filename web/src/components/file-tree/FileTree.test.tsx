@@ -9,17 +9,19 @@ vi.mock('@/api/fs');
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
 const openFile = vi.fn();
+let activePath: string | null = null;
 
 vi.mock('@/hooks/useEditor', () => ({
   useEditor: () => ({
     openFile,
-    activePath: null,
+    activePath,
   }),
 }));
 
 describe('<FileTree />', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    activePath = null;
     useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
   });
 
@@ -101,5 +103,32 @@ describe('<FileTree />', () => {
 
     await userEvent.click(screen.getByRole('menuitem', { name: 'Abrir arquivo' }));
     expect(openFile).toHaveBeenCalledWith('README.md');
+  });
+
+  it('mostra um resumo do arquivo ativo com dica de ações', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      { name: 'README.md', path: 'README.md', type: 'file' },
+    ]);
+    activePath = 'README.md';
+
+    render(<FileTree workspace="repo" />);
+
+    await waitFor(() => expect(screen.getByText('README.md')).toBeInTheDocument());
+    expect(screen.getByText('Arquivo ativo: README.md')).toBeInTheDocument();
+    expect(screen.getByText('Clique direito para ações')).toBeInTheDocument();
+  });
+
+  it('mostra dica de atalho ao renomear inline', async () => {
+    vi.spyOn(fsApi, 'fetchTree').mockResolvedValue([
+      { name: '.env', path: '.env', type: 'file' },
+    ]);
+
+    render(<FileTree workspace="repo" />);
+    await waitFor(() => expect(screen.getByText('.env')).toBeInTheDocument());
+
+    fireEvent.contextMenu(screen.getByText('.env'));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Renomear' }));
+
+    expect(screen.getByText('Enter para confirmar • Esc para cancelar')).toBeInTheDocument();
   });
 });

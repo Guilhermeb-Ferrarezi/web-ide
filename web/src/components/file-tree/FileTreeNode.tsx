@@ -56,15 +56,18 @@ function InlineTreeInput({ icon, level, value, folder, onChange, onSubmit, onCan
     >
       {folder ? <ChevronRight className="h-3.5 w-3.5 opacity-0" /> : null}
       <img src={icon} alt="" aria-hidden="true" className="h-4 w-4 shrink-0" />
-      <Input
-        value={value}
-        autoFocus
-        onChange={(event) => onChange(event.target.value)}
-        onBlur={onSubmit}
-        onKeyDown={(event) => handleInlineKeyDown(event, onSubmit, onCancel)}
-        className="h-7 border-border/70 bg-background px-2 text-sm"
-        aria-label="Nome do arquivo"
-      />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <Input
+          value={value}
+          autoFocus
+          onChange={(event) => onChange(event.target.value)}
+          onBlur={onSubmit}
+          onKeyDown={(event) => handleInlineKeyDown(event, onSubmit, onCancel)}
+          className="h-7 border-border/70 bg-background px-2 text-sm"
+          aria-label="Nome do arquivo"
+        />
+        <span className="text-[10px] text-muted-foreground">Enter para confirmar • Esc para cancelar</span>
+      </div>
     </div>
   );
 }

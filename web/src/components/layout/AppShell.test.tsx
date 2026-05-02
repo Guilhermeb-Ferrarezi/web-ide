@@ -75,7 +75,30 @@ describe('<AppShell />', () => {
 
     expect(screen.getByText('Modo somente leitura')).toBeInTheDocument();
     expect(screen.getByText('Você pode navegar, mas não editar arquivos, usar terminal ou executar ações de Git com escrita.')).toBeInTheDocument();
-    expect(screen.getByTitle('Terminal indisponível em modo somente leitura')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Terminal' })).toBeDisabled();
     expect(screen.getByText('3')).toBeInTheDocument();
+  });
+
+  it('expõe rótulos acessíveis nos botões da barra lateral', () => {
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
+
+    render(<AppShell workspace="repo" />);
+
+    expect(screen.getByRole('button', { name: 'Arquivos' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Buscar código' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Git' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Extensões' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Terminal' })).toBeInTheDocument();
+  });
+
+  it('expõe atalhos de teclado acessíveis nos botões da barra lateral', () => {
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
+
+    render(<AppShell workspace="repo" />);
+
+    expect(screen.getByRole('button', { name: 'Arquivos' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+1');
+    expect(screen.getByRole('button', { name: 'Buscar código' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+2');
+    expect(screen.getByRole('button', { name: 'Git' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+3');
+    expect(screen.getByRole('button', { name: 'Extensões' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+4');
   });
 });

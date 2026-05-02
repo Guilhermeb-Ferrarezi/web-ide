@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { FilePlus2, FolderPlus, Pencil, RefreshCcw, Trash2 } from 'lucide-react';
+import { FilePlus2, FolderPlus, Pencil, RefreshCcw, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { deleteFile, mkdir, renamePath, saveFile } from '@/api/fs';
 import { useFileTree } from '@/hooks/useFileTree';
 import { useEditor } from '@/hooks/useEditor';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import type { TreeNode } from '@/types';
+import { cn } from '@/lib/utils';
 import { FileTreeNode } from './FileTreeNode';
 
 type ContextMenuState = {
@@ -37,13 +39,16 @@ function getParentPath(nodePath: string): string {
   return parts.join('/');
 }
 
-export function FileTree({ workspace }: { workspace: string }) {
+export function FileTree({ workspace, filterInputRef }: { workspace: string; filterInputRef?: React.RefObject<HTMLInputElement> }) {
   const { tree, loading, refresh } = useFileTree(workspace);
   const { openFile, activePath } = useEditor();
   const permission = useWorkspaceStore((s) => s.permission);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [inlineAction, setInlineAction] = useState<InlineActionState | null>(null);
   const [deleteModal, setDeleteModal] = useState<DeleteModalState | null>(null);
+  const [fileFilter, setFileFilter] = useState('');
+  const localFilterRef = useRef<HTMLInputElement>(null) as React.RefObject<HTMLInputElement>;
+  const resolvedFilterRef = filterInputRef ?? localFilterRef;
   const readOnly = permission !== 'write';
 
   useEffect(() => {
@@ -66,6 +71,17 @@ export function FileTree({ workspace }: { workspace: string }) {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [contextMenu]);
+
+  useEffect(() => {
+    if (!deleteModal) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setDeleteModal(null);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [deleteModal]);
 
   const menuItems = useMemo(() => {
     if (!contextMenu) return [];
@@ -184,6 +200,20 @@ export function FileTree({ workspace }: { workspace: string }) {
     }
   }
 
+  const filteredFiles = useMemo(() => {
+    const q = fileFilter.trim().toLowerCase();
+    if (!q) return null;
+    const results: TreeNode[] = [];
+    function walk(nodes: TreeNode[]) {
+      for (const node of nodes) {
+        if (node.type === 'file' && node.name.toLowerCase().includes(q)) results.push(node);
+        if (node.children) walk(node.children);
+      }
+    }
+    walk(tree);
+    return results;
+  }, [fileFilter, tree]);
+
   const showRootInlineInput =
     inlineAction && inlineAction.mode !== 'rename' && inlineAction.parentPath === '';
 
@@ -219,8 +249,54 @@ export function FileTree({ workspace }: { workspace: string }) {
           </Button>
         </div>
       </div>
+      <div className="relative border-b px-2 py-1.5">
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          ref={resolvedFilterRef}
+          value={fileFilter}
+          onChange={(e) => setFileFilter(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') { e.stopPropagation(); setFileFilter(''); }
+          }}
+          placeholder="Filtrar arquivos"
+          className={cn('h-7 pl-7 text-xs', fileFilter ? 'pr-7' : '')}
+        />
+        {fileFilter && (
+          <button
+            type="button"
+            aria-label="Limpar filtro"
+            onClick={() => { setFileFilter(''); resolvedFilterRef.current?.focus(); }}
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
       <ScrollArea className="flex-1">
-        {loading ? (
+        {filteredFiles !== null ? (
+          filteredFiles.length === 0 ? (
+            <p className="p-3 text-xs text-muted-foreground">Nenhum arquivo encontrado.</p>
+          ) : (
+            <ul className="py-1">
+              {filteredFiles.map((node) => (
+                <li key={node.path}>
+                  <button
+                    type="button"
+                    onClick={() => void openFile(node.path)}
+                    title={node.path}
+                    className={cn(
+                      'flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent',
+                      activePath === node.path && 'bg-accent font-medium',
+                    )}
+                  >
+                    <span className="truncate">{node.name}</span>
+                    <span className="ml-auto truncate text-muted-foreground">{node.path.slice(0, node.path.length - node.name.length).replace(/\/$/, '')}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )
+        ) : loading ? (
           <p className="p-3 text-xs text-muted-foreground">Carregando...</p>
         ) : tree.length === 0 && !showRootInlineInput ? (
           <p className="p-3 text-xs text-muted-foreground">Workspace vazio</p>

@@ -23,6 +23,14 @@ describe('<EditorBreadcrumbs />', () => {
     );
   });
 
+  it('resume segmentos ocultos quando o caminho é longo', () => {
+    render(<EditorBreadcrumbs path="apps/web/src/components/layout/StatusBar.tsx" />);
+
+    expect(screen.getByText('apps')).toBeInTheDocument();
+    expect(screen.getByText('StatusBar.tsx')).toBeInTheDocument();
+    expect(screen.getByTitle('web / src / components / layout')).toHaveTextContent('…');
+  });
+
   it('nao renderiza nada sem path ativo', () => {
     const { container } = render(<EditorBreadcrumbs path={null} />);
     expect(container.firstChild).toBeNull();

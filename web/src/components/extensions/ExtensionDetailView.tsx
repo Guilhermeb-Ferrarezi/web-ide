@@ -136,41 +136,50 @@ export function ExtensionDetailView({
               {detail.extension.description ?? 'No description provided.'}
             </p>
 
-            <div className="mt-5 flex flex-wrap items-center gap-3">
-              {installedAction ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={installedAction.onApply}
-                  disabled={installedAction.active}
-                >
-                  {installedAction.active ? 'Ativa' : installedAction.applyLabel}
-                </Button>
-              ) : null}
-              {canInstall ? (
-                <Button
-                  type="button"
-                  className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300"
-                  onClick={onInstall}
-                  disabled={installing}
-                >
-                  {installing ? 'Instalando...' : 'Instalar extensão'}
-                </Button>
-              ) : null}
+            <div className="mt-5 space-y-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {installedAction ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={installedAction.onApply}
+                    disabled={installedAction.active}
+                  >
+                    {installedAction.active ? 'Ativa' : installedAction.applyLabel}
+                  </Button>
+                ) : null}
+                {canInstall ? (
+                  <Button
+                    type="button"
+                    className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300"
+                    onClick={onInstall}
+                    disabled={installing}
+                  >
+                    {installing ? 'Instalando...' : 'Instalar extensão'}
+                  </Button>
+                ) : null}
+                {!installedAction && !canInstall ? (
+                  <Button type="button" variant="outline" disabled>
+                    Extensão não suportada
+                  </Button>
+                ) : null}
+                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <input type="checkbox" checked readOnly className="h-4 w-4 rounded border-input bg-background" />
+                  Auto Update
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                <span className="rounded-full border px-2.5 py-1">Instalar para usar no editor</span>
+                <span className="rounded-full border px-2.5 py-1">Leia o resumo ou abra recursos externos abaixo</span>
+                <span className="rounded-full border px-2.5 py-1">
+                  {detail.resources.length} recurso{detail.resources.length === 1 ? '' : 's'} externo{detail.resources.length === 1 ? '' : 's'}
+                </span>
+              </div>
               {!installedAction && !canInstall ? (
-                <Button type="button" variant="outline" disabled>
-                  Extensão não suportada
-                </Button>
-              ) : null}
-              {!installedAction && !canInstall ? (
-                <p className="basis-full text-sm text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   {detail.installSupport.reason ?? 'Esta extensão não pode ser instalada agora.'}
                 </p>
               ) : null}
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                <input type="checkbox" checked readOnly className="h-4 w-4 rounded border-input bg-background" />
-                Auto Update
-              </label>
             </div>
           </div>
         </div>

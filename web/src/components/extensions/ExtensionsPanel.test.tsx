@@ -90,4 +90,31 @@ describe('<ExtensionsPanel />', () => {
     );
     expect(useEditorStore.getState().activePath).toBe('Extensions/GitHub Theme');
   });
+
+  it('limpa a busca com Escape e foca o campo novamente', async () => {
+    vi.spyOn(extensionsApi, 'searchExtensions').mockResolvedValue([]);
+
+    render(<ExtensionsPanel />);
+
+    const input = screen.getByPlaceholderText('Search Extensions in Marketplace');
+    await userEvent.type(input, 'theme pack');
+    expect(input).toHaveValue('theme pack');
+
+    await userEvent.keyboard('{Escape}');
+
+    expect(input).toHaveValue('');
+    expect(input).toHaveFocus();
+  });
+
+  it('mostra mensagem quando nenhuma extensão é encontrada', async () => {
+    vi.spyOn(extensionsApi, 'searchExtensions').mockResolvedValue([]);
+
+    render(<ExtensionsPanel />);
+
+    await userEvent.type(screen.getByPlaceholderText('Search Extensions in Marketplace'), 'missing');
+    await userEvent.click(screen.getByRole('button', { name: 'Buscar extensões' }));
+
+    expect(await screen.findByText('Nenhuma extensão encontrada para “missing”.')).toBeInTheDocument();
+    expect(screen.getByText('Tente outro termo ou pressione Enter para buscar por “theme”.')).toBeInTheDocument();
+  });
 });

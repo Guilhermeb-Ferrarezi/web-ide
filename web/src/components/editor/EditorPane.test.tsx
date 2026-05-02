@@ -49,6 +49,27 @@ describe('<EditorPane />', () => {
     );
   });
 
+  it('mostra o nome do arquivo enquanto prepara o editor', () => {
+    render(
+      <EditorPane
+        tab={{
+          path: 'README.md',
+          name: 'README.md',
+          content: '# docs',
+          originalContent: '# docs',
+          encoding: 'utf-8',
+          mimeType: 'text/markdown',
+          dirty: false,
+        }}
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Preparando editor')).toBeInTheDocument();
+    expect(screen.getByText('README.md')).toBeInTheDocument();
+  });
+
   it('mantem o tema base ate o Monaco carregar o tema customizado', () => {
     useAppearanceStore.setState({
       installedThemes: [

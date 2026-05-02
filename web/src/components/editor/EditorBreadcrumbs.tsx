@@ -12,20 +12,39 @@ export function EditorBreadcrumbs({ path, dirty = false }: Props) {
   const segments = path.split('/').filter(Boolean);
   if (segments.length === 0) return null;
 
+  const shouldCollapseMiddle = segments.length > 4;
+  const middleSegments = shouldCollapseMiddle ? segments.slice(1, -1) : [];
+  const visibleSegments = shouldCollapseMiddle
+    ? [segments[0], '…', segments[segments.length - 1]]
+    : segments;
+
   return (
     <div className="flex h-8 items-center gap-1 overflow-x-auto border-b bg-muted/10 px-3 text-xs text-muted-foreground">
-      {segments.map((segment, index) => {
-        const isLast = index === segments.length - 1;
-        const segmentPath = segments.slice(0, index + 1).join('/');
+      {visibleSegments.map((segment, index) => {
+        const isCollapsed = segment === '…';
+        const isLast = index === visibleSegments.length - 1;
+        const sourceSegments = shouldCollapseMiddle
+          ? index === 0
+            ? [segments[0]]
+            : isCollapsed
+              ? middleSegments
+              : [segments[segments.length - 1]]
+          : segments.slice(0, index + 1);
+        const segmentPath = sourceSegments.join('/');
         const iconSrc = isLast
           ? resolveFileIcon(segmentPath)
           : resolveFolderIcon(segmentPath);
 
         return (
-          <div key={segmentPath} className="flex shrink-0 items-center gap-1">
+          <div key={`${segmentPath}-${index}`} className="flex shrink-0 items-center gap-1">
             {index > 0 && <ChevronRight className="h-3 w-3 opacity-60" />}
             <img src={iconSrc} alt="" role="presentation" className="h-4 w-4 shrink-0" />
-            <span className={isLast ? 'font-medium text-foreground' : undefined}>{segment}</span>
+            <span
+              className={isLast ? 'font-medium text-foreground' : undefined}
+              title={isCollapsed ? middleSegments.join(' / ') : undefined}
+            >
+              {segment}
+            </span>
             {isLast && dirty && (
               <span
                 aria-label="Arquivo com alteracoes nao salvas"

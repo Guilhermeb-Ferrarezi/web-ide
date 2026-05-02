@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useGitStatus } from '@/hooks/useGitStatus';
 import { fetchBranches, gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntrack } from '@/api/git';
+import { cn } from '@/lib/utils';
 import { GitFileList } from './GitFileList';
 
 type Props = { workspace: string; readOnly?: boolean };
@@ -268,14 +269,63 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
             )}
           </select>
         </div>
-        <Textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Mensagem do commit"
-          rows={3}
-          className="text-sm"
-          disabled={readOnly}
-        />
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Ctrl+Enter para commitar</span>
+            {message.length > 0 ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2 text-[11px]"
+                onClick={() => {
+                  setMessage('');
+                  document.getElementById('git-commit-message')?.focus();
+                }}
+                disabled={readOnly}
+                aria-label="Limpar mensagem do commit"
+              >
+                Limpar
+              </Button>
+            ) : null}
+          </div>
+          <div className="relative">
+            <Textarea
+              id="git-commit-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault();
+                  void handleCommit();
+                }
+                if (e.key === 'Escape' && message) {
+                  e.preventDefault();
+                  setMessage('');
+                  e.currentTarget.focus();
+                }
+              }}
+              placeholder="Mensagem do commit"
+              rows={3}
+              className="text-sm"
+              disabled={readOnly}
+            />
+            {message.length > 0 && (
+              <span
+                className={cn(
+                  'pointer-events-none absolute bottom-2 right-2 text-[10px] tabular-nums',
+                  message.length > 72
+                    ? 'text-destructive'
+                    : message.length > 50
+                      ? 'text-yellow-500'
+                      : 'text-muted-foreground/60',
+                )}
+              >
+                {message.length}
+              </span>
+            )}
+          </div>
+        </div>
         <div className="flex gap-2">
           <Button size="sm" className="flex-1" disabled={busy !== null || readOnly} onClick={() => void handleCommit()}>
             {busy === 'commit' ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}

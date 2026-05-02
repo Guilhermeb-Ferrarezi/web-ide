@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { Blocks, FileSearch, GitBranch, TerminalSquare } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
@@ -21,12 +21,22 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 type SidePanel = 'files' | 'search' | 'git' | 'extensions';
 
 export function AppShell({ workspace }: { workspace: string }) {
-  const { tabs, activePath, setActive, closeTab, updateContent, save } = useEditor();
+  const { tabs, activePath, setActive, closeTab: closeTabRaw, updateContent, save } = useEditor();
   const permission = useWorkspaceStore((s) => s.permission);
+
+  const closeTab = useCallback(
+    (path: string) => {
+      const tab = tabs.find((t) => t.path === path);
+      if (tab?.dirty && !window.confirm(`"${tab.name}" tem alterações não salvas. Fechar mesmo assim?`)) return;
+      closeTabRaw(path);
+    },
+    [tabs, closeTabRaw],
+  );
   const activeTab = tabs.find((t) => t.path === activePath) ?? null;
   const { status: gitStatus } = useGitStatus(workspace);
   const [side, setSide] = useState<SidePanel>('files');
   const [showTerminal, setShowTerminal] = useState(true);
+  const fileFilterRef = useRef<HTMLInputElement>(null) as RefObject<HTMLInputElement>;
   const gitChangedCount = gitStatus
     ? new Set([
         ...gitStatus.staged.map((file) => file.path),
@@ -40,16 +50,35 @@ export function AppShell({ workspace }: { workspace: string }) {
   }, [permission]);
 
   useEffect(() => {
+    const dirtyCount = tabs.filter((t) => t.dirty).length;
+    const base = workspace;
+    document.title = dirtyCount > 0 ? `● ${base}` : base;
+    return () => { document.title = base; };
+  }, [tabs, workspace]);
+
+  useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (!e.ctrlKey && !e.metaKey) return;
       if (e.key === '1') { e.preventDefault(); setSide('files'); }
       else if (e.key === '2') { e.preventDefault(); setSide('search'); }
       else if (e.key === '3') { e.preventDefault(); setSide('git'); }
       else if (e.key === '4') { e.preventDefault(); setSide('extensions'); }
+      else if (e.key === 'p') {
+        e.preventDefault();
+        setSide('files');
+        setTimeout(() => fileFilterRef.current?.focus(), 50);
+      } else if (e.key === 'w') {
+        e.preventDefault();
+        const path = activePath;
+        if (path) closeTab(path);
+      } else if (e.key === '`') {
+        e.preventDefault();
+        if (permission === 'write') setShowTerminal((v) => !v);
+      }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [activePath, closeTab]);
 
   return (
     <div className="flex h-full flex-col">
@@ -61,19 +90,23 @@ export function AppShell({ workspace }: { workspace: string }) {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Arquivos"
+                aria-keyshortcuts="Ctrl+1"
                 className={cn('h-8 w-8', side === 'files' && 'bg-accent')}
                 onClick={() => setSide('files')}
               >
                 <span className="text-base">📁</span>
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">Arquivos <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+1</kbd></TooltipContent>
+            <TooltipContent side="right">Arquivos <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+1</kbd> · Filtrar <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+P</kbd></TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Buscar código"
+                aria-keyshortcuts="Ctrl+2"
                 className={cn('h-8 w-8', side === 'search' && 'bg-accent')}
                 onClick={() => setSide('search')}
               >
@@ -87,6 +120,8 @@ export function AppShell({ workspace }: { workspace: string }) {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Git"
+                aria-keyshortcuts="Ctrl+3"
                 className={cn('relative h-8 w-8', side === 'git' && 'bg-accent')}
                 onClick={() => setSide('git')}
               >
@@ -105,6 +140,8 @@ export function AppShell({ workspace }: { workspace: string }) {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Extensões"
+                aria-keyshortcuts="Ctrl+4"
                 className={cn('h-8 w-8', side === 'extensions' && 'bg-accent')}
                 onClick={() => setSide('extensions')}
               >
@@ -119,6 +156,7 @@ export function AppShell({ workspace }: { workspace: string }) {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Terminal"
                 className={cn('h-8 w-8', showTerminal && 'bg-accent')}
                 onClick={() => setShowTerminal((v) => !v)}
                 disabled={permission !== 'write'}
@@ -127,14 +165,14 @@ export function AppShell({ workspace }: { workspace: string }) {
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              {permission === 'write' ? 'Terminal' : 'Terminal indisponível em modo somente leitura'}
+              {permission === 'write' ? <>Terminal <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+`</kbd></> : 'Terminal indisponível em modo somente leitura'}
             </TooltipContent>
           </Tooltip>
         </div>
         </TooltipProvider>
 
         <ResizablePanel defaultSize={22} minSize={14} maxSize={45} className="border-r">
-          {side === 'files' ? <FileTree workspace={workspace} /> : null}
+          {side === 'files' ? <FileTree workspace={workspace} filterInputRef={fileFilterRef} /> : null}
           {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
           {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
           {side === 'extensions' ? <ExtensionsPanel /> : null}

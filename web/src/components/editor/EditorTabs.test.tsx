@@ -59,6 +59,29 @@ describe('<EditorTabs />', () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it('marca a aba ativa com estado selecionado', () => {
+    render(
+      <EditorTabs
+        tabs={[
+          {
+            path: 'README.md',
+            name: 'README.md',
+            content: '',
+            originalContent: '',
+            encoding: 'utf-8',
+            mimeType: 'text/markdown',
+            dirty: false,
+          },
+        ]}
+        activePath="README.md"
+        onSelect={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: 'README.md' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('usa um fallback padrao para abas de extensao sem iconUrl', () => {
     render(
       <EditorTabs

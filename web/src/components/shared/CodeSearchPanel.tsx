@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { CaseSensitive, ChevronDown, ChevronRight, Loader2, Regex, WholeWord } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { CaseSensitive, ChevronDown, ChevronRight, Loader2, Regex, WholeWord, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { searchFiles } from '@/api/fs';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,12 @@ export function CodeSearchPanel({ workspace }: Props) {
   const { openFile } = useEditor();
   const [query, setQuery] = useState('');
   const [options, setOptions] = useState<CodeSearchOptions>({});
+  const inputRef = useRef<HTMLInputElement>(null);
   const [results, setResults] = useState<CodeSearchResult[]>([]);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
@@ -62,6 +67,14 @@ export function CodeSearchPanel({ workspace }: Props) {
     }
   }
 
+  function clearSearch() {
+    setQuery('');
+    setResults([]);
+    setSearched(false);
+    setError(null);
+    inputRef.current?.focus();
+  }
+
   function toggleOption(key: keyof CodeSearchOptions) {
     const next = { ...options, [key]: !options[key] };
     setOptions(next);
@@ -77,15 +90,29 @@ export function CodeSearchPanel({ workspace }: Props) {
       <div className="space-y-2 border-b px-2 py-2">
         <div className="relative">
           <Input
+            ref={inputRef}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') void runSearch();
+              if (event.key === 'Escape' && query) { event.stopPropagation(); clearSearch(); }
             }}
             placeholder="Buscar"
-            className="h-8 pr-24 text-sm"
+            className={cn('h-8 text-sm', query ? 'pr-32' : 'pr-24')}
           />
           <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-0.5">
+            {query && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                title="Limpar busca (Esc)"
+                onClick={clearSearch}
+                className="h-6 w-6 rounded-sm text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
             <ToggleIcon
               active={!!options.caseSensitive}
               label="Diferenciar maiúsculas (Aa)"
@@ -119,7 +146,33 @@ export function CodeSearchPanel({ workspace }: Props) {
                   ? `${totalMatches} ${totalMatches === 1 ? 'resultado' : 'resultados'} em ${results.length} ${results.length === 1 ? 'arquivo' : 'arquivos'}`
                   : ''}
           </span>
-          {loading && <Loader2 className="h-3 w-3 animate-spin" />}
+          <div className="flex items-center gap-1">
+            {loading && <Loader2 className="h-3 w-3 animate-spin" />}
+            {results.length > 1 && !loading && (
+              <>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  title="Recolher todos"
+                  onClick={() => setCollapsed(Object.fromEntries(results.map((r) => [r.path, true])))}
+                  className="h-5 w-5 rounded-sm text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronRight className="h-3 w-3" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  title="Expandir todos"
+                  onClick={() => setCollapsed({})}
+                  className="h-5 w-5 rounded-sm text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
       <ScrollArea className="flex-1">
@@ -140,6 +193,7 @@ export function CodeSearchPanel({ workspace }: Props) {
               <div key={result.path}>
                 <button
                   type="button"
+                  title={result.path}
                   onClick={() => toggleCollapsed(result.path)}
                   className="flex w-full items-center gap-1 px-2 py-1 text-left text-xs hover:bg-accent"
                 >
