@@ -483,34 +483,38 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
 }
 
 function DiffPreview({ diff }: { diff: string }) {
-  const rows = parseUnifiedDiff(diff);
+  const rows = buildSideBySideRows(parseUnifiedDiff(diff));
   return (
     <div className="max-h-72 overflow-x-auto overflow-y-auto px-2 py-2 text-[12px] leading-5">
-      <div className="min-w-[42rem]">
+      <div className="min-w-[64rem]">
+        <div className="mb-2 grid grid-cols-2 gap-2 px-1 text-[10px] uppercase tracking-[0.24em] text-[#8d87a5]">
+          <div>Original</div>
+          <div>Alterado</div>
+        </div>
         {rows.map((row, index) => {
           if (row.kind === 'hunk') {
             return (
-              <div key={`hunk-${index}-${row.text}`} className="rounded bg-sky-500/10 px-2 py-1 font-mono text-sky-300 whitespace-pre">
+              <div key={`hunk-${index}-${row.text}`} className="mb-2 rounded bg-sky-500/10 px-2 py-1 font-mono whitespace-pre text-sky-300">
                 {row.text}
               </div>
             );
           }
 
-          const tone =
-            row.type === 'add'
-              ? 'bg-emerald-500/10 text-emerald-100'
-              : row.type === 'remove'
-                ? 'bg-rose-500/10 text-rose-100'
-                : 'text-[#ddd7ef]';
-
           return (
             <div
-              key={`line-${index}-${row.text}`}
-              className={cn('grid grid-cols-[3.5rem_3.5rem_minmax(0,1fr)] gap-2 rounded px-2 py-0.5 font-mono', tone)}
+              key={`row-${index}-${row.left.text}-${row.right.text}`}
+              className="grid grid-cols-2 gap-2 rounded py-0.5"
             >
-              <span className="text-right text-[#8d87a5]">{row.oldLine ?? '\u00a0'}</span>
-              <span className="text-right text-[#8d87a5]">{row.newLine ?? '\u00a0'}</span>
-              <span className="whitespace-pre">{row.text.length === 0 ? '\u00a0' : row.text}</span>
+              <DiffSide
+                side="left"
+                line={row.left}
+                className={row.kind === 'remove' ? 'bg-rose-500/10 text-rose-100' : row.kind === 'replace' ? 'bg-rose-500/10 text-rose-100' : 'text-[#ddd7ef]'}
+              />
+              <DiffSide
+                side="right"
+                line={row.right}
+                className={row.kind === 'add' ? 'bg-emerald-500/10 text-emerald-100' : row.kind === 'replace' ? 'bg-emerald-500/10 text-emerald-100' : 'text-[#ddd7ef]'}
+              />
             </div>
           );
         })}
@@ -522,6 +526,81 @@ function DiffPreview({ diff }: { diff: string }) {
 type DiffPreviewRow =
   | { kind: 'hunk'; text: string }
   | { kind: 'line'; type: 'add' | 'remove' | 'context'; oldLine: number | null; newLine: number | null; text: string };
+
+type SideBySideRow =
+  | { kind: 'hunk'; text: string }
+  | {
+      kind: 'context' | 'add' | 'remove' | 'replace';
+      left: { line: number | null; text: string };
+      right: { line: number | null; text: string };
+    };
+
+function buildSideBySideRows(rows: DiffPreviewRow[]): SideBySideRow[] {
+  const output: SideBySideRow[] = [];
+
+  for (let i = 0; i < rows.length; i += 1) {
+    const current = rows[i];
+    if (current.kind === 'hunk') {
+      output.push(current);
+      continue;
+    }
+
+    const next = rows[i + 1];
+    if (current.type === 'remove' && next?.kind === 'line' && next.type === 'add') {
+      output.push({
+        kind: 'replace',
+        left: { line: current.oldLine, text: current.text },
+        right: { line: next.newLine, text: next.text },
+      });
+      i += 1;
+      continue;
+    }
+
+    if (current.type === 'remove') {
+      output.push({
+        kind: 'remove',
+        left: { line: current.oldLine, text: current.text },
+        right: { line: null, text: '' },
+      });
+      continue;
+    }
+
+    if (current.type === 'add') {
+      output.push({
+        kind: 'add',
+        left: { line: null, text: '' },
+        right: { line: current.newLine, text: current.text },
+      });
+      continue;
+    }
+
+    output.push({
+      kind: 'context',
+      left: { line: current.oldLine, text: current.text },
+      right: { line: current.newLine, text: current.text },
+    });
+  }
+
+  return output;
+}
+
+function DiffSide({
+  side,
+  line,
+  className,
+}: {
+  side: 'left' | 'right';
+  line: { line: number | null; text: string };
+  className?: string;
+}) {
+  const isEmpty = line.text.length === 0;
+  return (
+    <div className={cn('grid grid-cols-[3.5rem_minmax(0,1fr)] gap-2 rounded px-2 py-0.5 font-mono', className)}>
+      <span className="text-right text-[#8d87a5]">{line.line ?? '\u00a0'}</span>
+      <span className={cn('whitespace-pre', side === 'left' ? 'opacity-95' : 'opacity-95')}>{isEmpty ? '\u00a0' : line.text}</span>
+    </div>
+  );
+}
 
 function parseUnifiedDiff(diff: string): DiffPreviewRow[] {
   const rows: DiffPreviewRow[] = [];

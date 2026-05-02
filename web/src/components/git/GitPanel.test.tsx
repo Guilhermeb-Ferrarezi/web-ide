@@ -24,7 +24,7 @@ vi.mock('@/api/git', async () => {
   return {
     ...actual,
     fetchBranches: vi.fn().mockResolvedValue({ current: 'main', all: ['main', 'develop'] }),
-    fetchDiff: vi.fn().mockResolvedValue('diff --git a/README.md b/README.md\n+hello world'),
+    fetchDiff: vi.fn().mockResolvedValue('diff --git a/README.md b/README.md\n@@ -1 +1 @@\n-old line\n+new line'),
     gitCommit: vi.fn().mockResolvedValue(undefined),
     gitUntrack: vi.fn().mockResolvedValue(undefined),
   };
@@ -88,6 +88,10 @@ describe('<GitPanel />', () => {
     render(<GitPanel workspace="repo" />);
 
     await waitFor(() => expect(fetchDiffSpy).toHaveBeenCalledWith('repo', 'README.md', true));
+    expect(screen.getByText('Original')).toBeInTheDocument();
+    expect(screen.getByText('Alterado')).toBeInTheDocument();
+    expect(screen.getByText('old line')).toBeInTheDocument();
+    expect(screen.getByText('new line')).toBeInTheDocument();
   });
 
   it('só habilita commit quando existe mensagem', async () => {
