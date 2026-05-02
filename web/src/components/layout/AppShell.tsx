@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { Blocks, Check, Clock3, Files, GitFork, Github, LogOut, Search, Settings2, TerminalSquare, User, WrapText, X } from 'lucide-react';
+import { Blocks, Check, Clock3, Files, GitFork, Github, LogOut, MessageSquare, Search, Settings2, TerminalSquare, User, WrapText, X } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +11,7 @@ import { EditorTabs } from '@/components/editor/EditorTabs';
 import { EditorPane } from '@/components/editor/EditorPane';
 import { GitPanel } from '@/components/git/GitPanel';
 import { ExtensionsPanel } from '@/components/extensions/ExtensionsPanel';
+import { AssistantPanel } from '@/components/assistant/AssistantPanel';
 import { CodeSearchPanel } from '@/components/shared/CodeSearchPanel';
 import { TerminalPane } from '@/components/terminal/TerminalPane';
 import { StatusBar } from './StatusBar';
@@ -21,7 +22,7 @@ import { cn } from '@/lib/utils';
 import { useEditorStore } from '@/stores/editorStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
-type SidePanel = 'files' | 'search' | 'git' | 'extensions';
+type SidePanel = 'files' | 'search' | 'git' | 'extensions' | 'assistant';
 
 export function AppShell({ workspace }: { workspace: string }) {
   const { tabs, activePath, setActive, closeTab: closeTabRaw, updateContent, save } = useEditor();
@@ -105,6 +106,7 @@ export function AppShell({ workspace }: { workspace: string }) {
       else if (e.key === '2') { e.preventDefault(); setSide('search'); }
       else if (e.key === '3') { e.preventDefault(); setSide('git'); }
       else if (e.key === '4') { e.preventDefault(); setSide('extensions'); }
+      else if (e.key === '5') { e.preventDefault(); setSide('assistant'); }
       else if (e.key === 'p') {
         e.preventDefault();
         setSide('files');
@@ -243,6 +245,25 @@ export function AppShell({ workspace }: { workspace: string }) {
             </TooltipTrigger>
             <TooltipContent side="right">Extensões <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+4</kbd></TooltipContent>
           </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Chat"
+                aria-keyshortcuts="Ctrl+5"
+                aria-pressed={side === 'assistant'}
+                className={cn(
+                  'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  side === 'assistant' && 'bg-white/8 text-[#f5f3ff]',
+                )}
+                onClick={() => setSide('assistant')}
+              >
+                <MessageSquare className={sidebarIconClass} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Chat lateral <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+5</kbd></TooltipContent>
+          </Tooltip>
           <div className="flex-1" />
           <Tooltip>
             <TooltipTrigger asChild>
@@ -372,6 +393,13 @@ export function AppShell({ workspace }: { workspace: string }) {
           {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
           {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
           {side === 'extensions' ? <ExtensionsPanel /> : null}
+          {side === 'assistant' ? (
+            <AssistantPanel
+              workspace={workspace}
+              activePath={activeTab?.path ?? null}
+              activeContent={activeTab?.content ?? null}
+            />
+          ) : null}
         </ResizablePanel>
         <ResizableHandle />
 

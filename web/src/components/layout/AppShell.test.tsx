@@ -70,6 +70,10 @@ vi.mock('@/components/extensions/ExtensionsPanel', () => ({
   ExtensionsPanel: () => <div>extensions-panel</div>,
 }));
 
+vi.mock('@/components/assistant/AssistantPanel', () => ({
+  AssistantPanel: () => <div>assistant-panel</div>,
+}));
+
 vi.mock('@/components/terminal/TerminalPane', () => ({
   TerminalPane: () => <div>terminal-pane</div>,
 }));
@@ -101,6 +105,7 @@ describe('<AppShell />', () => {
     expect(screen.getByRole('button', { name: 'Buscar código' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Git' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Extensões' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Chat' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Terminal' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Conta e configurações' })).toBeInTheDocument();
   });
@@ -114,6 +119,7 @@ describe('<AppShell />', () => {
     expect(screen.getByRole('button', { name: 'Buscar código' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+2');
     expect(screen.getByRole('button', { name: 'Git' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+3');
     expect(screen.getByRole('button', { name: 'Extensões' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+4');
+    expect(screen.getByRole('button', { name: 'Chat' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+5');
   });
 
   it('indica qual painel lateral está ativo ao alternar entre as seções', async () => {
@@ -132,6 +138,16 @@ describe('<AppShell />', () => {
     expect(gitButton).toHaveAttribute('aria-pressed', 'true');
     expect(filesButton).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('git-panel')).toBeInTheDocument();
+  });
+
+  it('abre o painel de chat lateral pela barra lateral', async () => {
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
+
+    render(<AppShell workspace="repo" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Chat' }));
+
+    expect(screen.getByText('assistant-panel')).toBeInTheDocument();
   });
 
   it('abre o menu de configurações pelo avatar do GitHub', async () => {

@@ -91,6 +91,25 @@ export type CodeSearchOptions = {
   regex?: boolean;
 };
 
+export type AssistantChatRole = 'user' | 'assistant';
+
+export type AssistantChatMessage = {
+  role: AssistantChatRole;
+  content: string;
+};
+
+export type AssistantChatRequest = {
+  workspace: string;
+  activePath?: string | null;
+  activeContent?: string | null;
+  messages: AssistantChatMessage[];
+};
+
+export type AssistantChatResponse = {
+  message: string;
+  model: string;
+};
+
 export type GitFileStatus = {
   path: string;
   index: string;

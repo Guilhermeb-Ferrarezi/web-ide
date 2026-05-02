@@ -15,6 +15,7 @@ export const appConfigSchema = z.object({
   FRONTEND_URL: z.string().url(),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   TERMINAL_SUPERUSERS: z.string().default(''),
+  CODEX_BIN: z.string().min(1).default('codex'),
 });
 
 const parsed = appConfigSchema.parse(process.env);
