@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { createPostChat } from './assistant.controller.ts';
-import { AssistantTimeoutError } from './assistant.service.ts';
+import { AssistantAuthError, AssistantTimeoutError } from './assistant.service.ts';
 
 const chatWithAssistantMock = mock(async () => ({
   message: 'Resposta do assistente',
@@ -105,5 +105,34 @@ describe('postChat', () => {
     );
 
     expect(reply.code).toHaveBeenCalledWith(504);
+  });
+
+  it('retorna 503 quando o codex nao esta autenticado', async () => {
+    const authChat = createPostChat(async () => {
+      throw new AssistantAuthError();
+    });
+    const reply = {
+      code: mock((status: number) => reply),
+      send: mock((payload: unknown) => payload),
+    };
+
+    await authChat(
+      {
+        session: {
+          user: {
+            userId: '1',
+            login: 'octocat',
+          },
+        },
+        workspacePath: '/workspaces/octocat/repo',
+        body: {
+          workspace: 'repo',
+          messages: [{ role: 'user', content: 'oi' }],
+        },
+      } as any,
+      reply as any,
+    );
+
+    expect(reply.code).toHaveBeenCalledWith(503);
   });
 });

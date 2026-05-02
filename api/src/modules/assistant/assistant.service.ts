@@ -41,6 +41,13 @@ export class AssistantTimeoutError extends Error {
   }
 }
 
+export class AssistantAuthError extends Error {
+  constructor() {
+    super('Codex is not authenticated in this environment. Set CODEX_HOME or log in on the machine running the API.');
+    this.name = 'AssistantAuthError';
+  }
+}
+
 function trimContent(value: string | null | undefined, limit = 6000): string | null {
   if (!value) return null;
   if (value.length <= limit) return value;
@@ -103,6 +110,12 @@ function collectStream(stream: NodeJS.ReadableStream | null | undefined): Promis
 async function runCodex(prompt: string, cwd: string): Promise<string> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'web-ide-codex-'));
   const outputPath = path.join(tempDir, 'last-message.txt');
+  const codexEnv = config.CODEX_HOME
+    ? {
+        HOME: config.CODEX_HOME,
+        CODEX_HOME: config.CODEX_HOME,
+      }
+    : {};
   const args = [
     'exec',
     '--output-last-message',
@@ -118,6 +131,10 @@ async function runCodex(prompt: string, cwd: string): Promise<string> {
 
   const child = spawn(config.CODEX_BIN, args, {
     stdio: ['pipe', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      ...codexEnv,
+    },
   });
 
   const stdoutPromise = collectStream(child.stdout);
@@ -147,6 +164,9 @@ async function runCodex(prompt: string, cwd: string): Promise<string> {
 
     if (result.code !== 0) {
       const details = [stderr.trim(), stdout.trim()].filter(Boolean).join('\n');
+      if (/401 unauthorized|missing bearer or basic authentication|codex.*login/i.test(details)) {
+        throw new AssistantAuthError();
+      }
       throw new Error(
         details
           ? `Codex exited with code ${result.code}${result.signal ? ` (${result.signal})` : ''}:\n${details}`

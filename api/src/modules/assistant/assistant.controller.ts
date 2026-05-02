@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { AssistantNotConfiguredError, AssistantTimeoutError, chatWithAssistant } from './assistant.service.ts';
+import { AssistantAuthError, AssistantNotConfiguredError, AssistantTimeoutError, chatWithAssistant } from './assistant.service.ts';
 
 const chatMessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
@@ -40,6 +40,10 @@ export function createPostChat(
 
       if (error instanceof AssistantTimeoutError) {
         return reply.code(504).send({ error: 'assistant_timeout', message: error.message });
+      }
+
+      if (error instanceof AssistantAuthError) {
+        return reply.code(503).send({ error: 'assistant_codex_login_required', message: error.message });
       }
 
       if (error instanceof z.ZodError) {

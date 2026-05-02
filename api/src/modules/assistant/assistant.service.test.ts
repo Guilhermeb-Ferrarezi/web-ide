@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 type SpawnArgs = {
   command: string;
   args: string[];
-  options: { cwd?: string; stdio?: ['pipe', 'pipe', 'pipe'] };
+  options: { cwd?: string; stdio?: ['pipe', 'pipe', 'pipe']; env?: NodeJS.ProcessEnv };
 };
 
 let lastSpawn: SpawnArgs | null = null;
@@ -49,6 +49,7 @@ mock.restore();
 mock.module('../../config.ts', () => ({
   config: {
     CODEX_BIN: 'codex',
+    CODEX_HOME: '',
     CODEX_TIMEOUT_MS: 45_000,
   },
 }));
@@ -81,7 +82,8 @@ describe('chatWithAssistant', () => {
 
     expect(lastSpawn).not.toBeNull();
     expect(lastSpawn?.command).toBe('codex');
-    expect(lastSpawn?.options).toEqual({ stdio: ['pipe', 'pipe', 'pipe'] });
+    expect(lastSpawn?.options.stdio).toEqual(['pipe', 'pipe', 'pipe']);
+    expect(lastSpawn?.options.env?.HOME).toBe('/home/guilherme');
     const args = lastSpawn?.args ?? [];
     expect(args[0]).toBe('exec');
     expect(args[1]).toBe('--output-last-message');

@@ -16,6 +16,7 @@ export const appConfigSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   TERMINAL_SUPERUSERS: z.string().default(''),
   CODEX_BIN: z.string().min(1).default('codex'),
+  CODEX_HOME: z.string().default(''),
   CODEX_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
 });
 
