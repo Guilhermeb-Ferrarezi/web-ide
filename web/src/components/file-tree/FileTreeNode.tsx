@@ -3,7 +3,7 @@ import { ChevronRight } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import type { TreeNode } from '@/types';
 import { cn } from '@/lib/utils';
-import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileFallbackIcon, resolveFileIcon, resolveFolderFallbackIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
+import { resolveDefaultFileIcon, resolveFileFallbackIcon, resolveFileIcon, resolveFolderFallbackIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
 import { IconWithFallback } from '@/components/shared/IconWithFallback';
 
 type InlineActionState =
