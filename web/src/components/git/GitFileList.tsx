@@ -28,7 +28,9 @@ export function GitFileList({ title, items, selected, onToggle, onToggleAll, emp
           <span>{title} ({items.length})</span>
         </button>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] normal-case tracking-normal">Marque para selecionar tudo</span>
+          <span className="text-[10px] normal-case tracking-normal">
+            {selected.size > 0 ? `${selected.size} de ${items.length} selecionados` : 'Marque para selecionar tudo'}
+          </span>
           <Checkbox
             checked={allSelected}
             onCheckedChange={onToggleAll}

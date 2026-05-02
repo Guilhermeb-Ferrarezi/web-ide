@@ -71,10 +71,23 @@ describe('<GitPanel />', () => {
     expect(commitSpy).toHaveBeenCalledWith('repo', 'feat: branch target', 'develop');
   });
 
-  it('mostra dica de atalho para criar commit', () => {
+  it('mostra dicas de atalho para criar e limpar o commit', () => {
     render(<GitPanel workspace="repo" />);
 
-    expect(screen.getByText('Ctrl+Enter para commitar')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl+Enter para commitar · Esc limpa a mensagem')).toBeInTheDocument();
+  });
+
+  it('só habilita commit quando existe mensagem', async () => {
+    const user = userEvent.setup();
+
+    render(<GitPanel workspace="repo" />);
+
+    const commitButton = screen.getByRole('button', { name: 'Commit' });
+    expect(commitButton).toBeDisabled();
+
+    await user.type(screen.getByPlaceholderText('Mensagem do commit'), 'feat: enable commit');
+
+    expect(commitButton).toBeEnabled();
   });
 
   it('permite limpar a mensagem do commit com um botão dedicado', async () => {

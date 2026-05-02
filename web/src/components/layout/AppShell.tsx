@@ -99,7 +99,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 )}
                 onClick={() => setSide('files')}
               >
-                <Files className="h-5.5 w-5.5 stroke-[1.8]" />
+                <Files className="h-6.5 w-6.5 stroke-[1.8]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Arquivos <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+1</kbd> · Filtrar <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+P</kbd></TooltipContent>
@@ -118,7 +118,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 )}
                 onClick={() => setSide('search')}
               >
-                <Search className="h-5.5 w-5.5 stroke-[1.8]" />
+                <Search className="h-6.5 w-6.5 stroke-[1.8]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Buscar código <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+2</kbd></TooltipContent>
@@ -137,7 +137,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 )}
                 onClick={() => setSide('git')}
               >
-                <GitFork className="h-5.5 w-5.5 stroke-[1.8]" />
+                <GitFork className="h-6.5 w-6.5 stroke-[1.8]" />
                 {gitChangedCount > 0 && (
                   <span className="absolute bottom-1 right-1 min-w-4 rounded-full bg-[#8b5cf6] px-1 text-[10px] font-semibold leading-4 text-white shadow-sm">
                     {gitChangedCount}
@@ -161,7 +161,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 )}
                 onClick={() => setSide('extensions')}
               >
-                <Blocks className="h-5.5 w-5.5 stroke-[1.8]" />
+                <Blocks className="h-6.5 w-6.5 stroke-[1.8]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Extensões <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+4</kbd></TooltipContent>
@@ -180,7 +180,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 onClick={() => setShowTerminal((v) => !v)}
                 disabled={permission !== 'write'}
               >
-                <TerminalSquare className="h-5.5 w-5.5 stroke-[1.8]" />
+                <TerminalSquare className="h-6.5 w-6.5 stroke-[1.8]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">

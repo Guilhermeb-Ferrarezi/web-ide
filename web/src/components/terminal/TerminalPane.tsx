@@ -6,18 +6,25 @@ export function TerminalPane({ workspace }: { workspace: string }) {
   useTerminal(ref, workspace);
 
   return (
-    <div className="relative h-full w-full bg-[#0a0a0a] p-2">
-      <div className="pointer-events-none absolute left-3 top-2 z-10 rounded-md border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/70">
-        Terminal · {workspace}
-      </div>
-      <div className="pointer-events-none absolute right-3 top-2 z-10 rounded-md border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/70">
-        Ctrl+` para focar o terminal
+    <div className="flex h-full w-full flex-col bg-[#0a0a0a]">
+      <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
+        <div className="rounded-md border border-white/10 bg-black/50 px-2 py-1 text-[11px] text-white/70">
+          Terminal · {workspace}
+        </div>
+        <div className="flex items-center gap-2 text-[11px] text-white/70">
+          <div className="rounded-md border border-white/10 bg-black/50 px-2 py-1">
+            Ctrl+` para focar o terminal
+          </div>
+          <div className="rounded-md border border-white/10 bg-black/50 px-2 py-1">
+            Selecione texto para copiar
+          </div>
+        </div>
       </div>
       <div
         ref={ref}
         role="region"
         aria-label={`Terminal do workspace ${workspace}`}
-        className="h-full w-full"
+        className="min-h-0 flex-1 px-2 py-2"
       />
     </div>
   );

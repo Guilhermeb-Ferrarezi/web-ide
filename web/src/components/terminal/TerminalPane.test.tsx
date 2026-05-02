@@ -26,4 +26,10 @@ describe('<TerminalPane />', () => {
 
     expect(screen.getByText('Terminal · repo')).toBeInTheDocument();
   });
+
+  it('mostra uma dica rápida para copiar texto do terminal', () => {
+    render(<TerminalPane workspace="repo" />);
+
+    expect(screen.getByText('Selecione texto para copiar')).toBeInTheDocument();
+  });
 });

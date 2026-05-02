@@ -271,7 +271,7 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
         </div>
         <div className="space-y-1">
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-            <span>Ctrl+Enter para commitar</span>
+            <span>Ctrl+Enter para commitar · Esc limpa a mensagem</span>
             {message.length > 0 ? (
               <Button
                 type="button"
@@ -327,7 +327,7 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button size="sm" className="flex-1" disabled={busy !== null || readOnly} onClick={() => void handleCommit()}>
+          <Button size="sm" className="flex-1" disabled={busy !== null || readOnly || !message.trim()} onClick={() => void handleCommit()}>
             {busy === 'commit' ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : null}
             Commit
           </Button>

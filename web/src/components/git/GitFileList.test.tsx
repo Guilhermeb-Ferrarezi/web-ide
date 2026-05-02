@@ -37,4 +37,19 @@ describe('<GitFileList />', () => {
 
     expect(screen.getByText('Marque para selecionar tudo')).toBeInTheDocument();
   });
+
+  it('mostra progresso da seleção atual na lista', () => {
+    render(
+      <GitFileList
+        title="Staged"
+        items={[{ path: 'README.md', tag: 'M' }, { path: 'src/app.ts', tag: 'M' }]}
+        selected={new Set(['README.md'])}
+        onToggle={vi.fn()}
+        onToggleAll={vi.fn()}
+        emptyText="Nada"
+      />,
+    );
+
+    expect(screen.getByText('1 de 2 selecionados')).toBeInTheDocument();
+  });
 });
