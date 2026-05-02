@@ -68,7 +68,7 @@ export function AssistantPanel({ workspace, activePath, activeContent }: Props) 
           ? cause.message
           : 'Não consegui responder agora. Verifique se o Codex está instalado e disponível na máquina.';
       setError(message);
-      toast.error('Falha ao enviar para o chat lateral');
+      toast.error('Falha ao enviar para o codex');
     } finally {
       setSending(false);
       textareaRef.current?.focus();
@@ -80,7 +80,7 @@ export function AssistantPanel({ workspace, activePath, activeContent }: Props) 
       <div className="border-b border-white/10 px-4 py-3">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Sparkles className="h-4 w-4 text-violet-300" />
-          Chat lateral
+          Codex
         </div>
         <p className="mt-1 text-xs text-[#a59fba]">
           Pergunte sobre o workspace, o arquivo aberto ou peça sugestões de código.

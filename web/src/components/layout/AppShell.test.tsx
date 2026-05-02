@@ -140,7 +140,7 @@ describe('<AppShell />', () => {
     expect(screen.getByText('git-panel')).toBeInTheDocument();
   });
 
-  it('abre o painel de chat lateral pela barra lateral', async () => {
+  it('abre o painel de codex pela barra lateral', async () => {
     useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
 
     render(<AppShell workspace="repo" />);

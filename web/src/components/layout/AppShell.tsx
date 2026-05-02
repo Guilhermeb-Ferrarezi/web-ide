@@ -262,7 +262,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 <MessageSquare className={sidebarIconClass} />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">Chat lateral <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+5</kbd></TooltipContent>
+            <TooltipContent side="right">Codex <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+5</kbd></TooltipContent>
           </Tooltip>
           <div className="flex-1" />
           <Tooltip>
