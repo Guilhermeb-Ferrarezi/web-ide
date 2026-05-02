@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Github } from 'lucide-react';
+import { Github, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,6 +20,17 @@ export default function LoginPage() {
   useEffect(() => {
     if (status === 'authenticated' && user) navigate('/repos', { replace: true });
   }, [status, user, navigate]);
+
+  if (status === 'idle' || status === 'loading') {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <p className="text-sm">Verificando sessão...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full items-center justify-center p-4">

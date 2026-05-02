@@ -14,8 +14,15 @@ vi.mock('@/hooks/useEditor', () => ({
 describe('<StatusBar />', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: vi.fn(),
+        setItem: vi.fn(),
+      },
+    });
     useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
-    useEditorStore.setState({ cursorPosition: { line: 12, column: 8 } });
+    useEditorStore.setState({ cursorPosition: { line: 12, column: 8 }, fontSize: 13 });
   });
 
   it('mostra badge de permissão legível e posição do cursor', () => {
@@ -58,11 +65,35 @@ describe('<StatusBar />', () => {
 
     render(<StatusBar workspace="repo" />);
 
-    expect(screen.getByText('2 não salvos · Ctrl+S para salvar')).toBeInTheDocument();
+    expect(screen.getByText('2 não salvos · Salvar todos')).toBeInTheDocument();
     expect(screen.getByText('StatusBar.tsx • Não salvo')).toHaveAttribute(
       'title',
       'src/components/layout/StatusBar.tsx',
     );
+  });
+
+  it('mostra e reinicia o tamanho da fonte atual', async () => {
+    useEditorStore.setState({ fontSize: 18 });
+    mockUseEditor.mockReturnValue({
+      tabs: [
+        {
+          path: 'src/main.tsx',
+          name: 'main.tsx',
+          content: 'a',
+          originalContent: 'a',
+          encoding: 'utf-8',
+          mimeType: 'text/typescript',
+          dirty: false,
+        },
+      ],
+      activePath: 'src/main.tsx',
+    });
+
+    render(<StatusBar workspace="repo" />);
+
+    await userEvent.click(screen.getByRole('button', { name: '18px' }));
+
+    expect(useEditorStore.getState().fontSize).toBe(13);
   });
 
   it('mostra badge de somente leitura quando a workspace não permite edição', () => {

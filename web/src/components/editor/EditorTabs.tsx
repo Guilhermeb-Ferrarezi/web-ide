@@ -1,21 +1,35 @@
 import { useEffect, useRef, useState } from 'react';
 import { Blocks, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
 import { resolveDefaultFileIcon, resolveFileIcon } from '@/lib/fileTreeIcons';
 import type { EditorTab } from '@/types';
 import { cn } from '@/lib/utils';
 import { IconWithFallback } from '@/components/shared/IconWithFallback';
+
+type TabContextMenu = { path: string; x: number; y: number };
 
 type Props = {
   tabs: EditorTab[];
   activePath: string | null;
   onSelect: (path: string) => void;
   onClose: (path: string) => void;
+  onCloseOthers?: (path: string) => void;
+  onCloseAll?: () => void;
 };
 
-export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
+export function EditorTabs({ tabs, activePath, onSelect, onClose, onCloseOthers, onCloseAll }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [tabCtxMenu, setTabCtxMenu] = useState<TabContextMenu | null>(null);
+
+  useEffect(() => {
+    if (!tabCtxMenu) return;
+    function close() { setTabCtxMenu(null); }
+    window.addEventListener('click', close);
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+    return () => window.removeEventListener('click', close);
+  }, [tabCtxMenu]);
 
   function updateScrollState() {
     const el = scrollRef.current;
@@ -98,6 +112,7 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
               }
             }}
             onAuxClick={(e) => { if (e.button === 1) { e.preventDefault(); onClose(tab.path); } }}
+            onContextMenu={(e) => { e.preventDefault(); setTabCtxMenu({ path: tab.path, x: e.clientX, y: e.clientY }); }}
             className={cn(
               'group flex shrink-0 items-center gap-2 border-r px-3 text-sm cursor-pointer',
               active ? 'bg-background' : 'bg-muted/30 hover:bg-muted/50',
@@ -146,6 +161,30 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
+      )}
+      {tabCtxMenu && createPortal(
+        <div
+          role="menu"
+          className="fixed z-50 min-w-44 rounded-md border bg-background p-1 shadow-lg text-sm"
+          style={{ left: tabCtxMenu.x, top: tabCtxMenu.y }}
+        >
+          {[
+            { label: 'Fechar aba', action: () => onClose(tabCtxMenu.path) },
+            ...(onCloseOthers && tabs.length > 1 ? [{ label: 'Fechar outras abas', action: () => onCloseOthers(tabCtxMenu.path) }] : []),
+            ...(onCloseAll ? [{ label: 'Fechar todas as abas', action: () => onCloseAll() }] : []),
+          ].map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              role="menuitem"
+              className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left hover:bg-accent"
+              onClick={() => { item.action(); setTabCtxMenu(null); }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>,
+        document.body,
       )}
     </div>
   );

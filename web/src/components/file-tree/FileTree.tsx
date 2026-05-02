@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { FilePlus2, FolderPlus, Pencil, RefreshCcw, Search, Trash2, X } from 'lucide-react';
+import { Copy, FilePlus2, FolderPlus, Pencil, RefreshCcw, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -244,6 +244,14 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
         onSelect: () => void openFile(node.path),
       });
     }
+
+    items.push({
+      label: 'Copiar caminho',
+      icon: <Copy className="h-3.5 w-3.5" />,
+      onSelect: () => {
+        void navigator.clipboard?.writeText(node.path);
+      },
+    });
 
     if (node.type === 'directory') {
       items.push({
@@ -588,6 +596,7 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                 onInlineCancel={handleInlineCancel}
                 onSelectNode={(node) => setSelectedPath(node.path)}
                 selectedPath={selectedPath ?? activePath ?? null}
+                onRenameRequest={(node) => { if (!readOnly) openInlineAction({ mode: 'rename', node, value: node.name }); }}
               />
             ) : null}
             {tree.map((node) => (
@@ -614,6 +623,7 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                 onInlineCancel={handleInlineCancel}
                 onSelectNode={(node) => setSelectedPath(node.path)}
                 selectedPath={selectedPath ?? activePath ?? null}
+                onRenameRequest={(node) => { if (!readOnly) openInlineAction({ mode: 'rename', node, value: node.name }); }}
               />
             ))}
           </ul>

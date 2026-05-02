@@ -28,6 +28,7 @@ type Props = {
   onInlineValueChange: (value: string) => void;
   onInlineSubmit: () => void;
   onInlineCancel: () => void;
+  onRenameRequest?: (node: TreeNode) => void;
 };
 
 type InlineInputProps = {
@@ -98,6 +99,7 @@ export function FileTreeNode({
   onInlineValueChange,
   onInlineSubmit,
   onInlineCancel,
+  onRenameRequest,
 }: Props) {
   const [open, setOpen] = useState(level === 0);
 
@@ -165,6 +167,7 @@ export function FileTreeNode({
               onSelectNode(node);
               setOpen((v) => !v);
             }}
+            onDoubleClick={() => { if (onRenameRequest) onRenameRequest(node); }}
             onContextMenu={(event) => onOpenContextMenu(node, event)}
             onDragStart={(event) => {
               if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
@@ -211,6 +214,7 @@ export function FileTreeNode({
                 onInlineValueChange={onInlineValueChange}
                 onInlineSubmit={onInlineSubmit}
                 onInlineCancel={onInlineCancel}
+                onRenameRequest={onRenameRequest}
               />
             ))}
             {isCreatingHere ? (
@@ -265,6 +269,7 @@ export function FileTreeNode({
             onSelectNode(node);
             onOpenFile(node.path);
           }}
+          onDoubleClick={() => { if (onRenameRequest) onRenameRequest(node); }}
           onContextMenu={(event) => onOpenContextMenu(node, event)}
           onDragStart={(event) => {
             if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';

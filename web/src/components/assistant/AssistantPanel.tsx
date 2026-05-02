@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Loader2, Send, Sparkles, WandSparkles } from 'lucide-react';
+import { Check, Copy, Loader2, Send, Sparkles, Trash2, WandSparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatAssistant } from '@/api/assistant';
 import { Button } from '@/components/ui/button';
@@ -78,9 +78,21 @@ export function AssistantPanel({ workspace, activePath, activeContent }: Props) 
   return (
     <div className="flex h-full flex-col bg-[#121019] text-[#ece8f7]">
       <div className="border-b border-white/10 px-4 py-3">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Sparkles className="h-4 w-4 text-violet-300" />
-          Codex
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Sparkles className="h-4 w-4 text-violet-300" />
+            Codex
+          </div>
+          {messages.length > 0 && (
+            <button
+              type="button"
+              title="Limpar conversa"
+              onClick={() => { setMessages([]); setError(null); }}
+              className="rounded p-1 text-[#7f7895] transition-colors hover:bg-white/8 hover:text-[#ece8f7]"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
         <p className="mt-1 text-xs text-[#a59fba]">
           Pergunte sobre o workspace, o arquivo aberto ou peça sugestões de código.
@@ -170,17 +182,39 @@ export function AssistantPanel({ workspace, activePath, activeContent }: Props) 
 
 function MessageBubble({ message }: { message: AssistantChatMessage }) {
   const isUser = message.role === 'user';
+  const [copied, setCopied] = useState(false);
+
+  function copyContent() {
+    void navigator.clipboard?.writeText(message.content).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
   return (
-    <div className={cn('flex', isUser ? 'justify-end' : 'justify-start')}>
-      <div
-        className={cn(
-          'max-w-[92%] rounded-2xl border px-4 py-3 text-sm leading-6 shadow-sm',
-          isUser
-            ? 'border-violet-400/30 bg-violet-500/15 text-white'
-            : 'border-white/10 bg-white/5 text-[#ece8f7]',
-        )}
-      >
-        <p className="whitespace-pre-wrap">{message.content}</p>
+    <div className={cn('group flex', isUser ? 'justify-end' : 'justify-start')}>
+      <div className="relative max-w-[92%]">
+        <div
+          className={cn(
+            'rounded-2xl border px-4 py-3 text-sm leading-6 shadow-sm',
+            isUser
+              ? 'border-violet-400/30 bg-violet-500/15 text-white'
+              : 'border-white/10 bg-white/5 text-[#ece8f7]',
+          )}
+        >
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        </div>
+        <button
+          type="button"
+          onClick={copyContent}
+          title="Copiar mensagem"
+          className={cn(
+            'absolute -top-2 right-2 rounded-md border border-white/10 bg-[#1a1825] p-1 opacity-0 transition-opacity group-hover:opacity-100',
+            copied && 'opacity-100',
+          )}
+        >
+          {copied ? <Check className="h-3 w-3 text-green-400" /> : <Copy className="h-3 w-3 text-[#a59fba]" />}
+        </button>
       </div>
     </div>
   );

@@ -64,6 +64,19 @@ export default function ReposPage() {
   }, []);
 
   useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.matches('input, textarea, select') || target.isContentEditable) return;
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        setShowInitModal(true);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
     if (!showInitModal) return;
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') closeInitModal();

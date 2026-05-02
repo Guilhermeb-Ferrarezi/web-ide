@@ -12,9 +12,10 @@ type Props = {
   onToggleAll: () => void;
   emptyText: string;
   variant?: 'default' | 'destructive';
+  onOpenFile?: (path: string) => void;
 };
 
-export function GitFileList({ title, items, selected, onToggle, onToggleAll, emptyText, variant }: Props) {
+export function GitFileList({ title, items, selected, onToggle, onToggleAll, emptyText, variant, onOpenFile }: Props) {
   if (items.length === 0) return null;
   const selectedCount = items.filter((item) => selected.has(item.path)).length;
   const allSelected = selectedCount === items.length;
@@ -53,9 +54,20 @@ export function GitFileList({ title, items, selected, onToggle, onToggleAll, emp
                 onCheckedChange={() => onToggle(item.path)}
                 aria-label={`Selecionar ${item.path}`}
               />
-              <span className={cn('flex-1 truncate font-mono text-xs', variant === 'destructive' && 'text-destructive')}>
-                {item.path}
-              </span>
+              {onOpenFile ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenFile(item.path)}
+                  title={`Abrir ${item.path}`}
+                  className={cn('flex-1 truncate text-left font-mono text-xs hover:underline', variant === 'destructive' && 'text-destructive')}
+                >
+                  {item.path}
+                </button>
+              ) : (
+                <span className={cn('flex-1 truncate font-mono text-xs', variant === 'destructive' && 'text-destructive')}>
+                  {item.path}
+                </span>
+              )}
               <Badge variant="outline" className="font-mono text-[10px]">{item.tag}</Badge>
             </li>
           ))}

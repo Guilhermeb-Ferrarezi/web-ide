@@ -7,6 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useGitStatus } from '@/hooks/useGitStatus';
+import { useEditor } from '@/hooks/useEditor';
 import { fetchBranches, gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntrack } from '@/api/git';
 import { cn } from '@/lib/utils';
 import { GitFileList } from './GitFileList';
@@ -15,6 +16,7 @@ type Props = { workspace: string; readOnly?: boolean };
 
 export function GitPanel({ workspace, readOnly = false }: Props) {
   const { status, loading, refresh } = useGitStatus(workspace);
+  const { openFile } = useEditor();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState<'commit' | 'push' | 'pull' | null>(null);
@@ -184,6 +186,38 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
               </p>
             </div>
           )}
+          {!readOnly && (stagedItems.length > 0 || unstagedItems.length > 0) && (
+            <div className="flex gap-2 px-2">
+              {unstagedItems.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 text-xs"
+                  onClick={async () => {
+                    const files = unstagedItems.map((f) => f.path);
+                    try { await gitAdd(workspace, files); await refresh(); setSelected(new Set()); }
+                    catch { toast.error('Falha ao adicionar todos'); }
+                  }}
+                >
+                  Stage todos ({unstagedItems.length})
+                </Button>
+              )}
+              {stagedItems.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="flex-1 text-xs"
+                  onClick={async () => {
+                    const files = stagedItems.map((f) => f.path);
+                    try { await gitUnstage(workspace, files); await refresh(); setSelected(new Set()); }
+                    catch { toast.error('Falha ao desfazer stage de todos'); }
+                  }}
+                >
+                  Unstage todos ({stagedItems.length})
+                </Button>
+              )}
+            </div>
+          )}
           {stagedItems.length > 0 && (
             <>
               <GitFileList
@@ -193,6 +227,7 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
                 onToggle={toggle}
                 onToggleAll={() => toggleAll(stagedItems)}
                 emptyText=""
+                onOpenFile={(path) => void openFile(path)}
               />
               <div className="px-2">
                 <Button size="sm" variant="outline" className="w-full" onClick={() => void handleUnstage()} disabled={readOnly}>
@@ -212,6 +247,7 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
                 onToggle={toggle}
                 onToggleAll={() => toggleAll(unstagedItems)}
                 emptyText=""
+                onOpenFile={(path) => void openFile(path)}
               />
               <div className="px-2">
                 <Button size="sm" className="w-full" onClick={() => void handleStage()} disabled={readOnly}>

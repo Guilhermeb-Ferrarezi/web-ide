@@ -16,7 +16,14 @@ type Props = {
 export function CodeSearchPanel({ workspace }: Props) {
   const { openFile } = useEditor();
   const [query, setQuery] = useState('');
-  const [options, setOptions] = useState<CodeSearchOptions>({});
+  const [options, setOptions] = useState<CodeSearchOptions>(() => {
+    try {
+      const saved = localStorage.getItem('ide:search-options');
+      return saved ? (JSON.parse(saved) as CodeSearchOptions) : {};
+    } catch {
+      return {};
+    }
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const [results, setResults] = useState<CodeSearchResult[]>([]);
 
@@ -78,6 +85,7 @@ export function CodeSearchPanel({ workspace }: Props) {
   function toggleOption(key: keyof CodeSearchOptions) {
     const next = { ...options, [key]: !options[key] };
     setOptions(next);
+    try { localStorage.setItem('ide:search-options', JSON.stringify(next)); } catch { /* ignore */ }
     if (query.trim()) void runSearch(next);
   }
 
@@ -233,6 +241,7 @@ export function CodeSearchPanel({ workspace }: Props) {
                           className="flex w-full items-start gap-2 px-2 py-0.5 pl-6 text-left text-xs hover:bg-accent"
                           title={`Linha ${match.line}, coluna ${match.column}`}
                         >
+                          <span className="w-8 shrink-0 text-right font-mono text-muted-foreground/60 tabular-nums">{match.line}</span>
                           <MatchPreview match={match} />
                         </button>
                       </li>

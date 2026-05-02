@@ -219,6 +219,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const setPendingJump = useEditorStore((s) => s.setPendingJump);
   const setCursorPosition = useEditorStore((s) => s.setCursorPosition);
   const wordWrap = useEditorStore((s) => s.wordWrap);
+  const fontSize = useEditorStore((s) => s.fontSize);
   const monaco = useMonaco();
   const workspace = useWorkspaceStore((s) => s.workspace);
   const { openFile } = useEditor();
@@ -604,8 +605,8 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
         onMount={handleMount}
         options={{
           minimap: { enabled: false },
-          fontSize: 13,
-          lineHeight: 22,
+          fontSize,
+          lineHeight: Math.round(fontSize * 1.7),
           fontFamily: '"JetBrains Mono", ui-monospace, Menlo, Monaco, "Courier New", monospace',
           scrollBeyondLastLine: false,
           wordWrap: wordWrap ? 'on' : 'off',

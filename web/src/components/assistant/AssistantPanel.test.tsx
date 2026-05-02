@@ -31,4 +31,34 @@ describe('<AssistantPanel />', () => {
     expect(screen.getByText('como melhorar isso?')).toBeInTheDocument();
     expect(await screen.findByText('Você pode extrair isso para um helper.')).toBeInTheDocument();
   });
+
+  it('permite copiar a resposta do assistente', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    vi.spyOn(assistantApi, 'chatAssistant').mockResolvedValue({
+      message: 'Você pode extrair isso para um helper.',
+      model: 'test-model',
+    });
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('Pergunte algo sobre o workspace...');
+    await userEvent.type(input, 'como melhorar isso?');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    const copyButtons = await screen.findAllByRole('button', { name: 'Copiar mensagem' });
+    await userEvent.click(copyButtons.at(-1)!);
+
+    expect(writeText).toHaveBeenCalledWith('Você pode extrair isso para um helper.');
+  });
 });

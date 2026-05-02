@@ -34,6 +34,7 @@ export function AppShell({ workspace }: { workspace: string }) {
   const autoSaveDelayMs = useEditorStore((s) => s.autoSaveDelayMs);
   const setAutoSaveMode = useEditorStore((s) => s.setAutoSaveMode);
   const setAutoSaveDelayMs = useEditorStore((s) => s.setAutoSaveDelayMs);
+  const setFontSize = useEditorStore((s) => s.setFontSize);
 
   const closeTab = useCallback(
     (path: string) => {
@@ -43,9 +44,35 @@ export function AppShell({ workspace }: { workspace: string }) {
     },
     [tabs, closeTabRaw],
   );
+
+  const closeOtherTabs = useCallback(
+    (keepPath: string) => {
+      const others = tabs.filter((t) => t.path !== keepPath);
+      const dirty = others.filter((t) => t.dirty);
+      if (dirty.length > 0 && !window.confirm(`${dirty.length} arquivo(s) com alterações não salvas serão fechados. Continuar?`)) return;
+      others.forEach((t) => closeTabRaw(t.path));
+    },
+    [tabs, closeTabRaw],
+  );
+
+  const closeAllTabs = useCallback(
+    () => {
+      const dirty = tabs.filter((t) => t.dirty);
+      if (dirty.length > 0 && !window.confirm(`${dirty.length} arquivo(s) com alterações não salvas serão fechados. Continuar?`)) return;
+      tabs.forEach((t) => closeTabRaw(t.path));
+    },
+    [tabs, closeTabRaw],
+  );
   const activeTab = tabs.find((t) => t.path === activePath) ?? null;
   const { status: gitStatus } = useGitStatus(workspace);
-  const [side, setSide] = useState<SidePanel>('files');
+  const [side, setSideRaw] = useState<SidePanel>(() => {
+    const saved = localStorage.getItem('ide:side-panel');
+    return (saved as SidePanel | null) ?? 'files';
+  });
+  const setSide = (panel: SidePanel) => {
+    setSideRaw(panel);
+    localStorage.setItem('ide:side-panel', panel);
+  };
   const [showTerminal, setShowTerminal] = useState(true);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -118,11 +145,29 @@ export function AppShell({ workspace }: { workspace: string }) {
       } else if (e.key === '`') {
         e.preventDefault();
         if (permission === 'write') setShowTerminal((v) => !v);
+      } else if (e.key === '=' || e.key === '+') {
+        e.preventDefault();
+        setFontSize(useEditorStore.getState().fontSize + 1);
+      } else if (e.key === '-') {
+        e.preventDefault();
+        setFontSize(useEditorStore.getState().fontSize - 1);
+      } else if (e.key === '0') {
+        e.preventDefault();
+        setFontSize(13);
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        const { tabs: allTabs, activePath: ap } = useEditorStore.getState();
+        if (allTabs.length < 2) return;
+        const idx = allTabs.findIndex((t) => t.path === ap);
+        const next = e.shiftKey
+          ? allTabs[(idx - 1 + allTabs.length) % allTabs.length]
+          : allTabs[(idx + 1) % allTabs.length];
+        if (next) useEditorStore.getState().setActive(next.path);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activePath, closeTab]);
+  }, [activePath, closeTab, setFontSize]);
 
   useEffect(() => {
     const timers = autoSaveTimersRef.current;
@@ -350,6 +395,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                         setAutoSaveMode('afterDelay');
                         setAutoSaveDelayMs(1200);
                       }
+                      setSettingsMenuOpen(false);
                     }}
                     className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
                   >
@@ -361,7 +407,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                   </button>
                   <button
                     type="button"
-                    onClick={toggleWordWrap}
+                    onClick={() => { toggleWordWrap(); setSettingsMenuOpen(false); }}
                     className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
                   >
                     <span className="flex items-center gap-2">
@@ -411,7 +457,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                     <Badge variant="outline">read</Badge>
                   </div>
                 )}
-                <EditorTabs tabs={tabs} activePath={activePath} onSelect={setActive} onClose={closeTab} />
+                <EditorTabs tabs={tabs} activePath={activePath} onSelect={setActive} onClose={closeTab} onCloseOthers={closeOtherTabs} onCloseAll={closeAllTabs} />
                 <EditorBreadcrumbs path={activeTab?.path ?? null} dirty={activeTab?.dirty} />
                 <div className="flex-1 overflow-hidden">
                   <EditorPane tab={activeTab} readOnly={permission !== 'write'} onChange={updateContent} onSave={save} />
