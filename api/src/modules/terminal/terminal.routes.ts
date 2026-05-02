@@ -69,6 +69,9 @@ export default async function terminalRoutes(app: FastifyInstance) {
             '[terminal] pty exited',
           );
         },
+        onCleanup: () => {
+          req.log.info({ userId: user.userId, workspace, cwd, pid: session?.handle.pty.pid }, '[terminal] session cleanup killing pty');
+        },
       });
     } catch (err) {
       req.log.error({ err, userId: user.userId, workspace, cwd }, '[terminal] failed to spawn pty');
