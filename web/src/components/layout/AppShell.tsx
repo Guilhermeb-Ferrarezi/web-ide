@@ -86,13 +86,16 @@ export function AppShell({ workspace }: { workspace: string }) {
   );
   const activeTab = tabs.find((t) => t.path === activePath) ?? null;
   const { status: gitStatus } = useGitStatus(workspace);
+  const initialSide = readSidePanelPreference();
   const [side, setSideRaw] = useState<SidePanel>(() => {
-    return readSidePanelPreference();
+    return initialSide;
   });
+  const [assistantMounted, setAssistantMounted] = useState(() => initialSide === 'assistant');
   const setSide = (panel: SidePanel) => {
     setSideRaw(panel);
     persistSidePanelPreference(panel);
   };
+  const assistantOpen = side === 'assistant';
   const [showTerminal, setShowTerminal] = useState(true);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -116,6 +119,18 @@ export function AppShell({ workspace }: { workspace: string }) {
   useEffect(() => {
     if (permission !== 'write') setShowTerminal(false);
   }, [permission]);
+
+  useEffect(() => {
+    if (assistantOpen) {
+      setAssistantMounted(true);
+      return;
+    }
+
+    if (!assistantMounted) return;
+
+    const timer = window.setTimeout(() => setAssistantMounted(false), 260);
+    return () => window.clearTimeout(timer);
+  }, [assistantMounted, assistantOpen]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -226,278 +241,309 @@ export function AppShell({ workspace }: { workspace: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="relative flex-1 min-w-0 overflow-hidden">
-      <ResizablePanelGroup direction="horizontal" className="min-w-0">
-        <TooltipProvider delayDuration={600}>
-        <div className="flex h-full w-14 shrink-0 flex-col items-center gap-2 border-r bg-[#191721] py-3">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Arquivos"
-                aria-keyshortcuts="Ctrl+1"
-                aria-pressed={side === 'files'}
-                className={cn(
-                  'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                  side === 'files' && 'bg-white/8 text-[#f5f3ff]',
-                )}
-                onClick={() => setSide('files')}
-              >
-                <Files className={sidebarIconClass} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Arquivos <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+1</kbd> · Filtrar <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+P</kbd></TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Buscar código"
-                aria-keyshortcuts="Ctrl+2"
-                aria-pressed={side === 'search'}
-                className={cn(
-                  'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                  side === 'search' && 'bg-white/8 text-[#f5f3ff]',
-                )}
-                onClick={() => setSide('search')}
-              >
-                <Search className={sidebarIconClass} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Buscar código <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+2</kbd></TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Git"
-                aria-keyshortcuts="Ctrl+3"
-                aria-pressed={side === 'git'}
-                className={cn(
-                  'relative h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                  side === 'git' && 'bg-white/8 text-[#f5f3ff]',
-                )}
-                onClick={() => setSide('git')}
-              >
-                <GitFork className={sidebarIconClass} />
-                {gitChangedCount > 0 && (
-                  <span className="absolute bottom-1 right-1 min-w-4 rounded-full bg-[#8b5cf6] px-1 text-[10px] font-semibold leading-4 text-white shadow-sm">
-                    {gitChangedCount}
-                  </span>
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Git <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+3</kbd></TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Extensões"
-                aria-keyshortcuts="Ctrl+4"
-                aria-pressed={side === 'extensions'}
-                className={cn(
-                  'relative h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                  side === 'extensions' && 'bg-white/8 text-[#f5f3ff]',
-                )}
-                onClick={() => setSide('extensions')}
-              >
-                <Blocks className={sidebarIconClass} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Extensões <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+4</kbd></TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Chat"
-                aria-keyshortcuts="Ctrl+5"
-                aria-pressed={side === 'assistant'}
-                className={cn(
-                  'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                  side === 'assistant' && 'bg-white/8 text-[#f5f3ff]',
-                )}
-                onClick={() => setSide('assistant')}
-              >
-                <MessageSquare className={sidebarIconClass} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Codex <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+5</kbd></TooltipContent>
-          </Tooltip>
-          <div className="flex-1" />
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Terminal"
-                className={cn(
-                  'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                  showTerminal && 'bg-white/8 text-[#f5f3ff]',
-                )}
-                onClick={() => setShowTerminal((v) => !v)}
-                disabled={permission !== 'write'}
-              >
-                <TerminalSquare className={sidebarIconClass} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {permission === 'write' ? <>Terminal <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+`</kbd></> : 'Terminal indisponível em modo somente leitura'}
-            </TooltipContent>
-          </Tooltip>
-          <div ref={settingsMenuRef} className="relative mt-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Conta e configurações"
-                  aria-haspopup="menu"
-                  aria-expanded={settingsMenuOpen}
-                  aria-pressed={settingsMenuOpen}
-                  className={cn(
-                    'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                    settingsMenuOpen && 'bg-white/8 text-[#f5f3ff]',
-                  )}
-                  onClick={() => setSettingsMenuOpen((current) => !current)}
-                >
-                  {user?.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.login} className="h-8 w-8 rounded-full border border-white/10 object-cover" />
+      <div
+        className={cn(
+          'relative flex-1 min-w-0 overflow-hidden transition-[padding-right] duration-300 ease-out',
+          assistantMounted && 'pr-[420px]',
+        )}
+      >
+        <ResizablePanelGroup direction="horizontal" className="min-w-0">
+          <TooltipProvider delayDuration={600}>
+            <div className="flex h-full w-14 shrink-0 flex-col items-center gap-2 border-r bg-[#191721] py-3">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Arquivos"
+                    aria-keyshortcuts="Ctrl+1"
+                    aria-pressed={side === 'files'}
+                    className={cn(
+                      'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                      side === 'files' && 'bg-white/8 text-[#f5f3ff]',
+                    )}
+                    onClick={() => setSide('files')}
+                  >
+                    <Files className={sidebarIconClass} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Arquivos <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+1</kbd> · Filtrar{' '}
+                  <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+P</kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Buscar código"
+                    aria-keyshortcuts="Ctrl+2"
+                    aria-pressed={side === 'search'}
+                    className={cn(
+                      'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                      side === 'search' && 'bg-white/8 text-[#f5f3ff]',
+                    )}
+                    onClick={() => setSide('search')}
+                  >
+                    <Search className={sidebarIconClass} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Buscar código <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+2</kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Git"
+                    aria-keyshortcuts="Ctrl+3"
+                    aria-pressed={side === 'git'}
+                    className={cn(
+                      'relative h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                      side === 'git' && 'bg-white/8 text-[#f5f3ff]',
+                    )}
+                    onClick={() => setSide('git')}
+                  >
+                    <GitFork className={sidebarIconClass} />
+                    {gitChangedCount > 0 && (
+                      <span className="absolute bottom-1 right-1 min-w-4 rounded-full bg-[#8b5cf6] px-1 text-[10px] font-semibold leading-4 text-white shadow-sm">
+                        {gitChangedCount}
+                      </span>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Git <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+3</kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Extensões"
+                    aria-keyshortcuts="Ctrl+4"
+                    aria-pressed={side === 'extensions'}
+                    className={cn(
+                      'relative h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                      side === 'extensions' && 'bg-white/8 text-[#f5f3ff]',
+                    )}
+                    onClick={() => setSide('extensions')}
+                  >
+                    <Blocks className={sidebarIconClass} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Extensões <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+4</kbd>
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Chat"
+                    aria-keyshortcuts="Ctrl+5"
+                    aria-pressed={side === 'assistant'}
+                    className={cn(
+                      'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                      side === 'assistant' && 'bg-white/8 text-[#f5f3ff]',
+                    )}
+                    onClick={() => setSide('assistant')}
+                  >
+                    <MessageSquare className={sidebarIconClass} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  Codex <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+5</kbd>
+                </TooltipContent>
+              </Tooltip>
+              <div className="flex-1" />
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Terminal"
+                    className={cn(
+                      'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                      showTerminal && 'bg-white/8 text-[#f5f3ff]',
+                    )}
+                    onClick={() => setShowTerminal((v) => !v)}
+                    disabled={permission !== 'write'}
+                  >
+                    <TerminalSquare className={sidebarIconClass} />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  {permission === 'write' ? (
+                    <>
+                      Terminal <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+`</kbd>
+                    </>
                   ) : (
-                    <Github className={sidebarIconClass} />
+                    'Terminal indisponível em modo somente leitura'
                   )}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Conta e configurações</TooltipContent>
-            </Tooltip>
-            {settingsMenuOpen && !settingsDialogOpen && (
-              <div className="absolute bottom-0 left-full z-50 ml-3 w-64 rounded-xl border border-white/10 bg-[#16151d] p-3 text-sm text-[#e8e4f4] shadow-2xl">
-                <div className="flex items-center gap-3">
-                  {user?.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.login} className="h-10 w-10 rounded-full border border-white/10 object-cover" />
-                  ) : (
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5">
-                      <Github className="h-5 w-5" />
+                </TooltipContent>
+              </Tooltip>
+              <div ref={settingsMenuRef} className="relative mt-2">
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Conta e configurações"
+                      aria-haspopup="menu"
+                      aria-expanded={settingsMenuOpen}
+                      aria-pressed={settingsMenuOpen}
+                      className={cn(
+                        'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                        settingsMenuOpen && 'bg-white/8 text-[#f5f3ff]',
+                      )}
+                      onClick={() => setSettingsMenuOpen((current) => !current)}
+                    >
+                      {user?.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.login} className="h-8 w-8 rounded-full border border-white/10 object-cover" />
+                      ) : (
+                        <Github className={sidebarIconClass} />
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">Conta e configurações</TooltipContent>
+                </Tooltip>
+                {settingsMenuOpen && !settingsDialogOpen && (
+                  <div className="absolute bottom-0 left-full z-50 ml-3 w-64 rounded-xl border border-white/10 bg-[#16151d] p-3 text-sm text-[#e8e4f4] shadow-2xl">
+                    <div className="flex items-center gap-3">
+                      {user?.avatarUrl ? (
+                        <img src={user.avatarUrl} alt={user.login} className="h-10 w-10 rounded-full border border-white/10 object-cover" />
+                      ) : (
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                          <Github className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{user?.login ?? 'GitHub'}</p>
+                        <p className="truncate text-xs text-[#a59fba]">{resolvedAutoSaveLabel}</p>
+                      </div>
                     </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{user?.login ?? 'GitHub'}</p>
-                    <p className="truncate text-xs text-[#a59fba]">{resolvedAutoSaveLabel}</p>
-                  </div>
-                </div>
-                <Separator className="my-3 bg-white/10" />
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    aria-label="Configurações"
-                    onClick={() => {
-                      setSettingsSection('editor');
-                      setSettingsDialogOpen(true);
-                    }}
-                    className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Settings2 className="h-4 w-4 text-[#a59fba]" />
-                      Configurações
-                    </span>
-                    <span className="text-xs text-[#a59fba]">Abrir</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (autoSaveMode === 'afterDelay') setAutoSaveMode('off');
-                      else {
-                        setAutoSaveMode('afterDelay');
-                        setAutoSaveDelayMs(1200);
-                      }
-                      setSettingsMenuOpen(false);
-                    }}
-                    className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Clock3 className="h-4 w-4 text-[#a59fba]" />
-                      Auto Save
-                    </span>
-                    <span className="text-xs text-[#a59fba]">{autoSaveMode === 'afterDelay' ? 'Ligado' : 'Off'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { toggleWordWrap(); setSettingsMenuOpen(false); }}
-                    className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
-                  >
-                    <span className="flex items-center gap-2">
-                      <WrapText className="h-4 w-4 text-[#a59fba]" />
-                      Quebra de linha
-                    </span>
-                    {wordWrap && <Check className="h-4 w-4 text-[#8b5cf6]" />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSettingsMenuOpen(false);
-                      void logout();
-                    }}
-                    className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-rose-200 hover:bg-rose-500/10"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    Sair
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        </TooltipProvider>
-
-        <ResizablePanel defaultSize={22} minSize={14} maxSize={45} className="border-r">
-          {side === 'files' ? <FileTree workspace={workspace} filterInputRef={fileFilterRef} /> : null}
-          {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
-          {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
-          {side === 'extensions' ? <ExtensionsPanel /> : null}
-        </ResizablePanel>
-        <ResizableHandle />
-
-        <ResizablePanel defaultSize={78}>
-          <ResizablePanelGroup direction="vertical">
-            <ResizablePanel defaultSize={showTerminal ? 65 : 100}>
-              <div className="flex h-full flex-col">
-                {permission !== 'write' && (
-                  <div className="flex items-center justify-between gap-3 border-b bg-amber-500/10 px-3 py-2 text-sm">
-                    <div>
-                      <p className="font-medium text-foreground">Modo somente leitura</p>
-                      <p className="text-xs text-muted-foreground">
-                        Você pode navegar, mas não editar arquivos, usar terminal ou executar ações de Git com escrita.
-                      </p>
+                    <Separator className="my-3 bg-white/10" />
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        aria-label="Configurações"
+                        onClick={() => {
+                          setSettingsSection('editor');
+                          setSettingsDialogOpen(true);
+                        }}
+                        className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Settings2 className="h-4 w-4 text-[#a59fba]" />
+                          Configurações
+                        </span>
+                        <span className="text-xs text-[#a59fba]">Abrir</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (autoSaveMode === 'afterDelay') setAutoSaveMode('off');
+                          else {
+                            setAutoSaveMode('afterDelay');
+                            setAutoSaveDelayMs(1200);
+                          }
+                          setSettingsMenuOpen(false);
+                        }}
+                        className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
+                      >
+                        <span className="flex items-center gap-2">
+                          <Clock3 className="h-4 w-4 text-[#a59fba]" />
+                          Auto Save
+                        </span>
+                        <span className="text-xs text-[#a59fba]">{autoSaveMode === 'afterDelay' ? 'Ligado' : 'Off'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleWordWrap();
+                          setSettingsMenuOpen(false);
+                        }}
+                        className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
+                      >
+                        <span className="flex items-center gap-2">
+                          <WrapText className="h-4 w-4 text-[#a59fba]" />
+                          Quebra de linha
+                        </span>
+                        {wordWrap && <Check className="h-4 w-4 text-[#8b5cf6]" />}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSettingsMenuOpen(false);
+                          void logout();
+                        }}
+                        className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-rose-200 hover:bg-rose-500/10"
+                      >
+                        <LogOut className="h-4 w-4" />
+                        Sair
+                      </button>
                     </div>
-                    <Badge variant="outline">read</Badge>
                   </div>
                 )}
-                <EditorTabs tabs={tabs} activePath={activePath} onSelect={setActive} onClose={closeTab} onCloseOthers={closeOtherTabs} onCloseAll={closeAllTabs} />
-                <EditorBreadcrumbs path={activeTab?.path ?? null} dirty={activeTab?.dirty} />
-                <div className="flex-1 overflow-hidden">
-                  <EditorPane tab={activeTab} readOnly={permission !== 'write'} onChange={updateContent} onSave={save} />
-                </div>
               </div>
-            </ResizablePanel>
-            {showTerminal && permission === 'write' && (
-              <>
-                <ResizableHandle />
-                <ResizablePanel defaultSize={35} minSize={15}>
-                  <TerminalPane workspace={workspace} />
-                </ResizablePanel>
-              </>
+            </div>
+          </TooltipProvider>
+
+          <ResizablePanel defaultSize={22} minSize={14} maxSize={45} className="border-r">
+            {side === 'files' ? <FileTree workspace={workspace} filterInputRef={fileFilterRef} /> : null}
+            {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
+            {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
+            {side === 'extensions' ? <ExtensionsPanel /> : null}
+          </ResizablePanel>
+          <ResizableHandle />
+
+          <ResizablePanel defaultSize={78}>
+            <ResizablePanelGroup direction="vertical">
+              <ResizablePanel defaultSize={showTerminal ? 65 : 100}>
+                <div className="flex h-full flex-col">
+                  {permission !== 'write' && (
+                    <div className="flex items-center justify-between gap-3 border-b bg-amber-500/10 px-3 py-2 text-sm">
+                      <div>
+                        <p className="font-medium text-foreground">Modo somente leitura</p>
+                        <p className="text-xs text-muted-foreground">
+                          Você pode navegar, mas não editar arquivos, usar terminal ou executar ações de Git com escrita.
+                        </p>
+                      </div>
+                      <Badge variant="outline">read</Badge>
+                    </div>
+                  )}
+                  <EditorTabs tabs={tabs} activePath={activePath} onSelect={setActive} onClose={closeTab} onCloseOthers={closeOtherTabs} onCloseAll={closeAllTabs} />
+                  <EditorBreadcrumbs path={activeTab?.path ?? null} dirty={activeTab?.dirty} />
+                  <div className="flex-1 overflow-hidden">
+                    <EditorPane tab={activeTab} readOnly={permission !== 'write'} onChange={updateContent} onSave={save} />
+                  </div>
+                </div>
+              </ResizablePanel>
+              {showTerminal && permission === 'write' && (
+                <>
+                  <ResizableHandle />
+                  <ResizablePanel defaultSize={35} minSize={15}>
+                    <TerminalPane workspace={workspace} />
+                  </ResizablePanel>
+                </>
+              )}
+            </ResizablePanelGroup>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+        {assistantMounted && (
+          <div
+            className={cn(
+              'absolute inset-y-0 right-0 z-30 w-[420px] max-w-[calc(100vw-3.5rem)] border-l border-white/10 bg-[#121019] shadow-2xl',
+              'transform-gpu transition-all duration-300 ease-out',
+              assistantOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none',
             )}
-          </ResizablePanelGroup>
-        </ResizablePanel>
-      </ResizablePanelGroup>
-        {side === 'assistant' && (
-          <div className="absolute inset-y-0 right-0 z-30 w-[420px] max-w-[calc(100vw-3.5rem)] border-l border-white/10 bg-[#121019] shadow-2xl">
+          >
             <AssistantPanel
               workspace={workspace}
               activePath={activeTab?.path ?? null}
