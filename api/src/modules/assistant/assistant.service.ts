@@ -34,6 +34,13 @@ export class AssistantNotConfiguredError extends Error {
   }
 }
 
+export class AssistantTimeoutError extends Error {
+  constructor() {
+    super('Assistant chat timed out while waiting for Codex.');
+    this.name = 'AssistantTimeoutError';
+  }
+}
+
 function trimContent(value: string | null | undefined, limit = 6000): string | null {
   if (!value) return null;
   if (value.length <= limit) return value;
@@ -129,8 +136,8 @@ async function runCodex(prompt: string, cwd: string): Promise<string> {
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutHandle = setTimeout(() => {
       child.kill('SIGKILL');
-      reject(new Error('Assistant chat timed out while waiting for Codex'));
-    }, 180_000);
+      reject(new AssistantTimeoutError());
+    }, config.CODEX_TIMEOUT_MS);
   });
 
   try {

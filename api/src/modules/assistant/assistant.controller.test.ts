@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { createPostChat } from './assistant.controller.ts';
+import { AssistantTimeoutError } from './assistant.service.ts';
 
 const chatWithAssistantMock = mock(async () => ({
   message: 'Resposta do assistente',
@@ -75,5 +76,34 @@ describe('postChat', () => {
       activeContent: 'const value = 1;',
       messages: [{ role: 'user', content: 'Explique isso' }],
     });
+  });
+
+  it('retorna 504 quando o codex excede o tempo limite', async () => {
+    const timeoutChat = createPostChat(async () => {
+      throw new AssistantTimeoutError();
+    });
+    const reply = {
+      code: mock((status: number) => reply),
+      send: mock((payload: unknown) => payload),
+    };
+
+    await timeoutChat(
+      {
+        session: {
+          user: {
+            userId: '1',
+            login: 'octocat',
+          },
+        },
+        workspacePath: '/workspaces/octocat/repo',
+        body: {
+          workspace: 'repo',
+          messages: [{ role: 'user', content: 'oi' }],
+        },
+      } as any,
+      reply as any,
+    );
+
+    expect(reply.code).toHaveBeenCalledWith(504);
   });
 });

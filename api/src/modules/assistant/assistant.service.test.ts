@@ -49,6 +49,7 @@ mock.restore();
 mock.module('../../config.ts', () => ({
   config: {
     CODEX_BIN: 'codex',
+    CODEX_TIMEOUT_MS: 45_000,
   },
 }));
 
