@@ -248,6 +248,77 @@ describe('<ReposPage />', () => {
     expect(input).toHaveValue('');
   });
 
+  it('mostra contagens filtradas por seção enquanto a busca está ativa', async () => {
+    mockUseRepos.mockReturnValue({
+      githubRepos: [
+        {
+          id: 1,
+          name: 'frontend-kit',
+          fullName: 'octocat/frontend-kit',
+          private: false,
+          cloneUrl: '',
+          defaultBranch: 'main',
+          updatedAt: null,
+          description: null,
+          language: null,
+          cloned: false,
+        },
+        {
+          id: 2,
+          name: 'infra-tools',
+          fullName: 'octocat/infra-tools',
+          private: false,
+          cloneUrl: '',
+          defaultBranch: 'main',
+          updatedAt: null,
+          description: null,
+          language: null,
+          cloned: false,
+        },
+      ],
+      localRepos: [
+        {
+          id: 'repo-1',
+          slug: 'my-repo',
+          githubFullName: 'octocat/my-repo',
+          permission: 'write',
+          path: '/tmp/my-repo',
+          canManage: true,
+        },
+        {
+          id: 'repo-2',
+          slug: 'other-repo',
+          githubFullName: 'octocat/other-repo',
+          permission: 'read',
+          path: '/tmp/other-repo',
+          canManage: false,
+        },
+      ] satisfies LocalRepo[],
+      loading: false,
+      loadingMoreGithub: false,
+      loadingMoreLocal: false,
+      hasMoreGithub: false,
+      hasMoreLocal: false,
+      cloningId: null,
+      loadMoreGithub: vi.fn(),
+      loadMoreLocal: vi.fn(),
+      init: vi.fn(),
+      clone: vi.fn(),
+      remove: vi.fn(),
+    });
+
+    render(
+      <MemoryRouter>
+        <ReposPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.type(screen.getByPlaceholderText('Buscar repositório...'), 'my');
+
+    expect(screen.getByText('1 de 2')).toBeInTheDocument();
+    expect(screen.getByText('0 de 2')).toBeInTheDocument();
+  });
+
   it('mostra um aviso contextual quando a busca não encontra repositórios', async () => {
     render(
       <MemoryRouter>

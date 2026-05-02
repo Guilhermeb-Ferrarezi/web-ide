@@ -605,10 +605,27 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
           minimap: { enabled: false },
           fontSize: 13,
           lineHeight: 22,
+          fontFamily: '"JetBrains Mono", ui-monospace, Menlo, Monaco, "Courier New", monospace',
           scrollBeyondLastLine: false,
           wordWrap: wordWrap ? 'on' : 'off',
           automaticLayout: true,
           fixedOverflowWidgets: true,
+          quickSuggestions: {
+            other: true,
+            comments: false,
+            strings: true,
+          },
+          suggestOnTriggerCharacters: true,
+          acceptSuggestionOnEnter: 'smart',
+          tabCompletion: 'on',
+          inlineSuggest: {
+            enabled: true,
+          },
+          parameterHints: {
+            enabled: true,
+          },
+          wordBasedSuggestions: 'currentDocument',
+          snippetSuggestions: 'inline',
           readOnly,
         }}
       />

@@ -26,6 +26,17 @@ describe('<ExtensionsPanel />', () => {
     useEditorStore.getState().reset();
   });
 
+  it('foca a busca e mostra dicas de teclado ao abrir o painel', async () => {
+    vi.spyOn(extensionsApi, 'searchExtensions').mockResolvedValue([]);
+
+    render(<ExtensionsPanel />);
+
+    const input = screen.getByPlaceholderText('Search Extensions in Marketplace');
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(screen.getByText('Digite um termo e pressione Enter para buscar no marketplace.')).toBeInTheDocument();
+    expect(screen.getByText('Esc limpa o termo atual.')).toBeInTheDocument();
+  });
+
   it('abre o detalhe da extensao como aba virtual do editor', async () => {
     vi.spyOn(extensionsApi, 'searchExtensions').mockResolvedValue([
       {

@@ -92,6 +92,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 size="icon"
                 aria-label="Arquivos"
                 aria-keyshortcuts="Ctrl+1"
+                aria-pressed={side === 'files'}
                 className={cn('h-8 w-8', side === 'files' && 'bg-accent')}
                 onClick={() => setSide('files')}
               >
@@ -107,6 +108,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 size="icon"
                 aria-label="Buscar código"
                 aria-keyshortcuts="Ctrl+2"
+                aria-pressed={side === 'search'}
                 className={cn('h-8 w-8', side === 'search' && 'bg-accent')}
                 onClick={() => setSide('search')}
               >
@@ -122,6 +124,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 size="icon"
                 aria-label="Git"
                 aria-keyshortcuts="Ctrl+3"
+                aria-pressed={side === 'git'}
                 className={cn('relative h-8 w-8', side === 'git' && 'bg-accent')}
                 onClick={() => setSide('git')}
               >
@@ -142,6 +145,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                 size="icon"
                 aria-label="Extensões"
                 aria-keyshortcuts="Ctrl+4"
+                aria-pressed={side === 'extensions'}
                 className={cn('h-8 w-8', side === 'extensions' && 'bg-accent')}
                 onClick={() => setSide('extensions')}
               >

@@ -44,7 +44,13 @@ describe('<EditorPane />', () => {
     expect(screen.getByTestId('monaco-editor')).toBeInTheDocument();
     expect(editorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        options: expect.objectContaining({ readOnly: true, fixedOverflowWidgets: true }),
+        options: expect.objectContaining({
+          readOnly: true,
+          fixedOverflowWidgets: true,
+          fontFamily: '"JetBrains Mono", ui-monospace, Menlo, Monaco, "Courier New", monospace',
+          suggestOnTriggerCharacters: true,
+          tabCompletion: 'on',
+        }),
       }),
     );
   });

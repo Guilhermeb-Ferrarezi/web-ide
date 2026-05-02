@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { AppShell } from './AppShell';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -100,5 +101,23 @@ describe('<AppShell />', () => {
     expect(screen.getByRole('button', { name: 'Buscar código' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+2');
     expect(screen.getByRole('button', { name: 'Git' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+3');
     expect(screen.getByRole('button', { name: 'Extensões' })).toHaveAttribute('aria-keyshortcuts', 'Ctrl+4');
+  });
+
+  it('indica qual painel lateral está ativo ao alternar entre as seções', async () => {
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
+
+    render(<AppShell workspace="repo" />);
+
+    const filesButton = screen.getByRole('button', { name: 'Arquivos' });
+    const gitButton = screen.getByRole('button', { name: 'Git' });
+
+    expect(filesButton).toHaveAttribute('aria-pressed', 'true');
+    expect(gitButton).toHaveAttribute('aria-pressed', 'false');
+
+    await userEvent.click(gitButton);
+
+    expect(gitButton).toHaveAttribute('aria-pressed', 'true');
+    expect(filesButton).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('git-panel')).toBeInTheDocument();
   });
 });

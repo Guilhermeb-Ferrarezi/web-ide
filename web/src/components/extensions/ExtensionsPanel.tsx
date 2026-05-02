@@ -179,6 +179,7 @@ export function ExtensionsPanel() {
   }
 
   useEffect(() => {
+    searchInputRef.current?.focus();
     void runSearch('theme');
   }, []);
 
@@ -295,6 +296,12 @@ export function ExtensionsPanel() {
       </div>
 
       <ScrollArea className="flex-1">
+        {!query.trim() && !searching && (
+          <div className="space-y-1 border-b px-4 py-3 text-xs text-muted-foreground">
+            <p>Digite um termo e pressione Enter para buscar no marketplace.</p>
+            <p>Esc limpa o termo atual.</p>
+          </div>
+        )}
         {searching && results.length === 0 ? (
           <div className="space-y-3 p-3">
             <Skeleton className="h-4 w-24" />

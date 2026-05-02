@@ -149,6 +149,7 @@ export default function ReposPage() {
     if (!q) return localRepos;
     return localRepos.filter((r) => r.slug.toLowerCase().includes(q) || r.githubFullName.toLowerCase().includes(q));
   }, [localRepos, query]);
+  const hasActiveQuery = query.trim().length > 0;
 
   useEffect(() => {
     const node = localSentinelRef.current;
@@ -413,7 +414,7 @@ export default function ReposPage() {
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-medium text-muted-foreground">Compartilhados comigo</h2>
-              <span className="text-xs text-muted-foreground">{filteredLocal.length}</span>
+              <span className="text-xs text-muted-foreground">{hasActiveQuery ? `${filteredLocal.length} de ${localRepos.length}` : filteredLocal.length}</span>
             </div>
             {filteredLocal.length === 0 ? (
               <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">Nenhum repositório local acessível.</p>
@@ -564,7 +565,7 @@ export default function ReposPage() {
           <section>
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-medium text-muted-foreground">GitHub</h2>
-              <span className="text-xs text-muted-foreground">{filteredGithub.length}</span>
+              <span className="text-xs text-muted-foreground">{hasActiveQuery ? `${filteredGithub.length} de ${githubRepos.length}` : filteredGithub.length}</span>
             </div>
             {filteredGithub.length === 0 ? (
               <p className="rounded-lg border border-dashed p-6 text-sm text-muted-foreground">Nenhum repositório encontrado.</p>
