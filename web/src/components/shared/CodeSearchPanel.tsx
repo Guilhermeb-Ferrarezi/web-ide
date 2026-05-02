@@ -94,6 +94,14 @@ export function CodeSearchPanel({ workspace }: Props) {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                const firstMatch = results[0]?.matches[0];
+                if (firstMatch && results[0]) {
+                  event.preventDefault();
+                  void openFile(results[0].path, { line: firstMatch.line, column: firstMatch.column });
+                  return;
+                }
+              }
               if (event.key === 'Enter') void runSearch();
               if (event.key === 'Escape' && query) { event.stopPropagation(); clearSearch(); }
             }}
@@ -188,6 +196,9 @@ export function CodeSearchPanel({ workspace }: Props) {
               <p>{`Nenhum resultado para “${query.trim()}”.`}</p>
               <p>Tente ajustar Aa, palavra inteira ou regex para ampliar a busca.</p>
             </div>
+          )}
+          {searched && !loading && !error && results.length > 0 && (
+            <p className="px-3 pb-1 text-[11px] text-muted-foreground">Ctrl+Enter abre o primeiro resultado</p>
           )}
           {results.map((result) => {
             const isCollapsed = collapsed[result.path];

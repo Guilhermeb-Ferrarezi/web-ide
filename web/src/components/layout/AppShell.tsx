@@ -63,7 +63,7 @@ export function AppShell({ workspace }: { workspace: string }) {
     if (autoSaveMode !== 'afterDelay') return 'Auto Save desativado';
     return `Auto Save em ${autoSaveDelayMs >= 3000 ? '3s' : '1.2s'}`;
   }, [autoSaveDelayMs, autoSaveMode]);
-  const sidebarIconClass = '!h-8 !w-8 stroke-[1.8]';
+  const sidebarIconClass = '!h-7 !w-7 stroke-[1.75]';
 
   useEffect(() => {
     if (permission !== 'write') setShowTerminal(false);

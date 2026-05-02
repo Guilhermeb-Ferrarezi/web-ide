@@ -197,6 +197,38 @@ describe('<CodeSearchPanel />', () => {
     await userEvent.type(screen.getByPlaceholderText('Buscar'), 'hello{Enter}');
 
     expect(await screen.findByText('2 resultados em 2 arquivos')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl+Enter abre o primeiro resultado')).toBeInTheDocument();
+  });
+
+  it('abre o primeiro resultado com Ctrl+Enter', async () => {
+    vi.spyOn(fsApi, 'searchFiles').mockResolvedValue([
+      {
+        path: 'src/app.ts',
+        matches: [{ line: 3, column: 7, length: 5, previewOffset: 6, preview: 'const hello = "world";' }],
+      },
+    ]);
+
+    render(<CodeSearchPanel workspace="repo" />);
+
+    await userEvent.type(screen.getByPlaceholderText('Buscar'), 'hello{Enter}');
+    await screen.findByText('app.ts');
+
+    await userEvent.keyboard('{Control>}{Enter}{/Control}');
+
+    expect(openFile).toHaveBeenCalledWith('src/app.ts', { line: 3, column: 7 });
+  });
+
+  it('ignora Ctrl+Enter quando não há resultados', async () => {
+    vi.spyOn(fsApi, 'searchFiles').mockResolvedValue([]);
+
+    render(<CodeSearchPanel workspace="repo" />);
+
+    await userEvent.type(screen.getByPlaceholderText('Buscar'), 'missing{Enter}');
+    await screen.findByText('Nenhum resultado para “missing”.');
+
+    await userEvent.keyboard('{Control>}{Enter}{/Control}');
+
+    expect(openFile).not.toHaveBeenCalled();
   });
 
   it('mostra prévia destacada do trecho encontrado', async () => {
