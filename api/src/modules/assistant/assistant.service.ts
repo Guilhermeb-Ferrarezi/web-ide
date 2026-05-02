@@ -96,6 +96,10 @@ function buildCodexPrompt(input: AssistantChatInput): string {
   return [buildSystemPrompt(input), buildConversationPrompt(input.messages)].join('\n\n');
 }
 
+function isNamespaceSandboxError(details: string): boolean {
+  return /bwrap:.*no permissions to create a new namespace|failed to create a new namespace|sandbox.*namespace/i.test(details);
+}
+
 function collectStream(stream: NodeJS.ReadableStream | null | undefined): Promise<string> {
   if (!stream) return Promise.resolve('');
 
@@ -131,21 +135,48 @@ function resolveCodexHome(): { home?: string; codexHome?: string } {
 }
 
 async function runCodex(prompt: string, cwd: string): Promise<string> {
+  return runCodexWithFallback(prompt, cwd);
+}
+
+async function runCodexWithFallback(prompt: string, cwd: string): Promise<string> {
+  try {
+    return await runCodexOnce(prompt, cwd, false);
+  } catch (error) {
+    if (error instanceof Error && isNamespaceSandboxError(error.message)) {
+      return runCodexOnce(prompt, cwd, true);
+    }
+    throw error;
+  }
+}
+
+async function runCodexOnce(prompt: string, cwd: string, unsafeBypassSandbox: boolean): Promise<string> {
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'web-ide-codex-'));
   const outputPath = path.join(tempDir, 'last-message.txt');
   const codexHome = resolveCodexHome();
-  const args = [
-    'exec',
-    '--output-last-message',
-    outputPath,
-    '--cd',
-    cwd,
-    '--skip-git-repo-check',
-    '--sandbox',
-    'workspace-write',
-    '--ephemeral',
-    '-',
-  ];
+  const args = unsafeBypassSandbox
+    ? [
+        'exec',
+        '--output-last-message',
+        outputPath,
+        '--cd',
+        cwd,
+        '--skip-git-repo-check',
+        '--dangerously-bypass-approvals-and-sandbox',
+        '--ephemeral',
+        '-',
+      ]
+    : [
+        'exec',
+        '--output-last-message',
+        outputPath,
+        '--cd',
+        cwd,
+        '--skip-git-repo-check',
+        '--sandbox',
+        'workspace-write',
+        '--ephemeral',
+        '-',
+      ];
 
   const child = spawn(config.CODEX_BIN, args, {
     stdio: ['pipe', 'pipe', 'pipe'],

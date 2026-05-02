@@ -15,10 +15,12 @@ let lastChild: EventEmitter & {
   stderr: EventEmitter;
   kill: ReturnType<typeof mock>;
 } | null = null;
+let spawnModes: Array<'success' | 'namespace-error'> = [];
 
 const spawnMock = mock((command: string, args: string[], options: { cwd?: string }) => {
   lastSpawn = { command, args, options };
   const outputPath = args[2];
+  const mode = spawnModes.shift() ?? 'success';
   const child = new EventEmitter() as EventEmitter & {
     stdin: { end: ReturnType<typeof mock> };
     stdout: EventEmitter;
@@ -33,6 +35,14 @@ const spawnMock = mock((command: string, args: string[], options: { cwd?: string
   child.stdin = {
     end: mock(() => {
       queueMicrotask(async () => {
+        if (mode === 'namespace-error') {
+          child.stderr.emit('data', 'bwrap: No permissions to create a new namespace\n');
+          child.stdout.emit('end');
+          child.stderr.emit('end');
+          child.emit('close', 1, null);
+          return;
+        }
+
         await fs.writeFile(outputPath, 'Resposta do assistente', 'utf8');
         child.stdout.emit('end');
         child.stderr.emit('end');
@@ -69,6 +79,7 @@ describe('chatWithAssistant', () => {
     spawnMock.mockClear();
     lastSpawn = null;
     lastChild = null;
+    spawnModes = [];
   });
 
   it('executa o codex com o contexto e retorna a resposta final', async () => {
@@ -106,6 +117,20 @@ describe('chatWithAssistant', () => {
     expect(prompt).toContain('const value = 1;');
     expect(prompt).toContain('Usuário: Explique o arquivo');
     expect(prompt).toContain('Quando o usuário pedir uma mudança, você pode alterar arquivos diretamente no workspace e deve mencionar o que mudou.');
+  });
+
+  it('refaz a chamada sem sandbox quando o ambiente bloqueia namespace', async () => {
+    spawnModes = ['namespace-error', 'success'];
+
+    const result = await chatWithAssistant({
+      workspace: 'repo',
+      workspacePath: '/workspaces/alice/repo',
+      messages: [{ role: 'user', content: 'Faça uma alteração' }],
+    });
+
+    expect(result.message).toBe('Resposta do assistente');
+    expect(spawnMock).toHaveBeenCalledTimes(2);
+    expect(lastSpawn?.args).toContain('--dangerously-bypass-approvals-and-sandbox');
   });
 });
 
