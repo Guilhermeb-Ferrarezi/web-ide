@@ -50,6 +50,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     let hasConnected = false;
     let reconnectAttempts = 0;
     let reconnectEnabled = true;
+    let closingIntentionally = false;
     let selectionState: TerminalSelectionState = null;
 
     const term_ = new Terminal({
@@ -167,6 +168,15 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
       }
     };
 
+    const closeSocketIntentionally = () => {
+      closingIntentionally = true;
+      try {
+        ws?.close();
+      } catch {
+        // ignore
+      }
+    };
+
     const scheduleReconnect = () => {
       if (!reconnectEnabled) return;
       if (reconnectAttempts >= TERMINAL_MAX_RECONNECT_ATTEMPTS) {
@@ -226,11 +236,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
           clearKeepalive();
           clearReconnectReset();
           term.write(`\r\n[terminal indisponível: ${control.message ?? 'erro indefinido'}]\r\n`);
-          try {
-            ws?.close();
-          } catch {
-            // ignore
-          }
+          closeSocketIntentionally();
           return;
         }
         if (control) return;
@@ -247,7 +253,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
             wasClean: event.wasClean,
           });
         }
-        if (disposed || !term) return;
+        if (disposed || !term || closingIntentionally) return;
         if (!reconnectEnabled) return;
         term.write('\r\n[conexão encerrada; reconectando...]\r\n');
         if (reconnectId !== null) {
@@ -287,10 +293,13 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         console.info('[terminal] hook unmount', { workspace });
       }
       disposed = true;
+      reconnectEnabled = false;
+      closingIntentionally = true;
       if (rafId !== null) cancelAnimationFrame(rafId);
       clearKeepalive();
       clearReconnectReset();
       if (reconnectId !== null) window.clearTimeout(reconnectId);
+      closeSocketIntentionally();
       dataDispose.dispose();
       ro?.disconnect();
       try { term?.dispose(); } catch { /* ignore */ }
