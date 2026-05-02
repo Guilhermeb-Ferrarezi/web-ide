@@ -8,6 +8,8 @@ import { createTerminalInputState, reduceTerminalInput } from '@/lib/terminalInp
 import { parseTerminalSocketPayload, TERMINAL_KEEPALIVE_INTERVAL_MS } from '@/lib/terminalProtocol';
 
 const TERMINAL_RECONNECT_DELAY_MS = 1000;
+const TERMINAL_MAX_RECONNECT_ATTEMPTS = 5;
+const TERMINAL_RECONNECT_RESET_MS = 10_000;
 
 type TerminalSelectionState = {
   anchorColumn: number;
@@ -40,8 +42,11 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     let rafId: number | null = null;
     let keepaliveId: number | null = null;
     let reconnectId: number | null = null;
+    let reconnectResetId: number | null = null;
     let inputState = createTerminalInputState();
     let hasConnected = false;
+    let reconnectAttempts = 0;
+    let reconnectEnabled = true;
     let selectionState: TerminalSelectionState = null;
 
     const term_ = new Terminal({
@@ -152,6 +157,26 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
       }
     };
 
+    const clearReconnectReset = () => {
+      if (reconnectResetId !== null) {
+        window.clearTimeout(reconnectResetId);
+        reconnectResetId = null;
+      }
+    };
+
+    const scheduleReconnect = () => {
+      if (!reconnectEnabled) return;
+      if (reconnectAttempts >= TERMINAL_MAX_RECONNECT_ATTEMPTS) {
+        term?.write('\r\n[conexão perdida; parei de tentar reconectar]\r\n');
+        reconnectEnabled = false;
+        return;
+      }
+
+      const delay = Math.min(TERMINAL_RECONNECT_DELAY_MS * 2 ** reconnectAttempts, 5000);
+      reconnectAttempts += 1;
+      reconnectId = window.setTimeout(connect, delay);
+    };
+
     const connect = () => {
       if (disposed) return;
 
@@ -172,6 +197,11 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         } else {
           hasConnected = true;
         }
+        reconnectAttempts = 0;
+        clearReconnectReset();
+        reconnectResetId = window.setTimeout(() => {
+          reconnectAttempts = 0;
+        }, TERMINAL_RECONNECT_RESET_MS);
         ws.send(JSON.stringify({ type: 'resize', cols: term.cols, rows: term.rows }));
         clearKeepalive();
         keepaliveId = window.setInterval(() => {
@@ -186,6 +216,15 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
         const { text, control } = parseTerminalSocketPayload(data);
         if (control?.type === 'error') {
           console.error('[terminal] websocket error', control.message);
+          reconnectEnabled = false;
+          clearKeepalive();
+          clearReconnectReset();
+          term.write(`\r\n[terminal indisponível: ${control.message ?? 'erro indefinido'}]\r\n`);
+          try {
+            ws?.close();
+          } catch {
+            // ignore
+          }
           return;
         }
         if (control) return;
@@ -193,9 +232,14 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
       };
       ws.onclose = () => {
         clearKeepalive();
+        clearReconnectReset();
         if (disposed || !term) return;
+        if (!reconnectEnabled) return;
         term.write('\r\n[conexão encerrada; reconectando...]\r\n');
-        reconnectId = window.setTimeout(connect, TERMINAL_RECONNECT_DELAY_MS);
+        if (reconnectId !== null) {
+          window.clearTimeout(reconnectId);
+        }
+        scheduleReconnect();
       };
       ws.onerror = () => {
         if (disposed || !term) return;
@@ -225,6 +269,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
       disposed = true;
       if (rafId !== null) cancelAnimationFrame(rafId);
       clearKeepalive();
+      clearReconnectReset();
       if (reconnectId !== null) window.clearTimeout(reconnectId);
       dataDispose.dispose();
       ro?.disconnect();

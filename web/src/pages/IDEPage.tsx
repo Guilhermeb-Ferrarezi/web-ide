@@ -17,29 +17,31 @@ import { getInstalledExtensions } from '@/api/extensions';
 export default function IDEPage() {
   const { workspace } = useParams<{ workspace: string }>();
   const navigate = useNavigate();
-  const setWorkspace = useWorkspaceStore((s) => s.setWorkspace);
   const setPermission = useWorkspaceStore((s) => s.setPermission);
   const permission = useWorkspaceStore((s) => s.permission);
-  const resetEditor = useEditorStore((s) => s.reset);
   const replaceInstalled = useAppearanceStore((s) => s.replaceInstalled);
   const resetInstalled = useAppearanceStore((s) => s.resetInstalled);
   const [loadingPermission, setLoadingPermission] = useState(true);
   const [loadingExtensions, setLoadingExtensions] = useState(true);
 
   useEffect(() => {
-    setWorkspace(workspace ?? null);
-    setPermission(null);
-    resetEditor();
-    resetInstalled();
+    const workspaceStore = useWorkspaceStore.getState();
+    const editorStore = useEditorStore.getState();
+    const appearanceStore = useAppearanceStore.getState();
+
+    workspaceStore.setWorkspace(workspace ?? null);
+    workspaceStore.setPermission(null);
+    editorStore.reset();
+    appearanceStore.resetInstalled();
     setLoadingPermission(true);
     setLoadingExtensions(true);
     return () => {
-      setWorkspace(null);
-      setPermission(null);
-      resetEditor();
-      resetInstalled();
+      workspaceStore.setWorkspace(null);
+      workspaceStore.setPermission(null);
+      editorStore.reset();
+      appearanceStore.resetInstalled();
     };
-  }, [workspace, setWorkspace, setPermission, resetEditor, resetInstalled]);
+  }, [workspace]);
 
   useEffect(() => {
     if (!workspace) return;
