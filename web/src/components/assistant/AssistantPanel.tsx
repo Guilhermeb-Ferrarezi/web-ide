@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Copy, Loader2, Send, Sparkles, Trash2, WandSparkles } from 'lucide-react';
+import { Check, Copy, Loader2, Send, Sparkles, Trash2, WandSparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { chatAssistant } from '@/api/assistant';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ type Props = {
   workspace: string;
   activePath: string | null;
   activeContent: string | null;
+  onClose?: () => void;
 };
 
 const QUICK_PROMPTS = [
@@ -20,7 +21,7 @@ const QUICK_PROMPTS = [
   'Encontre bugs óbvios.',
 ];
 
-export function AssistantPanel({ workspace, activePath, activeContent }: Props) {
+export function AssistantPanel({ workspace, activePath, activeContent, onClose }: Props) {
   const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -83,16 +84,28 @@ export function AssistantPanel({ workspace, activePath, activeContent }: Props) 
             <Sparkles className="h-4 w-4 text-violet-300" />
             Codex
           </div>
-          {messages.length > 0 && (
-            <button
-              type="button"
-              title="Limpar conversa"
-              onClick={() => { setMessages([]); setError(null); }}
-              className="rounded p-1 text-[#7f7895] transition-colors hover:bg-white/8 hover:text-[#ece8f7]"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          )}
+          <div className="flex items-center gap-1">
+            {messages.length > 0 && (
+              <button
+                type="button"
+                title="Limpar conversa"
+                onClick={() => { setMessages([]); setError(null); }}
+                className="rounded p-1 text-[#7f7895] transition-colors hover:bg-white/8 hover:text-[#ece8f7]"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {onClose && (
+              <button
+                type="button"
+                title="Fechar Codex"
+                onClick={onClose}
+                className="rounded p-1 text-[#7f7895] transition-colors hover:bg-white/8 hover:text-[#ece8f7]"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         </div>
         <p className="mt-1 text-xs text-[#a59fba]">
           Pergunte sobre o workspace, o arquivo aberto ou peça sugestões de código.

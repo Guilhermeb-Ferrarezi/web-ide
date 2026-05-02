@@ -24,6 +24,27 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 type SidePanel = 'files' | 'search' | 'git' | 'extensions' | 'assistant';
 
+function readSidePanelPreference(): SidePanel {
+  try {
+    const storage = globalThis.localStorage;
+    if (!storage || typeof storage.getItem !== 'function') return 'files';
+    const saved = storage.getItem('ide:side-panel');
+    return saved === 'search' || saved === 'git' || saved === 'extensions' || saved === 'assistant' ? saved : 'files';
+  } catch {
+    return 'files';
+  }
+}
+
+function persistSidePanelPreference(panel: SidePanel) {
+  try {
+    const storage = globalThis.localStorage;
+    if (!storage || typeof storage.setItem !== 'function') return;
+    storage.setItem('ide:side-panel', panel);
+  } catch {
+    // ignore persistence failures
+  }
+}
+
 export function AppShell({ workspace }: { workspace: string }) {
   const { tabs, activePath, setActive, closeTab: closeTabRaw, updateContent, save } = useEditor();
   const { user, logout } = useAuth();
@@ -66,12 +87,11 @@ export function AppShell({ workspace }: { workspace: string }) {
   const activeTab = tabs.find((t) => t.path === activePath) ?? null;
   const { status: gitStatus } = useGitStatus(workspace);
   const [side, setSideRaw] = useState<SidePanel>(() => {
-    const saved = localStorage.getItem('ide:side-panel');
-    return (saved as SidePanel | null) ?? 'files';
+    return readSidePanelPreference();
   });
   const setSide = (panel: SidePanel) => {
     setSideRaw(panel);
-    localStorage.setItem('ide:side-panel', panel);
+    persistSidePanelPreference(panel);
   };
   const [showTerminal, setShowTerminal] = useState(true);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
@@ -206,7 +226,8 @@ export function AppShell({ workspace }: { workspace: string }) {
 
   return (
     <div className="flex h-full flex-col">
-      <ResizablePanelGroup direction="horizontal" className="flex-1">
+      <div className="relative flex-1 min-w-0 overflow-hidden">
+      <ResizablePanelGroup direction="horizontal" className="min-w-0">
         <TooltipProvider delayDuration={600}>
         <div className="flex h-full w-14 shrink-0 flex-col items-center gap-2 border-r bg-[#191721] py-3">
           <Tooltip>
@@ -442,7 +463,7 @@ export function AppShell({ workspace }: { workspace: string }) {
         </ResizablePanel>
         <ResizableHandle />
 
-        <ResizablePanel defaultSize={side === 'assistant' ? 56 : 78}>
+        <ResizablePanel defaultSize={78}>
           <ResizablePanelGroup direction="vertical">
             <ResizablePanel defaultSize={showTerminal ? 65 : 100}>
               <div className="flex h-full flex-col">
@@ -474,19 +495,18 @@ export function AppShell({ workspace }: { workspace: string }) {
             )}
           </ResizablePanelGroup>
         </ResizablePanel>
-        {side === 'assistant' && (
-          <>
-            <ResizableHandle />
-            <ResizablePanel defaultSize={22} minSize={18} maxSize={35} className="border-l">
-              <AssistantPanel
-                workspace={workspace}
-                activePath={activeTab?.path ?? null}
-                activeContent={activeTab?.content ?? null}
-              />
-            </ResizablePanel>
-          </>
-        )}
       </ResizablePanelGroup>
+        {side === 'assistant' && (
+          <div className="absolute inset-y-0 right-0 z-30 w-[420px] max-w-[calc(100vw-3.5rem)] border-l border-white/10 bg-[#121019] shadow-2xl">
+            <AssistantPanel
+              workspace={workspace}
+              activePath={activeTab?.path ?? null}
+              activeContent={activeTab?.content ?? null}
+              onClose={() => setSide('files')}
+            />
+          </div>
+        )}
+      </div>
       {settingsDialogOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm">
           <div className="flex h-[78vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-white/10 bg-[#111015] text-[#ece8f7] shadow-2xl">
