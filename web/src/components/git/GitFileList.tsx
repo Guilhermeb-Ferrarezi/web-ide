@@ -16,7 +16,8 @@ type Props = {
 
 export function GitFileList({ title, items, selected, onToggle, onToggleAll, emptyText, variant }: Props) {
   if (items.length === 0) return null;
-  const allSelected = items.every((i) => selected.has(i.path));
+  const selectedCount = items.filter((item) => selected.has(item.path)).length;
+  const allSelected = selectedCount === items.length;
   return (
     <div>
       <div className="flex items-center justify-between px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -29,7 +30,7 @@ export function GitFileList({ title, items, selected, onToggle, onToggleAll, emp
         </button>
         <div className="flex items-center gap-2">
           <span className="text-[10px] normal-case tracking-normal">
-            {selected.size > 0 ? `${selected.size} de ${items.length} selecionados` : 'Marque para selecionar tudo'}
+            {selectedCount > 0 ? `${selectedCount} de ${items.length} selecionados` : 'Marque para selecionar tudo'}
           </span>
           <Checkbox
             checked={allSelected}

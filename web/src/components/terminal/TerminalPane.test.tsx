@@ -18,7 +18,7 @@ describe('<TerminalPane />', () => {
   it('mostra uma dica de atalho para foco', () => {
     render(<TerminalPane workspace="repo" />);
 
-    expect(screen.getByText('Ctrl+` para focar o terminal')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl+` foco')).toBeInTheDocument();
   });
 
   it('mostra um rótulo curto com o nome do workspace', () => {
@@ -30,6 +30,6 @@ describe('<TerminalPane />', () => {
   it('mostra uma dica rápida para copiar texto do terminal', () => {
     render(<TerminalPane workspace="repo" />);
 
-    expect(screen.getByText('Selecione texto para copiar')).toBeInTheDocument();
+    expect(screen.getByText('Ctrl+Alt+C copiar')).toBeInTheDocument();
   });
 });

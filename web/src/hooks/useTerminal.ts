@@ -9,6 +9,12 @@ import { parseTerminalSocketPayload, TERMINAL_KEEPALIVE_INTERVAL_MS } from '@/li
 
 const TERMINAL_RECONNECT_DELAY_MS = 1000;
 
+type TerminalSelectionState = {
+  anchorColumn: number;
+  focusColumn: number;
+  row: number;
+} | null;
+
 function safeFit(fit: FitAddon, container: HTMLElement): boolean {
   if (container.clientWidth === 0 || container.clientHeight === 0) return false;
   try {
@@ -36,6 +42,7 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
     let reconnectId: number | null = null;
     let inputState = createTerminalInputState();
     let hasConnected = false;
+    let selectionState: TerminalSelectionState = null;
 
     const term_ = new Terminal({
       fontSize: 13,
@@ -44,6 +51,80 @@ export function useTerminal(containerRef: React.RefObject<HTMLDivElement>, works
       cursorBlink: true,
       convertEol: true,
     });
+
+    async function copySelectedText() {
+      const selection = term_.getSelection();
+      if (!selection) return;
+
+      try {
+        await navigator.clipboard.writeText(selection);
+      } catch {
+        // ignore clipboard failures
+      }
+    }
+
+    function updateHorizontalSelection(direction: -1 | 1) {
+      const buffer = (term_ as any).buffer?.active;
+      const cursorX = typeof buffer?.cursorX === 'number' ? buffer.cursorX : 0;
+      const cursorY = typeof buffer?.cursorY === 'number' ? buffer.cursorY : 0;
+      const baseY = typeof buffer?.baseY === 'number' ? buffer.baseY : 0;
+      const row = baseY + cursorY;
+      const maxColumn = Math.max(term_.cols, cursorX + 1);
+
+      if (!selectionState || selectionState.row !== row) {
+        selectionState = {
+          anchorColumn: cursorX,
+          focusColumn: Math.max(0, Math.min(maxColumn, cursorX + direction)),
+          row,
+        };
+      } else {
+        selectionState = {
+          ...selectionState,
+          focusColumn: Math.max(0, Math.min(maxColumn, selectionState.focusColumn + direction)),
+        };
+      }
+
+      const startColumn = Math.min(selectionState.anchorColumn, selectionState.focusColumn);
+      const length = Math.abs(selectionState.focusColumn - selectionState.anchorColumn);
+
+      if (length === 0) {
+        term_.clearSelection();
+        return;
+      }
+
+      term_.select(startColumn, row, length);
+    }
+
+    term_.attachCustomKeyEventHandler((event) => {
+      if (event.type !== 'keydown') return true;
+
+      if ((event.ctrlKey || event.metaKey) && event.altKey && event.key.toLowerCase() === 'c') {
+        event.preventDefault();
+        void copySelectedText();
+        return false;
+      }
+
+      if (event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          updateHorizontalSelection(-1);
+          return false;
+        }
+
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          updateHorizontalSelection(1);
+          return false;
+        }
+      }
+
+      return true;
+    });
+
+    term_.onData(() => {
+      selectionState = null;
+    });
+
     const fit_ = new FitAddon();
     term_.loadAddon(fit_);
     term_.loadAddon(new WebLinksAddon());

@@ -13,10 +13,10 @@ export function TerminalPane({ workspace }: { workspace: string }) {
         </div>
         <div className="flex items-center gap-2 text-[11px] text-white/70">
           <div className="rounded-md border border-white/10 bg-black/50 px-2 py-1">
-            Ctrl+` para focar o terminal
+            Ctrl+` foco
           </div>
           <div className="rounded-md border border-white/10 bg-black/50 px-2 py-1">
-            Selecione texto para copiar
+            Ctrl+Alt+C copiar
           </div>
         </div>
       </div>

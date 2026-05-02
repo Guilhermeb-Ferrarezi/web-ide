@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { resolveDefaultFileIcon, resolveDefaultFolderIcon, resolveFileIcon, resolveFolderIcon } from '@/lib/fileTreeIcons';
 import { IconWithFallback } from '@/components/shared/IconWithFallback';
@@ -13,8 +14,9 @@ export function EditorBreadcrumbs({ path, dirty = false }: Props) {
   const segments = path.split('/').filter(Boolean);
   if (segments.length === 0) return null;
 
-  const shouldCollapseMiddle = segments.length > 4;
-  const middleSegments = shouldCollapseMiddle ? segments.slice(1, -1) : [];
+  const [expanded, setExpanded] = useState(false);
+  const shouldCollapseMiddle = segments.length > 4 && !expanded;
+  const middleSegments = segments.slice(1, -1);
   const visibleSegments = shouldCollapseMiddle
     ? [segments[0], '…', segments[segments.length - 1]]
     : segments;
@@ -43,12 +45,24 @@ export function EditorBreadcrumbs({ path, dirty = false }: Props) {
           <div key={`${segmentPath}-${index}`} className="flex shrink-0 items-center gap-1">
             {index > 0 && <ChevronRight className="h-3 w-3 opacity-60" />}
             <IconWithFallback src={iconSrc} fallbackSrc={fallbackSrc} alt="" role="presentation" className="h-4 w-4 shrink-0" />
-            <span
-              className={isLast ? 'font-medium text-foreground' : undefined}
-              title={isCollapsed ? middleSegments.join(' / ') : undefined}
-            >
-              {segment}
-            </span>
+            {isCollapsed ? (
+              <button
+                type="button"
+                className="rounded px-1 hover:bg-accent hover:text-foreground"
+                title={middleSegments.join(' / ')}
+                aria-label="Mostrar pastas intermediárias"
+                onClick={() => setExpanded(true)}
+              >
+                {segment}
+              </button>
+            ) : (
+              <span
+                className={isLast ? 'font-medium text-foreground' : undefined}
+                title={isCollapsed ? middleSegments.join(' / ') : undefined}
+              >
+                {segment}
+              </span>
+            )}
             {isLast && dirty && (
               <span
                 aria-label="Arquivo com alteracoes nao salvas"

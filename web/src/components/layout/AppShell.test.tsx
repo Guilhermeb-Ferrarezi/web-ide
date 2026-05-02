@@ -30,6 +30,18 @@ vi.mock('@/hooks/useGitStatus', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useAuth', () => ({
+  useAuth: () => ({
+    user: {
+      userId: '1',
+      login: 'octocat',
+      avatarUrl: 'https://example.com/octocat.png',
+      role: 'owner',
+    },
+    logout: vi.fn(),
+  }),
+}));
+
 vi.mock('@/components/file-tree/FileTree', () => ({
   FileTree: () => <div>file-tree</div>,
 }));
@@ -90,6 +102,7 @@ describe('<AppShell />', () => {
     expect(screen.getByRole('button', { name: 'Git' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Extensões' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Terminal' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Conta e configurações' })).toBeInTheDocument();
   });
 
   it('expõe atalhos de teclado acessíveis nos botões da barra lateral', () => {
@@ -119,5 +132,22 @@ describe('<AppShell />', () => {
     expect(gitButton).toHaveAttribute('aria-pressed', 'true');
     expect(filesButton).toHaveAttribute('aria-pressed', 'false');
     expect(screen.getByText('git-panel')).toBeInTheDocument();
+  });
+
+  it('abre o menu de configurações pelo avatar do GitHub', async () => {
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
+
+    render(<AppShell workspace="repo" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Conta e configurações' }));
+
+    expect(screen.getByText('octocat')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Configurações' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Configurações' }));
+
+    expect(screen.getByText('Configurações do editor')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Após 1.2s' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument();
   });
 });

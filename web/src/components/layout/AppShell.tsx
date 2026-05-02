@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
-import { Blocks, Files, GitFork, Search, TerminalSquare } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { Blocks, Check, Clock3, Files, GitFork, Github, LogOut, Search, Settings2, TerminalSquare, User, WrapText, X } from 'lucide-react';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
 import { FileTree } from '@/components/file-tree/FileTree';
 import { EditorBreadcrumbs } from '@/components/editor/EditorBreadcrumbs';
 import { EditorTabs } from '@/components/editor/EditorTabs';
@@ -13,16 +14,25 @@ import { ExtensionsPanel } from '@/components/extensions/ExtensionsPanel';
 import { CodeSearchPanel } from '@/components/shared/CodeSearchPanel';
 import { TerminalPane } from '@/components/terminal/TerminalPane';
 import { StatusBar } from './StatusBar';
+import { useAuth } from '@/hooks/useAuth';
 import { useEditor } from '@/hooks/useEditor';
 import { useGitStatus } from '@/hooks/useGitStatus';
 import { cn } from '@/lib/utils';
+import { useEditorStore } from '@/stores/editorStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 type SidePanel = 'files' | 'search' | 'git' | 'extensions';
 
 export function AppShell({ workspace }: { workspace: string }) {
   const { tabs, activePath, setActive, closeTab: closeTabRaw, updateContent, save } = useEditor();
+  const { user, logout } = useAuth();
   const permission = useWorkspaceStore((s) => s.permission);
+  const wordWrap = useEditorStore((s) => s.wordWrap);
+  const toggleWordWrap = useEditorStore((s) => s.toggleWordWrap);
+  const autoSaveMode = useEditorStore((s) => s.autoSaveMode);
+  const autoSaveDelayMs = useEditorStore((s) => s.autoSaveDelayMs);
+  const setAutoSaveMode = useEditorStore((s) => s.setAutoSaveMode);
+  const setAutoSaveDelayMs = useEditorStore((s) => s.setAutoSaveDelayMs);
 
   const closeTab = useCallback(
     (path: string) => {
@@ -36,7 +46,12 @@ export function AppShell({ workspace }: { workspace: string }) {
   const { status: gitStatus } = useGitStatus(workspace);
   const [side, setSide] = useState<SidePanel>('files');
   const [showTerminal, setShowTerminal] = useState(true);
+  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<'editor' | 'account' | 'terminal'>('editor');
   const fileFilterRef = useRef<HTMLInputElement>(null) as RefObject<HTMLInputElement>;
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
+  const autoSaveTimersRef = useRef<Map<string, number>>(new Map());
   const gitChangedCount = gitStatus
     ? new Set([
         ...gitStatus.staged.map((file) => file.path),
@@ -44,10 +59,36 @@ export function AppShell({ workspace }: { workspace: string }) {
         ...gitStatus.untracked,
       ]).size
     : 0;
+  const resolvedAutoSaveLabel = useMemo(() => {
+    if (autoSaveMode !== 'afterDelay') return 'Auto Save desativado';
+    return `Auto Save em ${autoSaveDelayMs >= 3000 ? '3s' : '1.2s'}`;
+  }, [autoSaveDelayMs, autoSaveMode]);
 
   useEffect(() => {
     if (permission !== 'write') setShowTerminal(false);
   }, [permission]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (!settingsMenuRef.current?.contains(event.target as Node)) {
+        setSettingsMenuOpen(false);
+      }
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setSettingsMenuOpen(false);
+        setSettingsDialogOpen(false);
+      }
+    }
+
+    window.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleEscape);
+    return () => {
+      window.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
 
   useEffect(() => {
     const dirtyCount = tabs.filter((t) => t.dirty).length;
@@ -80,6 +121,41 @@ export function AppShell({ workspace }: { workspace: string }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activePath, closeTab]);
 
+  useEffect(() => {
+    const timers = autoSaveTimersRef.current;
+
+    for (const [path, timer] of timers.entries()) {
+      const tab = tabs.find((entry) => entry.path === path);
+      const shouldKeep =
+        permission === 'write' &&
+        autoSaveMode === 'afterDelay' &&
+        tab &&
+        tab.kind !== 'extension' &&
+        tab.dirty;
+
+      if (!shouldKeep) {
+        window.clearTimeout(timer);
+        timers.delete(path);
+      }
+    }
+
+    if (permission !== 'write' || autoSaveMode !== 'afterDelay') return;
+
+    for (const tab of tabs) {
+      if (tab.kind === 'extension' || !tab.dirty || timers.has(tab.path)) continue;
+      const timer = window.setTimeout(() => {
+        timers.delete(tab.path);
+        void save(tab.path);
+      }, autoSaveDelayMs);
+      timers.set(tab.path, timer);
+    }
+
+    return () => {
+      for (const timer of timers.values()) window.clearTimeout(timer);
+      timers.clear();
+    };
+  }, [tabs, permission, autoSaveMode, autoSaveDelayMs, save]);
+
   return (
     <div className="flex h-full flex-col">
       <ResizablePanelGroup direction="horizontal" className="flex-1">
@@ -94,12 +170,12 @@ export function AppShell({ workspace }: { workspace: string }) {
                 aria-keyshortcuts="Ctrl+1"
                 aria-pressed={side === 'files'}
                 className={cn(
-                  'h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
                   side === 'files' && 'bg-white/8 text-[#f5f3ff]',
                 )}
                 onClick={() => setSide('files')}
               >
-                <Files className="h-6.5 w-6.5 stroke-[1.8]" />
+                <Files className="h-7.5 w-7.5 stroke-[1.7]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Arquivos <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+1</kbd> · Filtrar <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+P</kbd></TooltipContent>
@@ -113,12 +189,12 @@ export function AppShell({ workspace }: { workspace: string }) {
                 aria-keyshortcuts="Ctrl+2"
                 aria-pressed={side === 'search'}
                 className={cn(
-                  'h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
                   side === 'search' && 'bg-white/8 text-[#f5f3ff]',
                 )}
                 onClick={() => setSide('search')}
               >
-                <Search className="h-6.5 w-6.5 stroke-[1.8]" />
+                <Search className="h-7.5 w-7.5 stroke-[1.7]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Buscar código <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+2</kbd></TooltipContent>
@@ -132,12 +208,12 @@ export function AppShell({ workspace }: { workspace: string }) {
                 aria-keyshortcuts="Ctrl+3"
                 aria-pressed={side === 'git'}
                 className={cn(
-                  'relative h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  'relative h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
                   side === 'git' && 'bg-white/8 text-[#f5f3ff]',
                 )}
                 onClick={() => setSide('git')}
               >
-                <GitFork className="h-6.5 w-6.5 stroke-[1.8]" />
+                <GitFork className="h-7.5 w-7.5 stroke-[1.7]" />
                 {gitChangedCount > 0 && (
                   <span className="absolute bottom-1 right-1 min-w-4 rounded-full bg-[#8b5cf6] px-1 text-[10px] font-semibold leading-4 text-white shadow-sm">
                     {gitChangedCount}
@@ -156,12 +232,12 @@ export function AppShell({ workspace }: { workspace: string }) {
                 aria-keyshortcuts="Ctrl+4"
                 aria-pressed={side === 'extensions'}
                 className={cn(
-                  'relative h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  'relative h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
                   side === 'extensions' && 'bg-white/8 text-[#f5f3ff]',
                 )}
                 onClick={() => setSide('extensions')}
               >
-                <Blocks className="h-6.5 w-6.5 stroke-[1.8]" />
+                <Blocks className="h-7.5 w-7.5 stroke-[1.7]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">Extensões <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+4</kbd></TooltipContent>
@@ -174,19 +250,119 @@ export function AppShell({ workspace }: { workspace: string }) {
                 size="icon"
                 aria-label="Terminal"
                 className={cn(
-                  'h-10 w-10 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                  'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
                   showTerminal && 'bg-white/8 text-[#f5f3ff]',
                 )}
                 onClick={() => setShowTerminal((v) => !v)}
                 disabled={permission !== 'write'}
               >
-                <TerminalSquare className="h-6.5 w-6.5 stroke-[1.8]" />
+                <TerminalSquare className="h-7.5 w-7.5 stroke-[1.7]" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
               {permission === 'write' ? <>Terminal <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+`</kbd></> : 'Terminal indisponível em modo somente leitura'}
             </TooltipContent>
           </Tooltip>
+          <div ref={settingsMenuRef} className="relative mt-2">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Conta e configurações"
+                  aria-haspopup="menu"
+                  aria-expanded={settingsMenuOpen}
+                  aria-pressed={settingsMenuOpen}
+                  className={cn(
+                    'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
+                    settingsMenuOpen && 'bg-white/8 text-[#f5f3ff]',
+                  )}
+                  onClick={() => setSettingsMenuOpen((current) => !current)}
+                >
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={user.login} className="h-8 w-8 rounded-full border border-white/10 object-cover" />
+                  ) : (
+                    <Github className="h-7.5 w-7.5 stroke-[1.7]" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Conta e configurações</TooltipContent>
+            </Tooltip>
+            {settingsMenuOpen && !settingsDialogOpen && (
+              <div className="absolute bottom-0 left-full z-50 ml-3 w-64 rounded-xl border border-white/10 bg-[#16151d] p-3 text-sm text-[#e8e4f4] shadow-2xl">
+                <div className="flex items-center gap-3">
+                  {user?.avatarUrl ? (
+                    <img src={user.avatarUrl} alt={user.login} className="h-10 w-10 rounded-full border border-white/10 object-cover" />
+                  ) : (
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                      <Github className="h-5 w-5" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{user?.login ?? 'GitHub'}</p>
+                    <p className="truncate text-xs text-[#a59fba]">{resolvedAutoSaveLabel}</p>
+                  </div>
+                </div>
+                <Separator className="my-3 bg-white/10" />
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    aria-label="Configurações"
+                    onClick={() => {
+                      setSettingsSection('editor');
+                      setSettingsDialogOpen(true);
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Settings2 className="h-4 w-4 text-[#a59fba]" />
+                      Configurações
+                    </span>
+                    <span className="text-xs text-[#a59fba]">Abrir</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (autoSaveMode === 'afterDelay') setAutoSaveMode('off');
+                      else {
+                        setAutoSaveMode('afterDelay');
+                        setAutoSaveDelayMs(1200);
+                      }
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Clock3 className="h-4 w-4 text-[#a59fba]" />
+                      Auto Save
+                    </span>
+                    <span className="text-xs text-[#a59fba]">{autoSaveMode === 'afterDelay' ? 'Ligado' : 'Off'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleWordWrap}
+                    className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
+                  >
+                    <span className="flex items-center gap-2">
+                      <WrapText className="h-4 w-4 text-[#a59fba]" />
+                      Quebra de linha
+                    </span>
+                    {wordWrap && <Check className="h-4 w-4 text-[#8b5cf6]" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSettingsMenuOpen(false);
+                      void logout();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left text-rose-200 hover:bg-rose-500/10"
+                  >
+                    <LogOut className="h-4 w-4" />
+                    Sair
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         </TooltipProvider>
 
@@ -231,6 +407,204 @@ export function AppShell({ workspace }: { workspace: string }) {
           </ResizablePanelGroup>
         </ResizablePanel>
       </ResizablePanelGroup>
+      {settingsDialogOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 p-6 backdrop-blur-sm">
+          <div className="flex h-[78vh] w-full max-w-6xl overflow-hidden rounded-2xl border border-white/10 bg-[#111015] text-[#ece8f7] shadow-2xl">
+            <div className="flex w-72 shrink-0 flex-col border-r border-white/10 bg-[#0d0c12]">
+              <div className="flex items-center gap-3 px-5 py-5">
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user.login} className="h-12 w-12 rounded-full border border-white/10 object-cover" />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5">
+                    <Github className="h-6 w-6" />
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <p className="truncate font-medium">{user?.login ?? 'GitHub'}</p>
+                  <p className="truncate text-xs text-[#9c96ae]">Configurações da conta</p>
+                </div>
+              </div>
+              <div className="px-3">
+                {[
+                  { id: 'editor', label: 'Editor', icon: Settings2 },
+                  { id: 'account', label: 'Minha conta', icon: User },
+                  { id: 'terminal', label: 'Terminal', icon: TerminalSquare },
+                ].map((item) => {
+                  const Icon = item.icon;
+                  const active = settingsSection === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setSettingsSection(item.id as 'editor' | 'account' | 'terminal')}
+                      className={cn(
+                        'mb-1 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors',
+                        active ? 'bg-white/10 text-white' : 'text-[#c6c0d8] hover:bg-white/6',
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-auto px-3 pb-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSettingsDialogOpen(false);
+                    setSettingsMenuOpen(false);
+                    void logout();
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-rose-200 transition-colors hover:bg-rose-500/10"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </button>
+              </div>
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+                <div>
+                  <h2 className="text-lg font-medium">
+                    {settingsSection === 'editor' ? 'Configurações do editor' : settingsSection === 'account' ? 'Minha conta' : 'Terminal'}
+                  </h2>
+                  <p className="text-sm text-[#9c96ae]">
+                    {settingsSection === 'editor'
+                      ? 'Ajuste comportamento de edição e salvamento.'
+                      : settingsSection === 'account'
+                        ? 'Ações da sua conta conectada ao GitHub.'
+                        : 'Atalhos e comportamento do terminal integrado.'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSettingsDialogOpen(false)}
+                  className="rounded-lg border border-white/10 bg-white/5 p-2 text-[#c6c0d8] hover:bg-white/8 hover:text-white"
+                  aria-label="Fechar configurações"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+                {settingsSection === 'editor' && (
+                  <div className="max-w-3xl space-y-6">
+                    <div className="rounded-2xl border border-white/10 bg-[#0d0c12] p-5">
+                      <div className="mb-4">
+                        <p className="text-base font-medium">Auto Save</p>
+                        <p className="text-sm text-[#9c96ae]">Escolha quando o editor deve salvar alterações automaticamente.</p>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        {[
+                          { label: 'Desativado', mode: 'off' as const, delay: autoSaveDelayMs },
+                          { label: 'Após 1.2s', mode: 'afterDelay' as const, delay: 1200 },
+                          { label: 'Após 3s', mode: 'afterDelay' as const, delay: 3000 },
+                        ].map((option) => {
+                          const active = autoSaveMode === option.mode && (option.mode === 'off' || autoSaveDelayMs === option.delay);
+                          return (
+                            <button
+                              key={option.label}
+                              type="button"
+                              aria-label={option.label}
+                              onClick={() => {
+                                setAutoSaveMode(option.mode);
+                                if (option.mode === 'afterDelay') setAutoSaveDelayMs(option.delay);
+                              }}
+                              className={cn(
+                                'rounded-xl border px-4 py-4 text-left transition-colors',
+                                active
+                                  ? 'border-[#8b5cf6] bg-[#8b5cf6]/15 text-white'
+                                  : 'border-white/10 bg-white/5 text-[#d7d4e4] hover:bg-white/8',
+                              )}
+                            >
+                              <p className="font-medium">{option.label}</p>
+                              <p className="mt-1 text-xs text-[#9c96ae]">
+                                {option.mode === 'off' ? 'Salvamento manual com Ctrl+S.' : 'Salva arquivos alterados automaticamente.'}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-[#0d0c12] p-5">
+                      <div className="mb-4">
+                        <p className="text-base font-medium">Layout de edição</p>
+                        <p className="text-sm text-[#9c96ae]">Preferências rápidas para leitura e navegação.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={toggleWordWrap}
+                        className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/8"
+                      >
+                        <span className="flex items-center gap-3">
+                          <WrapText className="h-4 w-4 text-[#a59fba]" />
+                          Quebra de linha
+                        </span>
+                        {wordWrap && <Check className="h-4 w-4 text-[#8b5cf6]" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {settingsSection === 'account' && (
+                  <div className="max-w-3xl space-y-6">
+                    <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d0c12]">
+                      <div className="h-28 bg-gradient-to-r from-[#6d4aff] to-[#7c52f8]" />
+                      <div className="flex items-center justify-between gap-4 px-5 py-4">
+                        <div className="flex items-center gap-4">
+                          {user?.avatarUrl ? (
+                            <img src={user.avatarUrl} alt={user.login} className="-mt-12 h-20 w-20 rounded-full border-4 border-[#0d0c12] object-cover shadow-lg" />
+                          ) : (
+                            <div className="-mt-12 flex h-20 w-20 items-center justify-center rounded-full border-4 border-[#0d0c12] bg-white/10 shadow-lg">
+                              <Github className="h-8 w-8" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-xl font-semibold">{user?.login ?? 'GitHub'}</p>
+                            <p className="text-sm text-[#9c96ae]">Conta conectada para repositórios, permissões e autenticação.</p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="outline"
+                          className="border-white/10 bg-white/5 text-[#ece8f7] hover:bg-white/8"
+                          onClick={() => {
+                            setSettingsDialogOpen(false);
+                            setSettingsMenuOpen(false);
+                            void logout();
+                          }}
+                        >
+                          <LogOut className="mr-2 h-4 w-4" />
+                          Sair
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {settingsSection === 'terminal' && (
+                  <div className="max-w-3xl space-y-6">
+                    <div className="rounded-2xl border border-white/10 bg-[#0d0c12] p-5">
+                      <p className="mb-4 text-base font-medium">Atalhos do terminal</p>
+                      <div className="space-y-3 text-sm text-[#d7d4e4]">
+                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                          <span>Mostrar/ocultar terminal</span>
+                          <kbd className="rounded border border-white/10 px-2 py-1 text-xs">Ctrl+`</kbd>
+                        </div>
+                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                          <span>Copiar seleção</span>
+                          <kbd className="rounded border border-white/10 px-2 py-1 text-xs">Ctrl+Alt+C</kbd>
+                        </div>
+                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                          <span>Selecionar texto horizontalmente</span>
+                          <kbd className="rounded border border-white/10 px-2 py-1 text-xs">Shift + ←/→</kbd>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <StatusBar workspace={workspace} />
     </div>
   );

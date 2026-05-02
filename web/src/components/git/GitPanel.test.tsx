@@ -34,8 +34,10 @@ describe('<GitPanel />', () => {
     vi.clearAllMocks();
   });
 
-  it('desabilita acoes de escrita e explica o bloqueio em modo somente leitura', () => {
+  it('desabilita acoes de escrita e explica o bloqueio em modo somente leitura', async () => {
     render(<GitPanel workspace="repo" readOnly />);
+
+    await screen.findByRole('option', { name: 'develop' });
 
     expect(screen.getByText('Somente leitura')).toBeInTheDocument();
     expect(screen.getByText('Commits, stage, push e pull ficam bloqueados para quem tem acesso read.')).toBeInTheDocument();
@@ -71,8 +73,10 @@ describe('<GitPanel />', () => {
     expect(commitSpy).toHaveBeenCalledWith('repo', 'feat: branch target', 'develop');
   });
 
-  it('mostra dicas de atalho para criar e limpar o commit', () => {
+  it('mostra dicas de atalho para criar e limpar o commit', async () => {
     render(<GitPanel workspace="repo" />);
+
+    await screen.findByRole('option', { name: 'develop' });
 
     expect(screen.getByText('Ctrl+Enter para commitar · Esc limpa a mensagem')).toBeInTheDocument();
   });

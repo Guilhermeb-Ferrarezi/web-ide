@@ -138,4 +138,31 @@ describe('<EditorTabs />', () => {
       'https://raw.githubusercontent.com/material-extensions/vscode-material-icon-theme/v5.34.0/icons/react_ts.svg',
     );
   });
+
+  it('navega para a primeira e última aba com Home e End', async () => {
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+
+    render(
+      <EditorTabs
+        tabs={[
+          { path: 'README.md', name: 'README.md', content: '', originalContent: '', encoding: 'utf-8', mimeType: 'text/markdown', dirty: false },
+          { path: 'src/app.ts', name: 'app.ts', content: '', originalContent: '', encoding: 'utf-8', mimeType: 'text/plain', dirty: false },
+          { path: 'src/main.ts', name: 'main.ts', content: '', originalContent: '', encoding: 'utf-8', mimeType: 'text/plain', dirty: false },
+        ]}
+        activePath="src/app.ts"
+        onSelect={onSelect}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const activeTab = screen.getByRole('button', { name: 'app.ts' });
+    activeTab.focus();
+
+    await user.keyboard('{Home}');
+    expect(onSelect).toHaveBeenCalledWith('README.md');
+
+    await user.keyboard('{End}');
+    expect(onSelect).toHaveBeenCalledWith('src/main.ts');
+  });
 });

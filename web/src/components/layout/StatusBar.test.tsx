@@ -119,4 +119,35 @@ describe('<StatusBar />', () => {
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('src/main.tsx'));
     expect(screen.getByText('Caminho copiado!')).toBeInTheDocument();
   });
+
+  it('mantém o texto atual quando copiar falha', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    mockUseEditor.mockReturnValue({
+      tabs: [
+        {
+          path: 'src/main.tsx',
+          name: 'main.tsx',
+          content: 'a',
+          originalContent: 'a',
+          encoding: 'utf-8',
+          mimeType: 'text/typescript',
+          dirty: false,
+        },
+      ],
+      activePath: 'src/main.tsx',
+    });
+
+    render(<StatusBar workspace="repo" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'src/main.tsx' }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('src/main.tsx'));
+    expect(screen.getByRole('button', { name: 'src/main.tsx' })).toHaveTextContent('main.tsx');
+    expect(screen.queryByText('Caminho copiado!')).not.toBeInTheDocument();
+  });
 });

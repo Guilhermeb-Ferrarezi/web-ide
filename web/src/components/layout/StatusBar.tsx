@@ -11,6 +11,8 @@ export function StatusBar({ workspace }: { workspace: string }) {
   const permission = useWorkspaceStore((s) => s.permission);
   const cursorPosition = useEditorStore((s) => s.cursorPosition);
   const wordWrap = useEditorStore((s) => s.wordWrap);
+  const autoSaveMode = useEditorStore((s) => s.autoSaveMode);
+  const autoSaveDelayMs = useEditorStore((s) => s.autoSaveDelayMs);
   const toggleWordWrap = useEditorStore((s) => s.toggleWordWrap);
   const tab = tabs.find((t) => t.path === activePath);
   const dirtyCount = tabs.filter((current) => current.dirty).length;
@@ -19,10 +21,14 @@ export function StatusBar({ workspace }: { workspace: string }) {
   const [copiedTarget, setCopiedTarget] = useState<'workspace' | 'path' | null>(null);
 
   function copyValue(value: string, target: 'workspace' | 'path') {
-    void navigator.clipboard.writeText(value).then(() => {
-      setCopiedTarget(target);
-      setTimeout(() => setCopiedTarget(null), 1500);
-    });
+    void navigator.clipboard.writeText(value)
+      .then(() => {
+        setCopiedTarget(target);
+        setTimeout(() => setCopiedTarget(null), 1500);
+      })
+      .catch(() => {
+        setCopiedTarget(null);
+      });
   }
 
   return (
@@ -54,6 +60,9 @@ export function StatusBar({ workspace }: { workspace: string }) {
           </button>
         )}
         {language && language !== 'plaintext' && <span className="shrink-0 capitalize">{language}</span>}
+        <span className="shrink-0">
+          {autoSaveMode === 'afterDelay' ? `Auto Save ${autoSaveDelayMs >= 3000 ? '3s' : '1.2s'}` : 'Auto Save off'}
+        </span>
         {cursorPosition && <span className="shrink-0">Ln {cursorPosition.line}, Col {cursorPosition.column}</span>}
         {dirtyCount > 0 && (
           <span className="shrink-0 text-amber-600 dark:text-amber-400">

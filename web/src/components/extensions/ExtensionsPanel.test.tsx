@@ -128,4 +128,41 @@ describe('<ExtensionsPanel />', () => {
     expect(await screen.findByText('Nenhuma extensão encontrada para “missing”.')).toBeInTheDocument();
     expect(screen.getByText('Tente outro termo ou pressione Enter para buscar por “theme”.')).toBeInTheDocument();
   });
+
+  it('mostra resumo da busca quando há resultados', async () => {
+    vi.spyOn(extensionsApi, 'searchExtensions').mockResolvedValue([
+      {
+        id: 'GitHub.github-vscode-theme',
+        name: 'github-vscode-theme',
+        namespace: 'GitHub',
+        displayName: 'GitHub Theme',
+        description: 'GitHub theme for VS Code',
+        version: '6.3.5',
+        iconUrl: 'https://example.com/icon.png',
+        downloadCount: 100,
+        averageRating: 5,
+        verified: true,
+      },
+      {
+        id: 'ms-python.python',
+        name: 'python',
+        namespace: 'ms-python',
+        displayName: 'Python',
+        description: 'Python support',
+        version: '1.0.0',
+        iconUrl: 'https://example.com/python.png',
+        downloadCount: 50,
+        averageRating: 4.5,
+        verified: true,
+      },
+    ]);
+
+    render(<ExtensionsPanel />);
+
+    await userEvent.clear(screen.getByPlaceholderText('Search Extensions in Marketplace'));
+    await userEvent.type(screen.getByPlaceholderText('Search Extensions in Marketplace'), 'python');
+    await userEvent.click(screen.getByRole('button', { name: 'Buscar extensões' }));
+
+    expect(await screen.findByText('2 resultados para “python”')).toBeInTheDocument();
+  });
 });

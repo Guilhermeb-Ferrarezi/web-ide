@@ -79,10 +79,16 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose }: Props) {
                 e.preventDefault();
                 onSelect(tab.path);
               }
-              if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+              if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'Home' || e.key === 'End') {
                 e.preventDefault();
                 const idx = tabs.findIndex((t) => t.path === tab.path);
-                const next = e.key === 'ArrowRight' ? tabs[idx + 1] : tabs[idx - 1];
+                const next = e.key === 'ArrowRight'
+                  ? tabs[idx + 1]
+                  : e.key === 'ArrowLeft'
+                    ? tabs[idx - 1]
+                    : e.key === 'Home'
+                      ? tabs[0]
+                      : tabs[tabs.length - 1];
                 if (next) {
                   onSelect(next.path);
                   const el = document.querySelector<HTMLElement>(`[data-tab-path="${CSS.escape(next.path)}"]`);
