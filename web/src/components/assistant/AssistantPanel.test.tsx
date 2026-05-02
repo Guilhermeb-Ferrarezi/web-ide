@@ -61,4 +61,25 @@ describe('<AssistantPanel />', () => {
 
     expect(writeText).toHaveBeenCalledWith('Você pode extrair isso para um helper.');
   });
+
+  it('mostra uma mensagem amigavel quando o backend devolve timeout', async () => {
+    vi.spyOn(assistantApi, 'chatAssistant').mockRejectedValue({
+      response: { status: 504 },
+      message: 'Request failed with status code 504',
+    });
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('Pergunte algo sobre o workspace...');
+    await userEvent.type(input, 'faça uma alteração');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    expect(await screen.findByText('O Codex demorou demais para responder. Tente uma pergunta menor ou repita a ação.')).toBeInTheDocument();
+  });
 });

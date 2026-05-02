@@ -17,7 +17,7 @@ export const appConfigSchema = z.object({
   TERMINAL_SUPERUSERS: z.string().default(''),
   CODEX_BIN: z.string().min(1).default('codex'),
   CODEX_HOME: z.string().default(''),
-  CODEX_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
+  CODEX_TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),
 });
 
 const parsed = appConfigSchema.parse(process.env);

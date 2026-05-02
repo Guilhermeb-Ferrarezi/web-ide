@@ -46,6 +46,14 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
   }, [input, sending]);
 
   function formatError(cause: unknown) {
+    const responseStatus = typeof cause === 'object' && cause !== null && 'response' in cause
+      ? (cause as { response?: { status?: number } }).response?.status
+      : undefined;
+
+    if (responseStatus === 504) {
+      return 'O Codex demorou demais para responder. Tente uma pergunta menor ou repita a ação.';
+    }
+
     const raw =
       cause instanceof Error && cause.message
         ? cause.message
