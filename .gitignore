@@ -9,5 +9,6 @@ coverage
 .vscode
 .idea
 .workspaces
+.docker
 bun.lockb
 .claude

@@ -1,24 +1,31 @@
-FROM oven/bun:1.3.11-alpine AS deps
+FROM oven/bun:1.3.11 AS deps
 WORKDIR /app
-RUN apk add --no-cache python3 make g++ bash eza
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ bash \
+  && rm -rf /var/lib/apt/lists/*
 COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile || bun install
 
-FROM node:22-alpine AS runtime
+FROM oven/bun:1.3.11 AS runtime
 WORKDIR /app
 
-RUN apk add --no-cache git bash python3 make g++ curl \
-  && corepack enable \
-  && npm install -g node-gyp
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends git bash python3 make g++ curl nodejs npm eza \
+  && rm -rf /var/lib/apt/lists/*
 
-COPY --from=deps /usr/local/bin/bun /usr/local/bin/bun
+ENV NPM_CONFIG_PREFIX=/opt/npm-global
+ENV PATH=/opt/npm-global/bin:$PATH
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json tsconfig.json ./
 COPY src ./src
 COPY drizzle ./drizzle
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENV NODE_ENV=production
 EXPOSE 3000
 
-CMD ["node", "./node_modules/tsx/dist/cli.mjs", "src/server.ts"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["bun", "src/server.ts"]
