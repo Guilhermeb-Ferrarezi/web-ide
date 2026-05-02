@@ -151,6 +151,18 @@ describe('<AppShell />', () => {
     expect(screen.getByText('assistant-panel')).toBeInTheDocument();
   });
 
+  it('permite alternar o painel lateral com o codex aberto', async () => {
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
+
+    render(<AppShell workspace="repo" />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Chat' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Git' }));
+
+    expect(screen.getByText('assistant-panel')).toBeInTheDocument();
+    expect(screen.getByText('git-panel')).toBeInTheDocument();
+  });
+
   it('abre o menu de configurações pelo avatar do GitHub', async () => {
     useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
 

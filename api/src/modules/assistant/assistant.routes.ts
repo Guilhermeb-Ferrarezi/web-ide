@@ -5,5 +5,5 @@ import { postChat } from './assistant.controller.ts';
 
 export default async function assistantRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireAuth);
-  app.post('/assistant/chat', { preHandler: resolveRepoAccess('read') }, postChat);
+  app.post('/assistant/chat', { preHandler: resolveRepoAccess('write') }, postChat);
 }

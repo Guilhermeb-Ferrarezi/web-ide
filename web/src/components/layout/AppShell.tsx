@@ -121,6 +121,10 @@ export function AppShell({ workspace }: { workspace: string }) {
   }, [permission]);
 
   useEffect(() => {
+    if (permission !== 'write') setAssistantOpen(false);
+  }, [permission]);
+
+  useEffect(() => {
     if (assistantOpen) {
       setAssistantMounted(true);
       return;
@@ -168,7 +172,10 @@ export function AppShell({ workspace }: { workspace: string }) {
       else if (e.key === '2') { e.preventDefault(); setSide('search'); }
       else if (e.key === '3') { e.preventDefault(); setSide('git'); }
       else if (e.key === '4') { e.preventDefault(); setSide('extensions'); }
-      else if (e.key === '5') { e.preventDefault(); setAssistantOpen((current) => !current); }
+      else if (e.key === '5') {
+        e.preventDefault();
+        if (permission === 'write') setAssistantOpen((current) => !current);
+      }
       else if (e.key === 'p') {
         e.preventDefault();
         setSide('files');
@@ -238,8 +245,6 @@ export function AppShell({ workspace }: { workspace: string }) {
       timers.clear();
     };
   }, [tabs, permission, autoSaveMode, autoSaveDelayMs, save]);
-
-  const visibleSide = assistantOpen ? 'files' : side;
 
   return (
     <div className="flex h-full flex-col">
@@ -345,17 +350,26 @@ export function AppShell({ workspace }: { workspace: string }) {
                     aria-label="Chat"
                     aria-keyshortcuts="Ctrl+5"
                     aria-pressed={assistantOpen}
+                    disabled={permission !== 'write'}
                     className={cn(
                       'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
                       assistantOpen && 'bg-white/8 text-[#f5f3ff]',
                     )}
-                    onClick={() => setAssistantOpen((current) => !current)}
+                    onClick={() => {
+                      if (permission === 'write') setAssistantOpen((current) => !current);
+                    }}
                   >
                     <MessageSquare className={sidebarIconClass} />
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  Codex <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+5</kbd>
+                  {permission === 'write' ? (
+                    <>
+                      Codex <kbd className="ml-1 rounded border px-1 font-mono text-[10px]">Ctrl+5</kbd>
+                    </>
+                  ) : (
+                    'Codex exige edição habilitada'
+                  )}
                 </TooltipContent>
               </Tooltip>
               <div className="flex-1" />
@@ -493,10 +507,10 @@ export function AppShell({ workspace }: { workspace: string }) {
           </TooltipProvider>
 
           <ResizablePanel defaultSize={22} minSize={14} maxSize={45} className="border-r">
-            {visibleSide === 'files' ? <FileTree workspace={workspace} filterInputRef={fileFilterRef} /> : null}
-            {visibleSide === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
-            {visibleSide === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
-            {visibleSide === 'extensions' ? <ExtensionsPanel /> : null}
+            {side === 'files' ? <FileTree workspace={workspace} filterInputRef={fileFilterRef} /> : null}
+            {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
+            {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
+            {side === 'extensions' ? <ExtensionsPanel /> : null}
           </ResizablePanel>
           <ResizableHandle />
 

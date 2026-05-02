@@ -96,7 +96,7 @@ describe('chatWithAssistant', () => {
     expect(args[4]).toBe('/workspaces/alice/repo');
     expect(args[5]).toBe('--skip-git-repo-check');
     expect(args[6]).toBe('--sandbox');
-    expect(args[7]).toBe('read-only');
+    expect(args[7]).toBe('workspace-write');
     expect(args[8]).toBe('--ephemeral');
     expect(args[9]).toBe('-');
     const prompt = lastChild?.stdin.end.mock.calls[0]?.[0] as string;
@@ -105,6 +105,7 @@ describe('chatWithAssistant', () => {
     expect(prompt).toContain('Arquivo ativo: src/app.ts');
     expect(prompt).toContain('const value = 1;');
     expect(prompt).toContain('Usuário: Explique o arquivo');
+    expect(prompt).toContain('Quando o usuário pedir uma mudança, você pode alterar arquivos diretamente no workspace e deve mencionar o que mudou.');
   });
 });
 

@@ -60,6 +60,7 @@ function buildSystemPrompt(context: AssistantChatContext): string {
     'Você é o chat lateral do web-ide.',
     'Responda em português do Brasil, com objetividade e foco prático.',
     'Quando houver contexto de arquivo, considere o conteúdo para sugerir alterações concretas.',
+    'Quando o usuário pedir uma mudança, você pode alterar arquivos diretamente no workspace e deve mencionar o que mudou.',
     'Use o workspace atual como fonte principal de contexto quando precisar inspecionar arquivos.',
     `Workspace atual: ${context.workspace}`,
     `Caminho do workspace: ${context.workspacePath}`,
@@ -141,7 +142,7 @@ async function runCodex(prompt: string, cwd: string): Promise<string> {
     cwd,
     '--skip-git-repo-check',
     '--sandbox',
-    'read-only',
+    'workspace-write',
     '--ephemeral',
     '-',
   ];
