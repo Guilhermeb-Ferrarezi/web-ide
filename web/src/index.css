@@ -60,3 +60,31 @@
     height: 100%;
   }
 }
+
+.monaco-editor .git-diff-original-line {
+  background: rgba(248, 81, 73, 0.14);
+}
+
+.monaco-editor .git-diff-original-gutter {
+  border-left: 3px solid rgba(248, 81, 73, 0.9);
+  margin-left: 2px;
+}
+
+.monaco-editor .git-diff-original-inline {
+  background: rgba(248, 81, 73, 0.24);
+  border-radius: 2px;
+}
+
+.monaco-editor .git-diff-modified-line {
+  background: rgba(63, 185, 80, 0.14);
+}
+
+.monaco-editor .git-diff-modified-gutter {
+  border-left: 3px solid rgba(63, 185, 80, 0.92);
+  margin-left: 2px;
+}
+
+.monaco-editor .git-diff-modified-inline {
+  background: rgba(63, 185, 80, 0.26);
+  border-radius: 2px;
+}

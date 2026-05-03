@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { GitStatus } from '@/types';
+import type { GitDiffFileResponse, GitStatus } from '@/types';
 
 export async function fetchStatus(workspace: string): Promise<GitStatus> {
   const { data } = await api.get<GitStatus>('/git/status', { params: { workspace } });
@@ -11,6 +11,13 @@ export async function fetchDiff(workspace: string, file?: string, staged = false
     params: { workspace, file, staged: staged || undefined },
   });
   return data.diff;
+}
+
+export async function fetchDiffFile(workspace: string, file: string, staged = false) {
+  const { data } = await api.get<GitDiffFileResponse>('/git/diff/file', {
+    params: { workspace, file, staged: staged || undefined },
+  });
+  return data;
 }
 
 export async function fetchBranches(workspace: string) {

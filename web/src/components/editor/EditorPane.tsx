@@ -6,6 +6,7 @@ import { fetchProjectFiles, fetchTypes } from '@/api/fs';
 import { useEditor } from '@/hooks/useEditor';
 import { ExtensionDetailView, type InstalledExtensionAction } from '@/components/extensions/ExtensionDetailView';
 import { installExtension } from '@/api/extensions';
+import { buildGitDiffHighlightRanges } from '@/lib/gitDiffHighlights';
 import { detectLanguage, isImage } from '@/lib/language';
 import { buildMonacoThemeData, getMonacoThemeName } from '@/lib/monacoTheme';
 import { cn } from '@/lib/utils';
@@ -211,6 +212,10 @@ function collectModulePathMappings(typeLibs: Array<{ virtualPath: string; conten
 export function EditorPane({ tab, readOnly = false, compareMode = false, onChange, onSave }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const compareOriginalEditorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const compareModifiedEditorRef = useRef<Parameters<OnMount>[0] | null>(null);
+  const compareOriginalDecorationsRef = useRef<string[]>([]);
+  const compareModifiedDecorationsRef = useRef<string[]>([]);
   const [projectContext, setProjectContext] = useState<MonacoProjectContext | null>(null);
   const [installingId, setInstallingId] = useState<string | null>(null);
   const [resolvedThemeId, setResolvedThemeId] = useState<'vs' | 'vs-dark' | 'hc-black' | string>('vs-dark');
@@ -235,13 +240,75 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
   const activeTheme = activeThemeId === DEFAULT_EDITOR_THEME_ID
     ? null
     : installedThemes.find((theme) => theme.id === activeThemeId) ?? null;
+  const isWritableFile = tab?.kind !== 'extension' && tab?.kind !== 'git-diff';
+  const compareOriginalLabel = tab?.kind === 'git-diff' ? (tab.gitDiff?.originalLabel ?? 'Original') : 'Original';
+  const compareModifiedLabel = tab?.kind === 'git-diff' ? (tab.gitDiff?.modifiedLabel ?? 'Alterado') : 'Alterado';
+  const compareTargetPath = tab ? (tab.kind === 'git-diff' ? (tab.gitDiff?.filePath ?? tab.path) : tab.path) : '';
+  const compareLanguageName = tab ? (tab.kind === 'git-diff' ? (tab.gitDiff?.filePath.split('/').pop() ?? tab.name) : tab.name) : '';
   const showCompare = Boolean(
     compareMode &&
     tab &&
     tab.kind !== 'extension' &&
     tab.encoding === 'utf-8' &&
-    tab.originalContent !== tab.content,
+    (tab.kind === 'git-diff' || tab.originalContent !== tab.content),
   );
+
+  useEffect(() => {
+    if (!showCompare || !tab || tab.kind !== 'git-diff' || !monaco) return;
+
+    const originalEditor = compareOriginalEditorRef.current;
+    const modifiedEditor = compareModifiedEditorRef.current;
+    const originalModel = originalEditor?.getModel();
+    const modifiedModel = modifiedEditor?.getModel();
+    if (!originalEditor || !modifiedEditor || !originalModel || !modifiedModel) return;
+
+    const ranges = buildGitDiffHighlightRanges(tab.originalContent, tab.content);
+
+    compareOriginalDecorationsRef.current = originalEditor.deltaDecorations(
+      compareOriginalDecorationsRef.current,
+      [
+        ...ranges.original.map((range) => ({
+          range: new monaco.Range(range.startLine, 1, range.endLine, 1),
+          options: {
+            isWholeLine: true,
+            className: 'git-diff-original-line',
+            linesDecorationsClassName: 'git-diff-original-gutter',
+          },
+        })),
+        ...ranges.originalInline.map((range) => ({
+          range: new monaco.Range(range.line, range.startColumn, range.line, range.endColumn),
+          options: {
+            inlineClassName: 'git-diff-original-inline',
+          },
+        })),
+      ],
+    );
+
+    compareModifiedDecorationsRef.current = modifiedEditor.deltaDecorations(
+      compareModifiedDecorationsRef.current,
+      [
+        ...ranges.modified.map((range) => ({
+          range: new monaco.Range(range.startLine, 1, range.endLine, 1),
+          options: {
+            isWholeLine: true,
+            className: 'git-diff-modified-line',
+            linesDecorationsClassName: 'git-diff-modified-gutter',
+          },
+        })),
+        ...ranges.modifiedInline.map((range) => ({
+          range: new monaco.Range(range.line, range.startColumn, range.line, range.endColumn),
+          options: {
+            inlineClassName: 'git-diff-modified-inline',
+          },
+        })),
+      ],
+    );
+
+    return () => {
+      compareOriginalDecorationsRef.current = originalEditor.deltaDecorations(compareOriginalDecorationsRef.current, []);
+      compareModifiedDecorationsRef.current = modifiedEditor.deltaDecorations(compareModifiedDecorationsRef.current, []);
+    };
+  }, [showCompare, tab, monaco]);
 
   useEffect(() => {
     if (!workspace) {
@@ -363,7 +430,7 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
     function handle(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        if (tab?.kind !== 'extension' && tab && !readOnly) onSave(tab.path);
+        if (tab && isWritableFile && !readOnly) onSave(tab.path);
       }
     }
     window.addEventListener('keydown', handle);
@@ -446,7 +513,7 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
     ed.onMouseMove((event) => {
       clearHoverLoading();
       if (!event.target.position || !containerRef.current) return;
-      if (!monaco || tab?.kind === 'extension') return;
+      if (!monaco || tab?.kind === 'extension' || tab?.kind === 'git-diff') return;
       if (event.target.type !== monaco.editor.MouseTargetType.CONTENT_TEXT) return;
       const model = ed.getModel();
       if (!model) return;
@@ -498,6 +565,14 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
       ed.focus();
       setPendingJump(null);
     }
+  };
+
+  const handleCompareOriginalMount: OnMount = (ed) => {
+    compareOriginalEditorRef.current = ed;
+  };
+
+  const handleCompareModifiedMount: OnMount = (ed) => {
+    compareModifiedEditorRef.current = ed;
   };
 
   if (!tab) {
@@ -629,44 +704,47 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
 
   if (showCompare) {
     return (
-      <div ref={containerRef} className="relative flex h-full flex-col overflow-hidden">
+        <div ref={containerRef} className="relative flex h-full flex-col overflow-hidden">
         <div className="flex items-center justify-between border-b px-3 py-2 text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
-          <span>Original</span>
-          <span>Alterado</span>
+          <span>{compareOriginalLabel}</span>
+          <span>{compareModifiedLabel}</span>
         </div>
         <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-white/10">
           <div className="min-w-0">
             <Editor
-              key={`${tab.path}:original`}
+              key={`${compareTargetPath}:original`}
               height="100%"
-              path={`file:///${tab.path}.original`}
+              path={`file:///${compareTargetPath}.original`}
               theme={resolvedThemeId}
-              language={detectLanguage(tab.name)}
+              language={detectLanguage(compareLanguageName)}
               value={tab.originalContent}
+              onMount={handleCompareOriginalMount}
               options={{
                 ...sharedEditorOptions,
                 readOnly: true,
+                lineDecorationsWidth: 10,
               }}
             />
           </div>
           <div className="min-w-0">
             <Editor
-              key={`${tab.path}:modified`}
+              key={`${compareTargetPath}:modified`}
               height="100%"
-              path={`file:///${tab.path}`}
+              path={`file:///${compareTargetPath}`}
               theme={resolvedThemeId}
-              language={detectLanguage(tab.name)}
+              language={detectLanguage(compareLanguageName)}
               value={tab.content}
-              onChange={(v) => onChange(tab.path, v ?? '')}
-              onMount={handleMount}
+              onChange={tab.kind === 'git-diff' ? undefined : (v) => onChange(tab.path, v ?? '')}
+              onMount={tab.kind === 'git-diff' ? handleCompareModifiedMount : handleMount}
               options={{
                 ...sharedEditorOptions,
-                readOnly,
+                readOnly: readOnly || tab.kind === 'git-diff',
+                lineDecorationsWidth: 10,
               }}
             />
           </div>
         </div>
-        {preparingEditor && tab.kind !== 'extension' && (
+        {preparingEditor && tab.kind !== 'extension' && tab.kind !== 'git-diff' && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/92 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-xl border bg-card/95 p-4 shadow-lg">
               <div className="mb-1 flex items-center gap-2 text-sm font-medium">
@@ -680,12 +758,12 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
             </div>
           </div>
         )}
-        {readOnly && tab.kind !== 'extension' && !preparingEditor && (
+        {readOnly && isWritableFile && !preparingEditor && (
           <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md border bg-background/95 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
             Somente leitura
           </div>
         )}
-        {tab.dirty && tab.kind !== 'extension' && !preparingEditor && (
+        {tab.dirty && isWritableFile && !preparingEditor && (
           <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-md border bg-background/95 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
             Não salvo · Ctrl+S para salvar
           </div>
@@ -723,7 +801,7 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
           readOnly,
         }}
       />
-      {preparingEditor && tab.kind !== 'extension' && (
+      {preparingEditor && tab.kind !== 'extension' && tab.kind !== 'git-diff' && (
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/92 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-xl border bg-card/95 p-4 shadow-lg">
             <div className="mb-1 flex items-center gap-2 text-sm font-medium">
@@ -737,12 +815,12 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
           </div>
         </div>
       )}
-      {readOnly && tab.kind !== 'extension' && !preparingEditor && (
+      {readOnly && isWritableFile && !preparingEditor && (
         <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md border bg-background/95 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
           Somente leitura
         </div>
       )}
-      {tab.dirty && tab.kind !== 'extension' && !preparingEditor && (
+      {tab.dirty && isWritableFile && !preparingEditor && (
         <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-md border bg-background/95 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
           Não salvo · Ctrl+S para salvar
         </div>

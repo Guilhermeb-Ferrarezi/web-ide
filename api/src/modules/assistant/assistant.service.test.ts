@@ -129,6 +129,9 @@ describe('chatWithAssistant', () => {
     expect(prompt).toContain('const value = 1;');
     expect(prompt).toContain('Usuário: Explique o arquivo');
     expect(prompt).toContain('Quando o usuário pedir uma mudança, você pode alterar arquivos diretamente no workspace e deve mencionar o que mudou.');
+    expect(prompt).toContain('Quando houver alteração de código, prefira responder com um resumo curto seguido de um único bloco ```diff em formato unified diff.');
+    expect(prompt).toContain('No diff, use caminhos relativos ao workspace e headers padrão com --- e +++.');
+    expect(prompt).toContain('Só devolva arquivo final completo em bloco de código normal quando o usuário pedir explicitamente o arquivo inteiro.');
   });
 
   it('refaz a chamada sem sandbox quando o ambiente bloqueia namespace', async () => {

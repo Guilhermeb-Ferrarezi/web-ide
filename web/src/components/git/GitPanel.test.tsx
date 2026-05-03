@@ -102,7 +102,18 @@ describe('<GitPanel />', () => {
 
     await user.click(screen.getByRole('button', { name: 'README.md' }));
 
-    expect(openFile).toHaveBeenCalledWith('README.md');
+    expect(openFile).toHaveBeenCalledWith('README.md', { staged: true });
+  });
+
+  it('abre diff de working tree ao clicar em arquivo modificado', async () => {
+    const user = userEvent.setup();
+    const openFile = vi.fn();
+
+    render(<GitPanel workspace="repo" onOpenFile={openFile} />);
+
+    await user.click(screen.getByRole('button', { name: 'src/app.ts' }));
+
+    expect(openFile).toHaveBeenCalledWith('src/app.ts', { staged: false });
   });
 
   it('permite limpar a mensagem do commit com um botão dedicado', async () => {

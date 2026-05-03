@@ -22,7 +22,8 @@ export function StatusBar({ workspace }: { workspace: string }) {
   const tab = tabs.find((t) => t.path === activePath);
   const dirtyCount = tabs.filter((current) => current.dirty).length;
   const permissionLabel = permission === 'read' ? 'Somente leitura' : permission === 'write' ? 'Edição habilitada' : null;
-  const language = tab && tab.kind === 'file' ? detectLanguage(tab.name) : null;
+  const visiblePath = tab?.kind === 'git-diff' ? (tab.gitDiff?.filePath ?? tab.path) : tab?.path;
+  const language = tab && (tab.kind === 'file' || tab.kind === 'git-diff') ? detectLanguage(tab.name) : null;
   const { status: gitStatus } = useGitStatus(workspace);
   const [copiedTarget, setCopiedTarget] = useState<'workspace' | 'path' | null>(null);
 
@@ -64,7 +65,7 @@ export function StatusBar({ workspace }: { workspace: string }) {
         )}
       </div>
       <div className="flex min-w-0 items-center gap-3 font-mono">
-        {tab && tab.kind === 'file' && (
+        {tab && (tab.kind === 'file' || tab.kind === 'git-diff') && (
           <button
             type="button"
             onClick={toggleWordWrap}
@@ -114,12 +115,12 @@ export function StatusBar({ workspace }: { workspace: string }) {
             Não salvo · Ctrl+S
           </span>
         )}
-        {tab ? (
+        {tab && visiblePath ? (
           <button
             type="button"
-            onClick={() => copyValue(tab.path, 'path')}
-            aria-label={tab.path}
-            title={tab.path}
+            onClick={() => copyValue(visiblePath, 'path')}
+            aria-label={visiblePath}
+            title={visiblePath}
             className="min-w-0 truncate text-left transition-colors hover:text-foreground"
           >
             {copiedTarget === 'path' ? 'Caminho copiado!' : `${tab.name}${tab.dirty ? ' • Não salvo' : ''}`}

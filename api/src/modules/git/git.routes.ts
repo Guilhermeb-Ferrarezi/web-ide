@@ -7,6 +7,7 @@ export default async function gitRoutes(app: FastifyInstance) {
   app.addHook('preHandler', requireAuth);
   app.get('/git/status', { preHandler: resolveRepoAccess('read') }, ctrl.getStatus);
   app.get('/git/diff', { preHandler: resolveRepoAccess('read') }, ctrl.getDiff);
+  app.get('/git/diff/file', { preHandler: resolveRepoAccess('read') }, ctrl.getDiffFile);
   app.get('/git/log', { preHandler: resolveRepoAccess('read') }, ctrl.getLog);
   app.get('/git/branches', { preHandler: resolveRepoAccess('read') }, ctrl.getBranches);
   app.post('/git/add', { preHandler: resolveRepoAccess('write') }, ctrl.postAdd);

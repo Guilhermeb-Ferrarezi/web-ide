@@ -5,6 +5,7 @@ import os from 'node:os';
 import { simpleGit } from 'simple-git';
 import {
   getStatus,
+  getDiffFileVersions,
   getLog,
   getBranches,
   addFiles,
@@ -134,6 +135,39 @@ describe('getLog', () => {
     expect(log[0].message).toBe('second');
     expect(log[1].message).toBe('first');
     expect(log[0].abbreviated).toHaveLength(7);
+  });
+});
+
+describe('getDiffFileVersions', () => {
+  it('retorna HEAD versus índice para arquivos staged', async () => {
+    await writeFile('a.txt', 'base\n');
+    await addFiles(workspace, ['a.txt']);
+    await commit(workspace, 'init');
+
+    await writeFile('a.txt', 'staged\n');
+    await addFiles(workspace, ['a.txt']);
+
+    const diff = await getDiffFileVersions(workspace, 'a.txt', true);
+
+    expect(diff.baseContent).toBe('base\n');
+    expect(diff.targetContent).toBe('staged\n');
+    expect(diff.mode).toBe('staged');
+  });
+
+  it('retorna índice versus working tree para arquivos unstaged', async () => {
+    await writeFile('a.txt', 'base\n');
+    await addFiles(workspace, ['a.txt']);
+    await commit(workspace, 'init');
+
+    await writeFile('a.txt', 'index\n');
+    await addFiles(workspace, ['a.txt']);
+    await writeFile('a.txt', 'working-tree\n');
+
+    const diff = await getDiffFileVersions(workspace, 'a.txt', false);
+
+    expect(diff.baseContent).toBe('index\n');
+    expect(diff.targetContent).toBe('working-tree\n');
+    expect(diff.mode).toBe('unstaged');
   });
 });
 

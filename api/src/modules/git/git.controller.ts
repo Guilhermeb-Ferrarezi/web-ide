@@ -13,6 +13,13 @@ export async function getDiff(req: FastifyRequest, reply: FastifyReply) {
   return reply.send({ diff });
 }
 
+const diffFileQuery = z.object({ workspace: z.string(), file: z.string(), staged: z.coerce.boolean().optional() });
+export async function getDiffFile(req: FastifyRequest, reply: FastifyReply) {
+  const q = diffFileQuery.parse(req.query);
+  const versions = await gitService.getDiffFileVersions(req.workspacePath!, q.file, q.staged ?? false);
+  return reply.send(versions);
+}
+
 export async function getLog(req: FastifyRequest, reply: FastifyReply) {
   const q = req.query as { limit?: string };
   const limit = q.limit ? parseInt(q.limit, 10) : 20;

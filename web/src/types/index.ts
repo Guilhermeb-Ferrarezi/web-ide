@@ -127,6 +127,12 @@ export type GitStatus = {
   untracked: string[];
 };
 
+export type GitDiffFileResponse = {
+  mode: 'staged' | 'unstaged';
+  baseContent: string;
+  targetContent: string;
+};
+
 export type EditorTab = {
   path: string;
   name: string;
@@ -135,11 +141,17 @@ export type EditorTab = {
   encoding: 'utf-8' | 'base64';
   mimeType: string;
   dirty: boolean;
-  kind?: 'file' | 'extension';
+  kind?: 'file' | 'extension' | 'git-diff';
   iconUrl?: string | null;
   extensionDetail?: ExtensionDetail | null;
   isLoading?: boolean;
   loadingLabel?: string | null;
+  gitDiff?: {
+    filePath: string;
+    staged: boolean;
+    originalLabel: string;
+    modifiedLabel: string;
+  } | null;
 };
 
 export type MonacoThemeRule = {

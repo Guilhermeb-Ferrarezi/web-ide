@@ -264,6 +264,7 @@ function MessageBubble({
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
   const codeBlock = useMemo(() => extractFirstCodeBlock(message.content), [message.content]);
+  const hasCodeBlock = !isUser && Boolean(codeBlock);
   const applyAvailable = Boolean(!isUser && canEdit && activePath && codeBlock && !isPatchLike(codeBlock));
 
   function copyContent() {
@@ -276,7 +277,7 @@ function MessageBubble({
 
   return (
     <div className={cn('group flex', isUser ? 'justify-end' : 'justify-start')}>
-      <div className="relative max-w-[92%]">
+      <div className={cn('relative', isUser ? 'max-w-[92%]' : hasCodeBlock ? 'w-full max-w-full' : 'max-w-[92%]')}>
         <div
           className={cn(
             'rounded-2xl border px-4 py-3 text-sm leading-6 shadow-sm',
@@ -366,7 +367,7 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
   }
 
   return (
-    <div className="my-3 overflow-hidden rounded-xl border border-white/10 bg-[#0c0b12]">
+    <div className="-mx-2 my-3 overflow-hidden rounded-xl border border-white/10 bg-[#0c0b12] sm:-mx-1">
       <div className="flex items-center justify-between border-b border-white/10 px-3 py-2 text-[11px] text-[#8a84a3]">
         <span>{language ? language.toUpperCase() : 'CÓDIGO'}</span>
         <button
@@ -378,8 +379,8 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
           {copied ? 'Copiado' : 'Copiar'}
         </button>
       </div>
-      <pre className="overflow-x-auto px-3 py-3 text-[13px] leading-6 text-[#ede9ff]">
-        <code className="whitespace-pre">{code}</code>
+      <pre className="overflow-x-auto px-3 py-3 text-[13px] leading-6 text-[#ede9ff] [tab-size:2]">
+        <code className="block min-w-full w-max whitespace-pre">{code}</code>
       </pre>
     </div>
   );

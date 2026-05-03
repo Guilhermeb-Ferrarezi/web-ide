@@ -1,4 +1,6 @@
 import { simpleGit, type SimpleGit } from 'simple-git';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
 function git(workspacePath: string): SimpleGit {
   return simpleGit({ baseDir: workspacePath });
@@ -45,6 +47,12 @@ export type GitStatusResult = {
   untracked: string[];
 };
 
+export type GitDiffFileVersions = {
+  mode: 'staged' | 'unstaged';
+  baseContent: string;
+  targetContent: string;
+};
+
 export async function getStatus(workspacePath: string): Promise<GitStatusResult> {
   const s = await git(workspacePath).status();
   const map = (entries: { path: string; index: string; working_dir: string }[]): GitFileStatus[] =>
@@ -72,6 +80,58 @@ export async function getDiff(workspacePath: string, file?: string, staged = fal
   if (staged) args.push('--cached');
   if (file) args.push('--', file);
   return git(workspacePath).diff(args);
+}
+
+async function readRevisionFile(g: SimpleGit, revision: string, file: string): Promise<string> {
+  try {
+    return await g.show([`${revision}:${file}`]);
+  } catch {
+    return '';
+  }
+}
+
+async function readIndexFile(g: SimpleGit, file: string): Promise<string> {
+  try {
+    return await g.raw(['show', `:${file}`]);
+  } catch {
+    return '';
+  }
+}
+
+async function readWorkspaceFile(workspacePath: string, file: string): Promise<string> {
+  try {
+    return await fs.readFile(path.join(workspacePath, file), 'utf-8');
+  } catch {
+    return '';
+  }
+}
+
+export async function getDiffFileVersions(workspacePath: string, file: string, staged = false): Promise<GitDiffFileVersions> {
+  const g = git(workspacePath);
+
+  if (staged) {
+    const [baseContent, targetContent] = await Promise.all([
+      readRevisionFile(g, 'HEAD', file),
+      readIndexFile(g, file),
+    ]);
+
+    return {
+      mode: 'staged',
+      baseContent,
+      targetContent,
+    };
+  }
+
+  const [baseContent, targetContent] = await Promise.all([
+    readIndexFile(g, file),
+    readWorkspaceFile(workspacePath, file),
+  ]);
+
+  return {
+    mode: 'unstaged',
+    baseContent,
+    targetContent,
+  };
 }
 
 export async function getLog(workspacePath: string, limit = 20) {

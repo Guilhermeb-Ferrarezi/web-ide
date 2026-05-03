@@ -236,7 +236,7 @@ export function AppShell({ workspace }: { workspace: string }) {
         permission === 'write' &&
         autoSaveMode === 'afterDelay' &&
         tab &&
-        tab.kind !== 'extension' &&
+        tab.kind === 'file' &&
         tab.dirty;
 
       if (!shouldKeep) {
@@ -248,7 +248,7 @@ export function AppShell({ workspace }: { workspace: string }) {
     if (permission !== 'write' || autoSaveMode !== 'afterDelay') return;
 
     for (const tab of tabs) {
-      if (tab.kind === 'extension' || !tab.dirty || timers.has(tab.path)) continue;
+      if (tab.kind !== 'file' || !tab.dirty || timers.has(tab.path)) continue;
       const timer = window.setTimeout(() => {
         timers.delete(tab.path);
         void save(tab.path);

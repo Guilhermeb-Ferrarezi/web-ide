@@ -12,11 +12,11 @@ import { fetchBranches, gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntr
 import { cn } from '@/lib/utils';
 import { GitFileList } from './GitFileList';
 
-type Props = { workspace: string; readOnly?: boolean; onOpenFile?: (path: string) => void };
+type Props = { workspace: string; readOnly?: boolean; onOpenFile?: (path: string, options?: { staged?: boolean }) => void };
 
 export function GitPanel({ workspace, readOnly = false, onOpenFile }: Props) {
   const { status, loading, refresh } = useGitStatus(workspace);
-  const { openFile } = useEditor();
+  const { openGitDiff } = useEditor();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState<'commit' | 'push' | 'pull' | null>(null);
@@ -64,12 +64,12 @@ export function GitPanel({ workspace, readOnly = false, onOpenFile }: Props) {
     () => Array.from(new Set([...(status?.staged.map((f) => f.path) ?? []), ...(status?.unstaged.map((f) => f.path) ?? [])])),
     [status],
   );
-  const openWorkspaceFile = (path: string) => {
+  const openWorkspaceFile = (path: string, options?: { staged?: boolean }) => {
     if (onOpenFile) {
-      onOpenFile(path);
+      onOpenFile(path, options);
       return;
     }
-    void openFile(path);
+    void openGitDiff(path, options);
   };
 
   const toggle = (path: string) =>
@@ -234,7 +234,7 @@ export function GitPanel({ workspace, readOnly = false, onOpenFile }: Props) {
                 onToggle={toggle}
                 onToggleAll={() => toggleAll(stagedItems)}
                 emptyText=""
-                onOpenFile={openWorkspaceFile}
+                onOpenFile={(path) => openWorkspaceFile(path, { staged: true })}
               />
               <div className="px-2">
                 <Button size="sm" variant="outline" className="w-full" onClick={() => void handleUnstage()} disabled={readOnly}>
@@ -254,7 +254,7 @@ export function GitPanel({ workspace, readOnly = false, onOpenFile }: Props) {
                 onToggle={toggle}
                 onToggleAll={() => toggleAll(unstagedItems)}
                 emptyText=""
-                onOpenFile={openWorkspaceFile}
+                onOpenFile={(path) => openWorkspaceFile(path, { staged: false })}
               />
               <div className="px-2">
                 <Button size="sm" className="w-full" onClick={() => void handleStage()} disabled={readOnly}>

@@ -96,6 +96,51 @@ describe('<EditorPane />', () => {
     );
   });
 
+  it('mostra labels de diff do git quando a aba representa um diff staged', () => {
+    render(
+      <EditorPane
+        tab={{
+          path: 'git:staged:README.md',
+          name: 'README.md',
+          content: '# docs staged',
+          originalContent: '# docs',
+          encoding: 'utf-8',
+          mimeType: 'text/markdown',
+          dirty: false,
+          kind: 'git-diff',
+          gitDiff: {
+            filePath: 'README.md',
+            staged: true,
+            originalLabel: 'HEAD',
+            modifiedLabel: 'Stage',
+          },
+        }}
+        compareMode
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('HEAD')).toBeInTheDocument();
+    expect(screen.getByText('Stage')).toBeInTheDocument();
+    expect(editorSpy).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        options: expect.objectContaining({
+          readOnly: true,
+        }),
+      }),
+    );
+    expect(editorSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        options: expect.objectContaining({
+          readOnly: true,
+        }),
+      }),
+    );
+  });
+
   it('mostra o nome do arquivo enquanto prepara o editor', () => {
     render(
       <EditorPane

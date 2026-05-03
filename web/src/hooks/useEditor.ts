@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { toast } from 'sonner';
 import { fetchFile, saveFile } from '@/api/fs';
+import { fetchDiffFile } from '@/api/git';
 import { useEditorStore, type EditorJump } from '@/stores/editorStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
@@ -56,7 +57,7 @@ export function useEditor() {
   const save = useCallback(
     async (filePath: string) => {
       const tab = useEditorStore.getState().tabs.find((t) => t.path === filePath);
-      if (!workspace || !tab || tab.kind === 'extension' || permission !== 'write') return;
+      if (!workspace || !tab || tab.kind !== 'file' || permission !== 'write') return;
       try {
         await saveFile(workspace, tab.path, tab.content, tab.encoding);
         markSaved(filePath);
@@ -75,5 +76,65 @@ export function useEditor() {
     [permission, updateContent],
   );
 
-  return { tabs, activePath, openFile, closeTab, setActive, updateContent: updateContentIfWritable, save };
+  const openGitDiff = useCallback(
+    async (filePath: string, options?: { staged?: boolean }) => {
+      if (!workspace) return;
+
+      const staged = options?.staged ?? false;
+      const diffPath = `git:${staged ? 'staged' : 'unstaged'}:${filePath}`;
+      const alreadyOpen = useEditorStore.getState().tabs.find((t) => t.path === diffPath);
+      if (alreadyOpen) {
+        setActive(diffPath);
+        return;
+      }
+
+      const name = filePath.split('/').pop() ?? filePath;
+      openTab({
+        path: diffPath,
+        name,
+        content: '',
+        originalContent: '',
+        encoding: 'utf-8',
+        mimeType: 'text/plain',
+        dirty: false,
+        kind: 'git-diff',
+        isLoading: true,
+        loadingLabel: 'Abrindo diff...',
+        gitDiff: {
+          filePath,
+          staged,
+          originalLabel: staged ? 'HEAD' : 'Index',
+          modifiedLabel: staged ? 'Stage' : 'Working Tree',
+        },
+      });
+
+      try {
+        const diff = await fetchDiffFile(workspace, filePath, staged);
+        upsertTab({
+          path: diffPath,
+          name,
+          content: diff.targetContent,
+          originalContent: diff.baseContent,
+          encoding: 'utf-8',
+          mimeType: 'text/plain',
+          dirty: false,
+          kind: 'git-diff',
+          isLoading: false,
+          loadingLabel: null,
+          gitDiff: {
+            filePath,
+            staged,
+            originalLabel: staged ? 'HEAD' : 'Index',
+            modifiedLabel: staged ? 'Stage' : 'Working Tree',
+          },
+        });
+      } catch {
+        closeTab(diffPath);
+        toast.error('Falha ao abrir diff do Git');
+      }
+    },
+    [workspace, openTab, upsertTab, closeTab, setActive],
+  );
+
+  return { tabs, activePath, openFile, openGitDiff, closeTab, setActive, updateContent: updateContentIfWritable, save };
 }
