@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AssistantPanel } from './AssistantPanel';
+import { AssistantPanel, getAssistantPanelStorageKey } from './AssistantPanel';
 import * as assistantApi from '@/api/assistant';
 
 const DRAFT_KEY = 'assistant-panel:repo:draft';
@@ -165,5 +165,78 @@ describe('<AssistantPanel />', () => {
         messages: [{ role: 'user', content: 'Crie testes para o arquivo aberto, considerando seu conteúdo atual.' }],
       }),
     );
+  });
+
+  it('não vaza rascunho ao trocar de workspace', async () => {
+    window.localStorage.setItem(getAssistantPanelStorageKey('repo', 'draft'), 'rascunho do repo');
+    window.localStorage.setItem(getAssistantPanelStorageKey('repo-2', 'draft'), 'rascunho do repo 2');
+
+    const { rerender } = render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('rascunho do repo');
+
+    rerender(
+      <AssistantPanel
+        workspace="repo-2"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('rascunho do repo 2');
+    expect(window.localStorage.getItem(getAssistantPanelStorageKey('repo-2', 'draft'))).toBe('rascunho do repo 2');
+  });
+
+  it('remove o rascunho salvo depois de enviar', async () => {
+    vi.spyOn(assistantApi, 'chatAssistant').mockResolvedValue({
+      message: 'ok',
+      model: 'test-model',
+    });
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('Pergunte algo sobre o workspace...');
+    await userEvent.type(input, 'mensagem temporária');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    await waitFor(() => expect(assistantApi.chatAssistant).toHaveBeenCalledTimes(1));
+    expect(window.localStorage.getItem(DRAFT_KEY)).toBeNull();
+  });
+
+  it('remove o histórico salvo ao limpar a conversa', async () => {
+    vi.spyOn(assistantApi, 'chatAssistant').mockResolvedValue({
+      message: 'resposta persistida',
+      model: 'test-model',
+    });
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('Pergunte algo sobre o workspace...');
+    await userEvent.type(input, 'limpar depois');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+    await screen.findByText('resposta persistida');
+
+    await userEvent.click(screen.getByTitle('Limpar conversa'));
+
+    expect(window.localStorage.getItem(MESSAGES_KEY)).toBeNull();
+    expect(screen.queryByText('resposta persistida')).not.toBeInTheDocument();
   });
 });

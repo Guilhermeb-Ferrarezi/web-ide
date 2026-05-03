@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -33,9 +33,11 @@ const QUICK_ACTIONS = [
   },
 ] as const;
 
+export function getAssistantPanelStorageKey(workspace: string, bucket: 'draft' | 'messages') {
+  return `assistant-panel:${workspace}:${bucket}`;
+}
+
 export function AssistantPanel({ workspace, activePath, activeContent, canEdit = true, onClose }: Props) {
-  const draftStorageKey = useMemo(() => `assistant-panel:${workspace}:draft`, [workspace]);
-  const messagesStorageKey = useMemo(() => `assistant-panel:${workspace}:messages`, [workspace]);
   const [messages, setMessages] = useState<AssistantChatMessage[]>(() => readStoredMessages(workspace));
   const [input, setInput] = useState(() => readStoredDraft(workspace));
   const [sending, setSending] = useState(false);
@@ -43,18 +45,49 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const firstWorkspaceRenderRef = useRef(true);
+  const skipDraftPersistRef = useRef(true);
+  const skipMessagesPersistRef = useRef(true);
 
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
 
   useEffect(() => {
-    window.localStorage.setItem(draftStorageKey, input);
-  }, [draftStorageKey, input]);
+    if (firstWorkspaceRenderRef.current) {
+      firstWorkspaceRenderRef.current = false;
+      return;
+    }
+
+    skipDraftPersistRef.current = true;
+    skipMessagesPersistRef.current = true;
+    setInput(readStoredDraft(workspace));
+    setMessages(readStoredMessages(workspace));
+    setError(null);
+    setLastPrompt(null);
+  }, [workspace]);
 
   useEffect(() => {
-    window.localStorage.setItem(messagesStorageKey, JSON.stringify(messages));
-  }, [messages, messagesStorageKey]);
+    if (skipDraftPersistRef.current) {
+      skipDraftPersistRef.current = false;
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      persistDraft(workspace, input);
+    }, 180);
+
+    return () => window.clearTimeout(handle);
+  }, [workspace, input]);
+
+  useEffect(() => {
+    if (skipMessagesPersistRef.current) {
+      skipMessagesPersistRef.current = false;
+      return;
+    }
+
+    persistMessages(workspace, messages);
+  }, [workspace, messages]);
 
   useEffect(() => {
     if (typeof endRef.current?.scrollIntoView === 'function') {
@@ -69,13 +102,6 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     const nextHeight = Math.min(el.scrollHeight, 200);
     el.style.height = `${nextHeight}px`;
   }, [input, sending]);
-
-  useEffect(() => {
-    setInput(readStoredDraft(workspace));
-    setMessages(readStoredMessages(workspace));
-    setError(null);
-    setLastPrompt(null);
-  }, [workspace]);
 
   function formatError(cause: unknown) {
     const responseStatus = typeof cause === 'object' && cause !== null && 'response' in cause
@@ -112,7 +138,6 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     setSending(true);
     setError(null);
     setLastPrompt(nextInput);
-    window.localStorage.removeItem(draftStorageKey);
 
     try {
       const response = await chatAssistant({
@@ -174,7 +199,6 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
                   setMessages([]);
                   setError(null);
                   setLastPrompt(null);
-                  window.localStorage.removeItem(messagesStorageKey);
                 }}
                 className="rounded p-1 text-[#7f7895] transition-colors hover:bg-white/8 hover:text-[#ece8f7]"
               >
@@ -309,7 +333,7 @@ function MessageBubble({
 }) {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
-  const codeBlock = useMemo(() => extractFirstCodeBlock(message.content), [message.content]);
+  const codeBlock = extractFirstCodeBlock(message.content);
   const hasCodeBlock = !isUser && Boolean(codeBlock);
   const applyAvailable = Boolean(!isUser && canEdit && activePath && codeBlock && !isPatchLike(codeBlock));
 
@@ -434,12 +458,22 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
 
 function readStoredDraft(workspace: string): string {
   if (typeof window === 'undefined') return '';
-  return window.localStorage.getItem(`assistant-panel:${workspace}:draft`) ?? '';
+  return window.localStorage.getItem(getAssistantPanelStorageKey(workspace, 'draft')) ?? '';
+}
+
+function persistDraft(workspace: string, value: string) {
+  if (typeof window === 'undefined') return;
+  const key = getAssistantPanelStorageKey(workspace, 'draft');
+  if (!value.trim()) {
+    window.localStorage.removeItem(key);
+    return;
+  }
+  window.localStorage.setItem(key, value);
 }
 
 function readStoredMessages(workspace: string): AssistantChatMessage[] {
   if (typeof window === 'undefined') return [];
-  const stored = window.localStorage.getItem(`assistant-panel:${workspace}:messages`);
+  const stored = window.localStorage.getItem(getAssistantPanelStorageKey(workspace, 'messages'));
   if (!stored) return [];
 
   try {
@@ -456,6 +490,16 @@ function readStoredMessages(workspace: string): AssistantChatMessage[] {
   } catch {
     return [];
   }
+}
+
+function persistMessages(workspace: string, messages: AssistantChatMessage[]) {
+  if (typeof window === 'undefined') return;
+  const key = getAssistantPanelStorageKey(workspace, 'messages');
+  if (messages.length === 0) {
+    window.localStorage.removeItem(key);
+    return;
+  }
+  window.localStorage.setItem(key, JSON.stringify(messages));
 }
 
 function flattenNodeText(node: ReactNode): string {
