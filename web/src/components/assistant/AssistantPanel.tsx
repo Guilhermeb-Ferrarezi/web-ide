@@ -18,9 +18,26 @@ type Props = {
   onClose?: () => void;
 };
 
+const QUICK_ACTIONS = [
+  {
+    label: 'Criar testes para este arquivo',
+    prompt: 'Crie testes para o arquivo aberto, considerando seu conteúdo atual.',
+  },
+  {
+    label: 'Explicar este arquivo',
+    prompt: 'Explique o arquivo aberto, destacando responsabilidades e possíveis riscos.',
+  },
+  {
+    label: 'Sugerir refatoração',
+    prompt: 'Sugira uma refatoração objetiva para o arquivo aberto e explique o ganho principal.',
+  },
+] as const;
+
 export function AssistantPanel({ workspace, activePath, activeContent, canEdit = true, onClose }: Props) {
-  const [messages, setMessages] = useState<AssistantChatMessage[]>([]);
-  const [input, setInput] = useState('');
+  const draftStorageKey = useMemo(() => `assistant-panel:${workspace}:draft`, [workspace]);
+  const messagesStorageKey = useMemo(() => `assistant-panel:${workspace}:messages`, [workspace]);
+  const [messages, setMessages] = useState<AssistantChatMessage[]>(() => readStoredMessages(workspace));
+  const [input, setInput] = useState(() => readStoredDraft(workspace));
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
@@ -30,6 +47,14 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
   useEffect(() => {
     textareaRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(draftStorageKey, input);
+  }, [draftStorageKey, input]);
+
+  useEffect(() => {
+    window.localStorage.setItem(messagesStorageKey, JSON.stringify(messages));
+  }, [messages, messagesStorageKey]);
 
   useEffect(() => {
     if (typeof endRef.current?.scrollIntoView === 'function') {
@@ -44,6 +69,13 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     const nextHeight = Math.min(el.scrollHeight, 200);
     el.style.height = `${nextHeight}px`;
   }, [input, sending]);
+
+  useEffect(() => {
+    setInput(readStoredDraft(workspace));
+    setMessages(readStoredMessages(workspace));
+    setError(null);
+    setLastPrompt(null);
+  }, [workspace]);
 
   function formatError(cause: unknown) {
     const responseStatus = typeof cause === 'object' && cause !== null && 'response' in cause
@@ -80,6 +112,7 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     setSending(true);
     setError(null);
     setLastPrompt(nextInput);
+    window.localStorage.removeItem(draftStorageKey);
 
     try {
       const response = await chatAssistant({
@@ -141,6 +174,7 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
                   setMessages([]);
                   setError(null);
                   setLastPrompt(null);
+                  window.localStorage.removeItem(messagesStorageKey);
                 }}
                 className="rounded p-1 text-[#7f7895] transition-colors hover:bg-white/8 hover:text-[#ece8f7]"
               >
@@ -172,6 +206,18 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
               <p className="mt-2 text-sm leading-6 text-[#a59fba]">
                 Posso revisar o arquivo aberto, sugerir refatorações, criar testes ou devolver uma alteração pronta para aplicar.
               </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {QUICK_ACTIONS.map((action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() => void sendMessage(action.prompt)}
+                    className="inline-flex items-center rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-100 transition-colors hover:bg-violet-500/20"
+                  >
+                    {action.label}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             messages.map((message, index) => (
@@ -384,6 +430,32 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
       </pre>
     </div>
   );
+}
+
+function readStoredDraft(workspace: string): string {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(`assistant-panel:${workspace}:draft`) ?? '';
+}
+
+function readStoredMessages(workspace: string): AssistantChatMessage[] {
+  if (typeof window === 'undefined') return [];
+  const stored = window.localStorage.getItem(`assistant-panel:${workspace}:messages`);
+  if (!stored) return [];
+
+  try {
+    const parsed = JSON.parse(stored);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter(
+      (item): item is AssistantChatMessage =>
+        typeof item === 'object' &&
+        item !== null &&
+        (item.role === 'user' || item.role === 'assistant') &&
+        typeof item.content === 'string',
+    );
+  } catch {
+    return [];
+  }
 }
 
 function flattenNodeText(node: ReactNode): string {

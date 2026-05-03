@@ -4,9 +4,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssistantPanel } from './AssistantPanel';
 import * as assistantApi from '@/api/assistant';
 
+const DRAFT_KEY = 'assistant-panel:repo:draft';
+const MESSAGES_KEY = 'assistant-panel:repo:messages';
+
+const storage = new Map<string, string>();
+const localStorageMock = {
+  getItem: vi.fn((key: string) => storage.get(key) ?? null),
+  setItem: vi.fn((key: string, value: string) => {
+    storage.set(key, value);
+  }),
+  removeItem: vi.fn((key: string) => {
+    storage.delete(key);
+  }),
+  clear: vi.fn(() => {
+    storage.clear();
+  }),
+};
+
 describe('<AssistantPanel />', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    storage.clear();
+    Object.defineProperty(window, 'localStorage', {
+      configurable: true,
+      value: localStorageMock,
+    });
+    HTMLElement.prototype.scrollIntoView = vi.fn();
   });
 
   it('envia uma mensagem e mostra a resposta no painel', async () => {
@@ -81,5 +104,66 @@ describe('<AssistantPanel />', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 
     expect(await screen.findByText('O Codex demorou demais para responder. Tente uma pergunta menor ou repita a ação.')).toBeInTheDocument();
+  });
+
+  it('restaura o rascunho salvo ao reabrir o painel', () => {
+    window.localStorage.setItem(DRAFT_KEY, 'continuar depois');
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('continuar depois');
+  });
+
+  it('restaura o histórico salvo ao reabrir o painel', () => {
+    window.localStorage.setItem(
+      MESSAGES_KEY,
+      JSON.stringify([
+        { role: 'user', content: 'revise este arquivo' },
+        { role: 'assistant', content: 'Encontrei um helper duplicado.' },
+      ]),
+    );
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    expect(screen.getByText('revise este arquivo')).toBeInTheDocument();
+    expect(screen.getByText('Encontrei um helper duplicado.')).toBeInTheDocument();
+  });
+
+  it('oferece ações rápidas no estado vazio para acelerar o primeiro envio', async () => {
+    vi.spyOn(assistantApi, 'chatAssistant').mockResolvedValue({
+      message: 'Posso começar pelos testes deste arquivo.',
+      model: 'test-model',
+    });
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Criar testes para este arquivo' }));
+
+    await waitFor(() =>
+      expect(assistantApi.chatAssistant).toHaveBeenCalledWith({
+        workspace: 'repo',
+        activePath: 'src/app.ts',
+        activeContent: 'const value = 1;',
+        messages: [{ role: 'user', content: 'Crie testes para o arquivo aberto, considerando seu conteúdo atual.' }],
+      }),
+    );
   });
 });
