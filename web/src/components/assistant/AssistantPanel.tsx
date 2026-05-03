@@ -8,6 +8,8 @@ import { saveFile } from '@/api/fs';
 import { Check, Copy, Loader2, Send, Sparkles, Trash2, WandSparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { resolveDefaultFileIcon, resolveFileIcon } from '@/lib/fileTreeIcons';
+import { IconWithFallback } from '@/components/shared/IconWithFallback';
 import type { AssistantChatMessage } from '@/types';
 
 type Props = {
@@ -48,6 +50,9 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
   const firstWorkspaceRenderRef = useRef(true);
   const skipDraftPersistRef = useRef(true);
   const skipMessagesPersistRef = useRef(true);
+  const activeFileName = activePath ? getFileName(activePath) : null;
+  const activeFileIcon = activePath ? resolveFileIcon(activePath) : null;
+  const activeFileFallbackIcon = activePath ? resolveDefaultFileIcon(activePath) : null;
 
   useEffect(() => {
     textareaRef.current?.focus();
@@ -177,16 +182,6 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     }
   }
 
-  function clearDraft() {
-    setInput('');
-  }
-
-  function reuseLastPrompt() {
-    if (!lastPrompt) return;
-    setInput(lastPrompt);
-    textareaRef.current?.focus();
-  }
-
   function insertActivePath() {
     if (!activePath) return;
     const prefix = `Sobre o arquivo ${activePath}: `;
@@ -305,11 +300,38 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
       </ScrollArea>
 
       <div className="border-t border-white/10 p-3">
+        {activePath && activeFileName && activeFileIcon && activeFileFallbackIcon && (
+          <div className="mb-2 flex items-center">
+            <button
+              type="button"
+              aria-label={`Adicionar ${activePath} ao prompt`}
+              onClick={insertActivePath}
+              disabled={sending}
+              className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2 text-xs text-[#cfc7e5] transition-colors hover:border-violet-300/30 hover:bg-violet-500/10 hover:text-white disabled:pointer-events-none disabled:opacity-50"
+            >
+              <span className="shrink-0 text-[#8b83a4]">+ </span>
+              <IconWithFallback
+                src={activeFileIcon}
+                fallbackSrc={activeFileFallbackIcon}
+                alt=""
+                ariaHidden
+                className="h-3.5 w-3.5 shrink-0"
+              />
+              <span className="truncate">{activeFileName}</span>
+            </button>
+          </div>
+        )}
         <Textarea
           ref={textareaRef}
           value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={(event) => {
+            if (event.key === 'ArrowUp' && !input.trim() && lastPrompt && !sending) {
+              event.preventDefault();
+              setInput(lastPrompt);
+              return;
+            }
+
             if (event.key === 'Enter' && !event.shiftKey) {
               event.preventDefault();
               void sendMessage();
@@ -318,42 +340,10 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
           placeholder="Pergunte algo sobre o workspace..."
           className="min-h-20 resize-none border-white/10 bg-black/30 text-sm text-[#f1edf8] placeholder:text-[#7f7895] overflow-hidden"
         />
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={insertActivePath}
-              disabled={!activePath || sending}
-              className="h-8 border border-white/10 bg-white/5 px-2.5 text-[11px] text-[#d7d0ea] hover:bg-white/10 hover:text-white"
-            >
-              Inserir arquivo atual
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={reuseLastPrompt}
-              disabled={!lastPrompt || sending}
-              className="h-8 border border-white/10 bg-white/5 px-2.5 text-[11px] text-[#d7d0ea] hover:bg-white/10 hover:text-white"
-            >
-              Reutilizar último prompt
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={clearDraft}
-              disabled={!input || sending}
-              className="h-8 border border-white/10 bg-white/5 px-2.5 text-[11px] text-[#d7d0ea] hover:bg-white/10 hover:text-white"
-            >
-              Limpar rascunho
-            </Button>
-          </div>
+        <div className="mt-2 flex flex-wrap items-center justify-end gap-3">
           <div className="flex items-center gap-3">
             <p className="text-[11px] text-[#7f7895]">
-              Enter envia • Shift+Enter quebra linha • {input.length} caractere(s)
+              Enter envia • Shift+Enter quebra linha • ↑ reutiliza último prompt • {input.length} caractere(s)
             </p>
             <Button
               type="button"
@@ -562,6 +552,10 @@ function flattenNodeText(node: ReactNode): string {
     return flattenNodeText((node as { props?: { children?: ReactNode } }).props?.children);
   }
   return '';
+}
+
+function getFileName(path: string) {
+  return path.split('/').filter(Boolean).at(-1) ?? path;
 }
 
 function extractFirstCodeBlock(content: string): string | null {

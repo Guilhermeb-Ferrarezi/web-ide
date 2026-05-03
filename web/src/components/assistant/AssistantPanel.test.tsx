@@ -240,31 +240,7 @@ describe('<AssistantPanel />', () => {
     expect(screen.queryByText('resposta persistida')).not.toBeInTheDocument();
   });
 
-  it('permite limpar o rascunho manualmente', async () => {
-    render(
-      <AssistantPanel
-        workspace="repo"
-        activePath="src/app.ts"
-        activeContent="const value = 1;"
-      />,
-    );
-
-    const input = screen.getByPlaceholderText('Pergunte algo sobre o workspace...');
-    await userEvent.type(input, 'rascunho temporário');
-
-    await waitFor(() =>
-      expect(window.localStorage.getItem(getAssistantPanelStorageKey('repo', 'draft'))).toBe('rascunho temporário'),
-    );
-
-    await userEvent.click(screen.getByRole('button', { name: 'Limpar rascunho' }));
-
-    expect(input).toHaveValue('');
-    await waitFor(() =>
-      expect(window.localStorage.getItem(getAssistantPanelStorageKey('repo', 'draft'))).toBeNull(),
-    );
-  });
-
-  it('permite reutilizar o último prompt enviado', async () => {
+  it('permite reutilizar o último prompt enviado com seta para cima', async () => {
     vi.spyOn(assistantApi, 'chatAssistant').mockResolvedValue({
       message: 'ok',
       model: 'test-model',
@@ -283,12 +259,15 @@ describe('<AssistantPanel />', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
     await screen.findByText('ok');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Reutilizar último prompt' }));
+    await userEvent.click(input);
+    await userEvent.keyboard('{ArrowUp}');
 
     expect(input).toHaveValue('refatore isso');
+    expect(screen.queryByRole('button', { name: 'Reutilizar último prompt' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Limpar rascunho' })).not.toBeInTheDocument();
   });
 
-  it('permite inserir rapidamente o arquivo aberto no prompt', async () => {
+  it('permite inserir rapidamente o arquivo aberto pelo atalho com nome do arquivo', async () => {
     render(
       <AssistantPanel
         workspace="repo"
@@ -297,8 +276,13 @@ describe('<AssistantPanel />', () => {
       />,
     );
 
-    await userEvent.click(screen.getByRole('button', { name: 'Inserir arquivo atual' }));
+    const fileButton = screen.getByRole('button', { name: 'Adicionar src/app.ts ao prompt' });
+    const fileIcon = fileButton.querySelector('img');
+
+    expect(fileIcon).toHaveAttribute('src', expect.stringContaining('/typescript.svg'));
+    await userEvent.click(fileButton);
 
     expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('Sobre o arquivo src/app.ts: ');
+    expect(fileButton).toHaveTextContent('+ app.ts');
   });
 });
