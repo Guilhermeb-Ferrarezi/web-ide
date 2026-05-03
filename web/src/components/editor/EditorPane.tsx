@@ -220,6 +220,18 @@ function collectModulePathMappings(typeLibs: Array<{ virtualPath: string; conten
   return mappings;
 }
 
+function relativizePathMappings(
+  mappings: Record<string, string[]>,
+  baseUrl: string,
+): Record<string, string[]> {
+  return Object.fromEntries(
+    Object.entries(mappings).map(([key, values]) => [
+      key,
+      values.map((value) => relativizeProjectPath(baseUrl, value)),
+    ]),
+  );
+}
+
 export function EditorPane({ tab, readOnly = false, compareMode = false, onChange, onSave }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
@@ -383,7 +395,20 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
       : projectCompilerOptions.jsx === 'preserve'
         ? ts.JsxEmit.Preserve
         : ts.JsxEmit.ReactJSX;
-    const modulePathMappings = collectModulePathMappings(projectContext.typeLibs);
+    const compilerBaseUrl = projectCompilerOptions.baseUrl;
+    const modulePathMappings = relativizePathMappings(
+      collectModulePathMappings(projectContext.typeLibs),
+      compilerBaseUrl,
+    );
+    const runtimeTypeMappings = relativizePathMappings(
+      {
+        react: ['node_modules/@types/react/index.d.ts', 'web/node_modules/@types/react/index.d.ts'],
+        'react/jsx-runtime': ['node_modules/@types/react/jsx-runtime.d.ts', 'web/node_modules/@types/react/jsx-runtime.d.ts'],
+        'react/jsx-dev-runtime': ['node_modules/@types/react/jsx-dev-runtime.d.ts', 'web/node_modules/@types/react/jsx-dev-runtime.d.ts'],
+        'react-dom': ['node_modules/@types/react-dom/index.d.ts', 'web/node_modules/@types/react-dom/index.d.ts'],
+      },
+      compilerBaseUrl,
+    );
     const opts: Parameters<typeof ts.typescriptDefaults.setCompilerOptions>[0] = {
       module: ts.ModuleKind.ESNext,
       moduleResolution: ts.ModuleResolutionKind.Bundler ?? ts.ModuleResolutionKind.NodeJs,
@@ -400,7 +425,7 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
       resolveJsonModule: projectCompilerOptions.resolveJsonModule,
       verbatimModuleSyntax: projectCompilerOptions.verbatimModuleSyntax,
       target: ts.ScriptTarget.ES2022,
-      baseUrl: projectCompilerOptions.baseUrl,
+      baseUrl: compilerBaseUrl,
       types: Array.from(new Set([
         ...projectCompilerOptions.types,
         'react',
@@ -409,10 +434,7 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
       paths: {
         ...modulePathMappings,
         ...projectCompilerOptions.paths,
-        react: ['node_modules/@types/react/index.d.ts', 'web/node_modules/@types/react/index.d.ts'],
-        'react/jsx-runtime': ['node_modules/@types/react/jsx-runtime.d.ts', 'web/node_modules/@types/react/jsx-runtime.d.ts'],
-        'react/jsx-dev-runtime': ['node_modules/@types/react/jsx-dev-runtime.d.ts', 'web/node_modules/@types/react/jsx-dev-runtime.d.ts'],
-        'react-dom': ['node_modules/@types/react-dom/index.d.ts', 'web/node_modules/@types/react-dom/index.d.ts'],
+        ...runtimeTypeMappings,
       },
     };
     ts.typescriptDefaults.setCompilerOptions(opts);
