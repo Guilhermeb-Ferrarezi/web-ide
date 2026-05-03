@@ -127,6 +127,17 @@ function resolveProjectPath(baseDir: string, relativePath: string): string {
   return resolved.join('/');
 }
 
+function relativizeProjectPath(baseDir: string, targetPath: string): string {
+  const normalizedBase = normalizeProjectPath(baseDir);
+  const normalizedTarget = normalizeProjectPath(targetPath);
+  if (!normalizedBase) return normalizedTarget;
+  if (normalizedTarget === normalizedBase) return '.';
+  if (normalizedTarget.startsWith(`${normalizedBase}/`)) {
+    return normalizedTarget.slice(normalizedBase.length + 1);
+  }
+  return normalizedTarget;
+}
+
 function stripJsonComments(input: string): string {
   return input
     .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -168,7 +179,7 @@ function deriveCompilerOptionsFromProjectFiles(
     const resolvedPaths = Object.fromEntries(
       Object.entries(compilerOptions.paths ?? {}).map(([key, values]) => [
         key,
-        values.map((value) => resolveProjectPath(configRoot, value)),
+        values.map((value) => relativizeProjectPath(resolvedBaseUrl, resolveProjectPath(configRoot, value))),
       ]),
     );
 
