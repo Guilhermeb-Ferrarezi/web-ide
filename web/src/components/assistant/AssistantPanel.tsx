@@ -45,6 +45,7 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const firstWorkspaceRenderRef = useRef(true);
@@ -70,6 +71,7 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     setMessages(readStoredMessages(workspace));
     setError(null);
     setLastPrompt(null);
+    setAttachedFiles([]);
   }, [workspace]);
 
   useEffect(() => {
@@ -135,14 +137,16 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
 
   async function sendMessage(rawValue?: string) {
     const nextInput = (rawValue ?? input).trim();
-    if (!nextInput || sending) return;
+    const nextContent = buildPromptContent(nextInput, attachedFiles);
+    if (!nextContent || sending) return;
 
-    const nextMessages: AssistantChatMessage[] = [...messages, { role: 'user', content: nextInput }];
+    const nextMessages: AssistantChatMessage[] = [...messages, { role: 'user', content: nextContent }];
     setMessages(nextMessages);
     setInput('');
+    setAttachedFiles([]);
     setSending(true);
     setError(null);
-    setLastPrompt(nextInput);
+    setLastPrompt(nextInput || nextContent);
 
     try {
       const response = await chatAssistant({
@@ -184,8 +188,12 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
 
   function insertActivePath() {
     if (!activePath) return;
-    const prefix = `Sobre o arquivo ${activePath}: `;
-    setInput((current) => (current.trim() ? `${current.trim()}\n${prefix}` : prefix));
+    setAttachedFiles((current) => (current.includes(activePath) ? current : [...current, activePath]));
+    textareaRef.current?.focus();
+  }
+
+  function removeAttachedFile(path: string) {
+    setAttachedFiles((current) => current.filter((item) => item !== path));
     textareaRef.current?.focus();
   }
 
@@ -300,25 +308,30 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
       </ScrollArea>
 
       <div className="border-t border-white/10 p-3">
-        {activePath && activeFileName && activeFileIcon && activeFileFallbackIcon && (
-          <div className="mb-2 flex items-center">
-            <button
-              type="button"
-              aria-label={`Adicionar ${activePath} ao prompt`}
-              onClick={insertActivePath}
-              disabled={sending}
-              className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2 text-xs text-[#cfc7e5] transition-colors hover:border-violet-300/30 hover:bg-violet-500/10 hover:text-white disabled:pointer-events-none disabled:opacity-50"
-            >
-              <span className="shrink-0 text-[#8b83a4]">+ </span>
-              <IconWithFallback
-                src={activeFileIcon}
-                fallbackSrc={activeFileFallbackIcon}
-                alt=""
-                ariaHidden
-                className="h-3.5 w-3.5 shrink-0"
-              />
-              <span className="truncate">{activeFileName}</span>
-            </button>
+        {(attachedFiles.length > 0 || (activePath && activeFileName && activeFileIcon && activeFileFallbackIcon)) && (
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            {activePath && activeFileName && activeFileIcon && activeFileFallbackIcon && !attachedFiles.includes(activePath) && (
+              <button
+                type="button"
+                aria-label={`Adicionar ${activePath} ao prompt`}
+                onClick={insertActivePath}
+                disabled={sending}
+                className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2 text-xs text-[#cfc7e5] transition-colors hover:border-violet-300/30 hover:bg-violet-500/10 hover:text-white disabled:pointer-events-none disabled:opacity-50"
+              >
+                <span className="shrink-0 text-[#8b83a4]">+ </span>
+                <IconWithFallback
+                  src={activeFileIcon}
+                  fallbackSrc={activeFileFallbackIcon}
+                  alt=""
+                  ariaHidden
+                  className="h-3.5 w-3.5 shrink-0"
+                />
+                <span className="truncate">{activeFileName}</span>
+              </button>
+            )}
+            {attachedFiles.map((path) => (
+              <AttachedFileChip key={path} path={path} onRemove={removeAttachedFile} />
+            ))}
           </div>
         )}
         <Textarea
@@ -348,7 +361,7 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
             <Button
               type="button"
               onClick={() => void sendMessage()}
-              disabled={sending || !input.trim()}
+              disabled={sending || (!input.trim() && attachedFiles.length === 0)}
               className={cn('gap-2 bg-violet-500 text-white hover:bg-violet-400', sending && 'cursor-wait')}
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -431,6 +444,31 @@ function MessageBubble({
         </div>
       </div>
     </div>
+  );
+}
+
+function AttachedFileChip({ path, onRemove }: { path: string; onRemove: (path: string) => void }) {
+  const fileName = getFileName(path);
+  const fileIcon = resolveFileIcon(path);
+  const fallbackFileIcon = resolveDefaultFileIcon(path);
+
+  return (
+    <button
+      type="button"
+      aria-label={`Remover ${path} do prompt`}
+      onClick={() => onRemove(path)}
+      className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-white/10 bg-[#1a1724] px-2 text-xs text-[#d7d0ea] transition-colors hover:border-rose-300/30 hover:bg-rose-500/10 hover:text-white"
+    >
+      <X className="h-3.5 w-3.5 shrink-0 text-[#8b83a4]" />
+      <IconWithFallback
+        src={fileIcon}
+        fallbackSrc={fallbackFileIcon}
+        alt=""
+        ariaHidden
+        className="h-3.5 w-3.5 shrink-0"
+      />
+      <span className="truncate">{fileName}</span>
+    </button>
   );
 }
 
@@ -556,6 +594,14 @@ function flattenNodeText(node: ReactNode): string {
 
 function getFileName(path: string) {
   return path.split('/').filter(Boolean).at(-1) ?? path;
+}
+
+function buildPromptContent(input: string, attachedFiles: string[]) {
+  if (attachedFiles.length === 0) return input;
+
+  const fileList = attachedFiles.map((path) => `- ${path}`).join('\n');
+  const context = `Arquivos anexados ao prompt:\n${fileList}`;
+  return input ? `${context}\n\n${input}` : context;
 }
 
 function extractFirstCodeBlock(content: string): string | null {

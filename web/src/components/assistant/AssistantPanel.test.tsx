@@ -267,8 +267,13 @@ describe('<AssistantPanel />', () => {
     expect(screen.queryByRole('button', { name: 'Limpar rascunho' })).not.toBeInTheDocument();
   });
 
-  it('permite inserir rapidamente o arquivo aberto pelo atalho com nome do arquivo', async () => {
-    render(
+  it('transforma arquivos adicionados em chips com ícone e remoção', async () => {
+    vi.spyOn(assistantApi, 'chatAssistant').mockResolvedValue({
+      message: 'ok',
+      model: 'test-model',
+    });
+
+    const { rerender } = render(
       <AssistantPanel
         workspace="repo"
         activePath="src/app.ts"
@@ -282,7 +287,40 @@ describe('<AssistantPanel />', () => {
     expect(fileIcon).toHaveAttribute('src', expect.stringContaining('/typescript.svg'));
     await userEvent.click(fileButton);
 
-    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('Sobre o arquivo src/app.ts: ');
-    expect(fileButton).toHaveTextContent('+ app.ts');
+    expect(screen.getByRole('button', { name: 'Remover src/app.ts do prompt' })).toHaveTextContent('app.ts');
+    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('');
+
+    rerender(
+      <AssistantPanel
+        workspace="repo"
+        activePath="Dockerfile"
+        activeContent="FROM node:22"
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Adicionar Dockerfile ao prompt' }));
+
+    expect(screen.getByRole('button', { name: 'Remover src/app.ts do prompt' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remover Dockerfile do prompt' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Remover src/app.ts do prompt' }));
+
+    expect(screen.queryByRole('button', { name: 'Remover src/app.ts do prompt' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Remover Dockerfile do prompt' })).toBeInTheDocument();
+
+    await userEvent.type(screen.getByPlaceholderText('Pergunte algo sobre o workspace...'), 'revise isso');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+
+    await waitFor(() => expect(assistantApi.chatAssistant).toHaveBeenCalledTimes(1));
+    expect(assistantApi.chatAssistant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          {
+            role: 'user',
+            content: 'Arquivos anexados ao prompt:\n- Dockerfile\n\nrevise isso',
+          },
+        ],
+      }),
+    );
   });
 });
