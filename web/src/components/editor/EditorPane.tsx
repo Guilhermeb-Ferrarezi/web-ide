@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 type Props = {
   tab: EditorTab | null;
   readOnly?: boolean;
+  compareMode?: boolean;
   onChange: (path: string, content: string) => void;
   onSave: (path: string) => void;
 };
@@ -207,7 +208,7 @@ function collectModulePathMappings(typeLibs: Array<{ virtualPath: string; conten
   return mappings;
 }
 
-export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
+export function EditorPane({ tab, readOnly = false, compareMode = false, onChange, onSave }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<Parameters<OnMount>[0] | null>(null);
   const [projectContext, setProjectContext] = useState<MonacoProjectContext | null>(null);
@@ -234,6 +235,13 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
   const activeTheme = activeThemeId === DEFAULT_EDITOR_THEME_ID
     ? null
     : installedThemes.find((theme) => theme.id === activeThemeId) ?? null;
+  const showCompare = Boolean(
+    compareMode &&
+    tab &&
+    tab.kind !== 'extension' &&
+    tab.encoding === 'utf-8' &&
+    tab.originalContent !== tab.content,
+  );
 
   useEffect(() => {
     if (!workspace) {
@@ -592,6 +600,113 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
     );
   }
 
+  const sharedEditorOptions = {
+    minimap: { enabled: false },
+    fontSize,
+    lineHeight: Math.round(fontSize * 1.7),
+    fontFamily: '"JetBrains Mono", ui-monospace, Menlo, Monaco, "Courier New", monospace',
+    scrollBeyondLastLine: false,
+    wordWrap: wordWrap ? 'on' : 'off',
+    automaticLayout: true,
+    fixedOverflowWidgets: true,
+    quickSuggestions: {
+      other: true,
+      comments: false,
+      strings: true,
+    },
+    suggestOnTriggerCharacters: true,
+    acceptSuggestionOnEnter: 'smart',
+    tabCompletion: 'on',
+    inlineSuggest: {
+      enabled: true,
+    },
+    parameterHints: {
+      enabled: true,
+    },
+    wordBasedSuggestions: 'currentDocument',
+    snippetSuggestions: 'inline',
+  } as const;
+
+  if (showCompare) {
+    return (
+      <div ref={containerRef} className="relative flex h-full flex-col overflow-hidden">
+        <div className="flex items-center justify-between border-b px-3 py-2 text-[11px] uppercase tracking-[0.28em] text-muted-foreground">
+          <span>Original</span>
+          <span>Alterado</span>
+        </div>
+        <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-white/10">
+          <div className="min-w-0">
+            <Editor
+              key={`${tab.path}:original`}
+              height="100%"
+              path={`file:///${tab.path}.original`}
+              theme={resolvedThemeId}
+              language={detectLanguage(tab.name)}
+              value={tab.originalContent}
+              options={{
+                ...sharedEditorOptions,
+                readOnly: true,
+              }}
+            />
+          </div>
+          <div className="min-w-0">
+            <Editor
+              key={`${tab.path}:modified`}
+              height="100%"
+              path={`file:///${tab.path}`}
+              theme={resolvedThemeId}
+              language={detectLanguage(tab.name)}
+              value={tab.content}
+              onChange={(v) => onChange(tab.path, v ?? '')}
+              onMount={handleMount}
+              options={{
+                ...sharedEditorOptions,
+                readOnly,
+              }}
+            />
+          </div>
+        </div>
+        {preparingEditor && tab.kind !== 'extension' && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/92 backdrop-blur-sm">
+            <div className="w-full max-w-md rounded-xl border bg-card/95 p-4 shadow-lg">
+              <div className="mb-1 flex items-center gap-2 text-sm font-medium">
+                <div className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                Preparando editor
+              </div>
+              <p className="mb-3 text-xs text-muted-foreground">{tab.name}</p>
+              <Skeleton className="mb-2 h-4 w-56" />
+              <Skeleton className="mb-2 h-4 w-72" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+          </div>
+        )}
+        {readOnly && tab.kind !== 'extension' && !preparingEditor && (
+          <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-md border bg-background/95 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
+            Somente leitura
+          </div>
+        )}
+        {tab.dirty && tab.kind !== 'extension' && !preparingEditor && (
+          <div className="pointer-events-none absolute right-3 top-3 z-10 rounded-md border bg-background/95 px-2 py-1 text-[11px] text-muted-foreground shadow-sm">
+            Não salvo · Ctrl+S para salvar
+          </div>
+        )}
+        {hoverLoading && (
+          <div
+            className={cn(
+              'pointer-events-none absolute z-30 rounded-md border bg-popover/95 px-2 py-1 text-xs text-popover-foreground shadow-lg',
+            )}
+            style={{ top: hoverLoading.top, left: hoverLoading.left }}
+          >
+            <div className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
+              <span>{hoverLoading.label}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div ref={containerRef} className="relative h-full">
       <Editor
@@ -604,30 +719,7 @@ export function EditorPane({ tab, readOnly = false, onChange, onSave }: Props) {
         onChange={(v) => onChange(tab.path, v ?? '')}
         onMount={handleMount}
         options={{
-          minimap: { enabled: false },
-          fontSize,
-          lineHeight: Math.round(fontSize * 1.7),
-          fontFamily: '"JetBrains Mono", ui-monospace, Menlo, Monaco, "Courier New", monospace',
-          scrollBeyondLastLine: false,
-          wordWrap: wordWrap ? 'on' : 'off',
-          automaticLayout: true,
-          fixedOverflowWidgets: true,
-          quickSuggestions: {
-            other: true,
-            comments: false,
-            strings: true,
-          },
-          suggestOnTriggerCharacters: true,
-          acceptSuggestionOnEnter: 'smart',
-          tabCompletion: 'on',
-          inlineSuggest: {
-            enabled: true,
-          },
-          parameterHints: {
-            enabled: true,
-          },
-          wordBasedSuggestions: 'currentDocument',
-          snippetSuggestions: 'inline',
+          ...sharedEditorOptions,
           readOnly,
         }}
       />

@@ -8,13 +8,13 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { useGitStatus } from '@/hooks/useGitStatus';
 import { useEditor } from '@/hooks/useEditor';
-import { fetchBranches, fetchDiff, gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntrack } from '@/api/git';
+import { fetchBranches, gitAdd, gitCommit, gitPull, gitPush, gitUnstage, gitUntrack } from '@/api/git';
 import { cn } from '@/lib/utils';
 import { GitFileList } from './GitFileList';
 
-type Props = { workspace: string; readOnly?: boolean };
+type Props = { workspace: string; readOnly?: boolean; onOpenFile?: (path: string) => void };
 
-export function GitPanel({ workspace, readOnly = false }: Props) {
+export function GitPanel({ workspace, readOnly = false, onOpenFile }: Props) {
   const { status, loading, refresh } = useGitStatus(workspace);
   const { openFile } = useEditor();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -22,11 +22,6 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
   const [busy, setBusy] = useState<'commit' | 'push' | 'pull' | null>(null);
   const [branchOptions, setBranchOptions] = useState<string[]>([]);
   const [targetBranch, setTargetBranch] = useState('');
-  const [previewPath, setPreviewPath] = useState<string | null>(null);
-  const [previewMode, setPreviewMode] = useState<'auto' | 'manual'>('auto');
-  const [previewDiff, setPreviewDiff] = useState('');
-  const [previewLoading, setPreviewLoading] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,53 +64,13 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
     () => Array.from(new Set([...(status?.staged.map((f) => f.path) ?? []), ...(status?.unstaged.map((f) => f.path) ?? [])])),
     [status],
   );
-  const previewInfo = useMemo(() => {
-    if (!previewPath) return null;
-    const staged = stagedItems.some((item) => item.path === previewPath);
-    const unstaged = unstagedItems.some((item) => item.path === previewPath);
-    if (!staged && !unstaged) return null;
-    return { staged, path: previewPath };
-  }, [previewPath, stagedItems, unstagedItems]);
-
-  useEffect(() => {
-    if (previewMode === 'manual') return;
-
-    if (previewPath && (stagedItems.some((item) => item.path === previewPath) || unstagedItems.some((item) => item.path === previewPath))) {
+  const openWorkspaceFile = (path: string) => {
+    if (onOpenFile) {
+      onOpenFile(path);
       return;
     }
-    const nextPath = stagedItems[0]?.path ?? unstagedItems[0]?.path ?? null;
-    setPreviewPath(nextPath);
-  }, [previewMode, previewPath, stagedItems, unstagedItems]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!previewInfo) {
-      setPreviewDiff('');
-      setPreviewError(null);
-      setPreviewLoading(false);
-      return;
-    }
-
-    setPreviewLoading(true);
-    setPreviewError(null);
-    void (async () => {
-      try {
-        const diff = await fetchDiff(workspace, previewInfo.path, previewInfo.staged);
-        if (cancelled) return;
-        setPreviewDiff(diff);
-      } catch {
-        if (cancelled) return;
-        setPreviewError('Não consegui carregar o diff deste arquivo.');
-        setPreviewDiff('');
-      } finally {
-        if (!cancelled) setPreviewLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [workspace, previewInfo]);
+    void openFile(path);
+  };
 
   const toggle = (path: string) =>
     setSelected((prev) => {
@@ -279,12 +234,7 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
                 onToggle={toggle}
                 onToggleAll={() => toggleAll(stagedItems)}
                 emptyText=""
-                onOpenFile={(path) => {
-                  setPreviewMode('manual');
-                  setPreviewPath(path);
-                  void openFile(path);
-                }}
-                activePath={previewPath}
+                onOpenFile={openWorkspaceFile}
               />
               <div className="px-2">
                 <Button size="sm" variant="outline" className="w-full" onClick={() => void handleUnstage()} disabled={readOnly}>
@@ -304,12 +254,7 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
                 onToggle={toggle}
                 onToggleAll={() => toggleAll(unstagedItems)}
                 emptyText=""
-                onOpenFile={(path) => {
-                  setPreviewMode('manual');
-                  setPreviewPath(path);
-                  void openFile(path);
-                }}
-                activePath={previewPath}
+                onOpenFile={openWorkspaceFile}
               />
               <div className="px-2">
                 <Button size="sm" className="w-full" onClick={() => void handleStage()} disabled={readOnly}>
@@ -322,45 +267,6 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
               <p className="px-3 py-6 text-center text-xs text-muted-foreground">Sem mudanças</p>
             )
           )}
-          <Separator />
-          <div className="px-2">
-            <div className="mb-2 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Diff</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {previewInfo ? `${previewInfo.staged ? 'staged' : 'unstaged'} · ${previewInfo.path}` : 'Selecione um arquivo para ver o diff'}
-                </p>
-              </div>
-              {previewPath && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-[11px]"
-                  onClick={() => {
-                    setPreviewMode('manual');
-                    setPreviewPath(null);
-                  }}
-                >
-                  Limpar
-                </Button>
-              )}
-            </div>
-            <div className="rounded-xl border border-white/10 bg-[#0d0c12]">
-              {previewLoading ? (
-                <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Carregando diff...
-                </div>
-              ) : previewError ? (
-                <div className="px-3 py-4 text-xs text-rose-200">{previewError}</div>
-              ) : previewDiff ? (
-                <DiffPreview diff={previewDiff} />
-              ) : (
-                <div className="px-3 py-4 text-xs text-muted-foreground">Abra um arquivo da lista para inspecionar as mudanças.</div>
-              )}
-            </div>
-          </div>
           {trackedPaths.length > 0 && (
             <>
               <Separator />
@@ -480,175 +386,4 @@ export function GitPanel({ workspace, readOnly = false }: Props) {
       </div>
     </div>
   );
-}
-
-function DiffPreview({ diff }: { diff: string }) {
-  const rows = buildSideBySideRows(parseUnifiedDiff(diff));
-  return (
-    <div className="max-h-72 overflow-x-auto overflow-y-auto px-2 py-2 text-[12px] leading-5">
-      <div className="min-w-[64rem]">
-        <div className="mb-2 grid grid-cols-2 gap-2 px-1 text-[10px] uppercase tracking-[0.24em] text-[#8d87a5]">
-          <div>Original</div>
-          <div>Alterado</div>
-        </div>
-        {rows.map((row, index) => {
-          if (row.kind === 'hunk') {
-            return (
-              <div key={`hunk-${index}-${row.text}`} className="mb-2 rounded bg-sky-500/10 px-2 py-1 font-mono whitespace-pre text-sky-300">
-                {row.text}
-              </div>
-            );
-          }
-
-          return (
-            <div
-              key={`row-${index}-${row.left.text}-${row.right.text}`}
-              className="grid grid-cols-2 gap-2 rounded py-0.5"
-            >
-              <DiffSide
-                side="left"
-                line={row.left}
-                className={row.kind === 'remove' ? 'bg-rose-500/10 text-rose-100' : row.kind === 'replace' ? 'bg-rose-500/10 text-rose-100' : 'text-[#ddd7ef]'}
-              />
-              <DiffSide
-                side="right"
-                line={row.right}
-                className={row.kind === 'add' ? 'bg-emerald-500/10 text-emerald-100' : row.kind === 'replace' ? 'bg-emerald-500/10 text-emerald-100' : 'text-[#ddd7ef]'}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-type DiffPreviewRow =
-  | { kind: 'hunk'; text: string }
-  | { kind: 'line'; type: 'add' | 'remove' | 'context'; oldLine: number | null; newLine: number | null; text: string };
-
-type SideBySideRow =
-  | { kind: 'hunk'; text: string }
-  | {
-      kind: 'context' | 'add' | 'remove' | 'replace';
-      left: { line: number | null; text: string };
-      right: { line: number | null; text: string };
-    };
-
-function buildSideBySideRows(rows: DiffPreviewRow[]): SideBySideRow[] {
-  const output: SideBySideRow[] = [];
-
-  for (let i = 0; i < rows.length; i += 1) {
-    const current = rows[i];
-    if (current.kind === 'hunk') {
-      output.push(current);
-      continue;
-    }
-
-    const next = rows[i + 1];
-    if (current.type === 'remove' && next?.kind === 'line' && next.type === 'add') {
-      output.push({
-        kind: 'replace',
-        left: { line: current.oldLine, text: current.text },
-        right: { line: next.newLine, text: next.text },
-      });
-      i += 1;
-      continue;
-    }
-
-    if (current.type === 'remove') {
-      output.push({
-        kind: 'remove',
-        left: { line: current.oldLine, text: current.text },
-        right: { line: null, text: '' },
-      });
-      continue;
-    }
-
-    if (current.type === 'add') {
-      output.push({
-        kind: 'add',
-        left: { line: null, text: '' },
-        right: { line: current.newLine, text: current.text },
-      });
-      continue;
-    }
-
-    output.push({
-      kind: 'context',
-      left: { line: current.oldLine, text: current.text },
-      right: { line: current.newLine, text: current.text },
-    });
-  }
-
-  return output;
-}
-
-function DiffSide({
-  side,
-  line,
-  className,
-}: {
-  side: 'left' | 'right';
-  line: { line: number | null; text: string };
-  className?: string;
-}) {
-  const isEmpty = line.text.length === 0;
-  return (
-    <div className={cn('grid grid-cols-[3.5rem_minmax(0,1fr)] gap-2 rounded px-2 py-0.5 font-mono', className)}>
-      <span className="text-right text-[#8d87a5]">{line.line ?? '\u00a0'}</span>
-      <span className={cn('whitespace-pre', side === 'left' ? 'opacity-95' : 'opacity-95')}>{isEmpty ? '\u00a0' : line.text}</span>
-    </div>
-  );
-}
-
-function parseUnifiedDiff(diff: string): DiffPreviewRow[] {
-  const rows: DiffPreviewRow[] = [];
-  const lines = diff.split('\n');
-  let oldLine = 0;
-  let newLine = 0;
-  let inHunk = false;
-
-  for (const line of lines) {
-    if (line.startsWith('@@')) {
-      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-      if (match) {
-        oldLine = Number(match[1]);
-        newLine = Number(match[2]);
-      }
-      inHunk = true;
-      rows.push({ kind: 'hunk', text: line });
-      continue;
-    }
-
-    if (!inHunk) continue;
-    if (line.startsWith('diff --git') || line.startsWith('index ') || line.startsWith('--- ') || line.startsWith('+++ ')) {
-      continue;
-    }
-
-    if (line.startsWith('+') && !line.startsWith('+++')) {
-      rows.push({ kind: 'line', type: 'add', oldLine: null, newLine, text: line.slice(1) });
-      newLine += 1;
-      continue;
-    }
-
-    if (line.startsWith('-') && !line.startsWith('---')) {
-      rows.push({ kind: 'line', type: 'remove', oldLine, newLine: null, text: line.slice(1) });
-      oldLine += 1;
-      continue;
-    }
-
-    if (line.startsWith(' ')) {
-      rows.push({ kind: 'line', type: 'context', oldLine, newLine, text: line.slice(1) });
-      oldLine += 1;
-      newLine += 1;
-      continue;
-    }
-
-    if (line.length > 0) {
-      rows.push({ kind: 'line', type: 'context', oldLine: null, newLine: null, text: line });
-    }
-  }
-
-  return rows;
 }

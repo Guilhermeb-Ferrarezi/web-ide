@@ -46,7 +46,7 @@ function persistSidePanelPreference(panel: SidePanel) {
 }
 
 export function AppShell({ workspace }: { workspace: string }) {
-  const { tabs, activePath, setActive, closeTab: closeTabRaw, updateContent, save } = useEditor();
+  const { tabs, activePath, openFile, setActive, closeTab: closeTabRaw, updateContent, save } = useEditor();
   const { user, logout } = useAuth();
   const permission = useWorkspaceStore((s) => s.permission);
   const wordWrap = useEditorStore((s) => s.wordWrap);
@@ -85,6 +85,7 @@ export function AppShell({ workspace }: { workspace: string }) {
     [tabs, closeTabRaw],
   );
   const activeTab = tabs.find((t) => t.path === activePath) ?? null;
+  const [comparisonPath, setComparisonPath] = useState<string | null>(null);
   const { status: gitStatus } = useGitStatus(workspace);
   const initialSide = readSidePanelPreference();
   const [side, setSideRaw] = useState<SidePanel>(() => {
@@ -125,12 +126,19 @@ export function AppShell({ workspace }: { workspace: string }) {
     if (lastWorkspaceRef.current !== workspace) {
       lastWorkspaceRef.current = workspace;
       setShowTerminal(false);
+      setComparisonPath(null);
     }
   }, [workspace]);
 
   useEffect(() => {
     if (permission !== 'write') setAssistantOpen(false);
   }, [permission]);
+
+  useEffect(() => {
+    if (comparisonPath && comparisonPath !== activePath) {
+      setComparisonPath(null);
+    }
+  }, [activePath, comparisonPath]);
 
   useEffect(() => {
     if (assistantOpen) {
@@ -517,7 +525,16 @@ export function AppShell({ workspace }: { workspace: string }) {
           <ResizablePanel defaultSize={22} minSize={14} maxSize={45} className="border-r">
             {side === 'files' ? <FileTree workspace={workspace} filterInputRef={fileFilterRef} /> : null}
             {side === 'search' ? <CodeSearchPanel workspace={workspace} /> : null}
-            {side === 'git' ? <GitPanel workspace={workspace} readOnly={permission !== 'write'} /> : null}
+            {side === 'git' ? (
+              <GitPanel
+                workspace={workspace}
+                readOnly={permission !== 'write'}
+                onOpenFile={(path) => {
+                  setComparisonPath(path);
+                  void openFile(path);
+                }}
+              />
+            ) : null}
             {side === 'extensions' ? <ExtensionsPanel /> : null}
           </ResizablePanel>
           <ResizableHandle />
@@ -540,7 +557,13 @@ export function AppShell({ workspace }: { workspace: string }) {
                   <EditorTabs tabs={tabs} activePath={activePath} onSelect={setActive} onClose={closeTab} onCloseOthers={closeOtherTabs} onCloseAll={closeAllTabs} />
                   <EditorBreadcrumbs path={activeTab?.path ?? null} dirty={activeTab?.dirty} />
                   <div className="flex-1 overflow-hidden">
-                    <EditorPane tab={activeTab} readOnly={permission !== 'write'} onChange={updateContent} onSave={save} />
+                    <EditorPane
+                      tab={activeTab}
+                      readOnly={permission !== 'write'}
+                      compareMode={comparisonPath === activeTab?.path}
+                      onChange={updateContent}
+                      onSave={save}
+                    />
                   </div>
                 </div>
               </ResizablePanel>

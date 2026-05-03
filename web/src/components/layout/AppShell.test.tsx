@@ -8,6 +8,7 @@ vi.mock('@/hooks/useEditor', () => ({
   useEditor: () => ({
     tabs: [],
     activePath: null,
+    openFile: vi.fn(),
     setActive: vi.fn(),
     closeTab: vi.fn(),
     updateContent: vi.fn(),

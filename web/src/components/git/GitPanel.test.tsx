@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { GitPanel } from './GitPanel';
@@ -24,7 +24,6 @@ vi.mock('@/api/git', async () => {
   return {
     ...actual,
     fetchBranches: vi.fn().mockResolvedValue({ current: 'main', all: ['main', 'develop'] }),
-    fetchDiff: vi.fn().mockResolvedValue('diff --git a/README.md b/README.md\n@@ -1 +1 @@\n-old line\n+new line'),
     gitCommit: vi.fn().mockResolvedValue(undefined),
     gitUntrack: vi.fn().mockResolvedValue(undefined),
   };
@@ -82,18 +81,6 @@ describe('<GitPanel />', () => {
     expect(screen.getByText('Ctrl+Enter para commitar · Esc limpa a mensagem')).toBeInTheDocument();
   });
 
-  it('mostra o diff do arquivo em foco com o preview automático', async () => {
-    const fetchDiffSpy = vi.mocked(gitApi.fetchDiff);
-
-    render(<GitPanel workspace="repo" />);
-
-    await waitFor(() => expect(fetchDiffSpy).toHaveBeenCalledWith('repo', 'README.md', true));
-    expect(screen.getByText('Original')).toBeInTheDocument();
-    expect(screen.getByText('Alterado')).toBeInTheDocument();
-    expect(screen.getByText('old line')).toBeInTheDocument();
-    expect(screen.getByText('new line')).toBeInTheDocument();
-  });
-
   it('só habilita commit quando existe mensagem', async () => {
     const user = userEvent.setup();
 
@@ -105,6 +92,17 @@ describe('<GitPanel />', () => {
     await user.type(screen.getByPlaceholderText('Mensagem do commit'), 'feat: enable commit');
 
     expect(commitButton).toBeEnabled();
+  });
+
+  it('abre o arquivo ao clicar em um item da lista', async () => {
+    const user = userEvent.setup();
+    const openFile = vi.fn();
+
+    render(<GitPanel workspace="repo" onOpenFile={openFile} />);
+
+    await user.click(screen.getByRole('button', { name: 'README.md' }));
+
+    expect(openFile).toHaveBeenCalledWith('README.md');
   });
 
   it('permite limpar a mensagem do commit com um botão dedicado', async () => {

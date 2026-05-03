@@ -55,6 +55,47 @@ describe('<EditorPane />', () => {
     );
   });
 
+  it('mostra compare view lado a lado quando o arquivo tem alteracoes', () => {
+    render(
+      <EditorPane
+        tab={{
+          path: 'README.md',
+          name: 'README.md',
+          content: '# docs atualizado',
+          originalContent: '# docs',
+          encoding: 'utf-8',
+          mimeType: 'text/markdown',
+          dirty: true,
+        }}
+        compareMode
+        onChange={vi.fn()}
+        onSave={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('Original')).toBeInTheDocument();
+    expect(screen.getByText('Alterado')).toBeInTheDocument();
+    expect(screen.getAllByTestId('monaco-editor')).toHaveLength(2);
+    expect(editorSpy).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        path: 'file:///README.md.original',
+        options: expect.objectContaining({
+          readOnly: true,
+        }),
+      }),
+    );
+    expect(editorSpy).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        path: 'file:///README.md',
+        options: expect.objectContaining({
+          readOnly: false,
+        }),
+      }),
+    );
+  });
+
   it('mostra o nome do arquivo enquanto prepara o editor', () => {
     render(
       <EditorPane
