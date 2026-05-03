@@ -46,7 +46,7 @@ function persistSidePanelPreference(panel: SidePanel) {
 }
 
 export function AppShell({ workspace }: { workspace: string }) {
-  const { tabs, activePath, openFile, setActive, closeTab: closeTabRaw, updateContent, save } = useEditor();
+  const { tabs, activePath, openGitDiff, setActive, closeTab: closeTabRaw, updateContent, save } = useEditor();
   const { user, logout } = useAuth();
   const permission = useWorkspaceStore((s) => s.permission);
   const wordWrap = useEditorStore((s) => s.wordWrap);
@@ -529,9 +529,10 @@ export function AppShell({ workspace }: { workspace: string }) {
               <GitPanel
                 workspace={workspace}
                 readOnly={permission !== 'write'}
-                onOpenFile={(path) => {
-                  setComparisonPath(path);
-                  void openFile(path);
+                onOpenFile={(path, options) => {
+                  const diffPath = `git:${options?.staged ? 'staged' : 'unstaged'}:${path}`;
+                  setComparisonPath(diffPath);
+                  void openGitDiff(path, options);
                 }}
               />
             ) : null}
@@ -560,7 +561,7 @@ export function AppShell({ workspace }: { workspace: string }) {
                     <EditorPane
                       tab={activeTab}
                       readOnly={permission !== 'write'}
-                      compareMode={comparisonPath === activeTab?.path}
+                      compareMode={activeTab?.kind === 'git-diff' || comparisonPath === activeTab?.path}
                       onChange={updateContent}
                       onSave={save}
                     />
