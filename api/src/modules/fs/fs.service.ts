@@ -345,6 +345,15 @@ function buildMonacoTypedModuleShim(entrypoint: string) {
   return `export * from './${normalized}';\nexport { default } from './${normalized}';\n`;
 }
 
+function runtimeModuleNameFromAtTypesPackage(pkgName: string): string {
+  return pkgName.startsWith('__') ? `@${pkgName.replace('__', '/')}` : pkgName;
+}
+
+function buildMonacoAtTypesRuntimeShim(relativeTypesPath: string) {
+  const normalized = relativeTypesPath.replace(/\\/g, '/').replace(/\.d\.ts$/, '');
+  return `export * from '${normalized}';\nexport { default } from '${normalized}';\n`;
+}
+
 export async function collectTypeDefs(workspacePath: string): Promise<{ virtualPath: string; content: string }[]> {
   const results: { virtualPath: string; content: string }[] = [];
   const declaredModules = new Set<string>();
@@ -375,6 +384,21 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
         content: packageJsonContent,
       });
     }
+  }
+
+  function addAtTypesRuntimeShim(packagePrefix: string, atTypesPackageName: string) {
+    const moduleName = runtimeModuleNameFromAtTypesPackage(atTypesPackageName);
+    const shimPath = `${packagePrefix}node_modules/${moduleName}/__monaco__.d.ts`;
+    if (results.some((entry) => entry.virtualPath === shimPath)) return;
+
+    const relativeTypesPath = moduleName.startsWith('@')
+      ? `../../@types/${atTypesPackageName}/index`
+      : `../@types/${atTypesPackageName}/index`;
+
+    results.push({
+      virtualPath: shimPath,
+      content: buildMonacoAtTypesRuntimeShim(relativeTypesPath),
+    });
   }
 
   function addFallbackModuleDeclaration(moduleName: string) {
@@ -413,12 +437,13 @@ export async function collectTypeDefs(workspacePath: string): Promise<{ virtualP
       for (const pkg of atTypesEntries) {
         if (results.length >= MAX_TYPEDEF_FILES) break;
         if (!pkg.isDirectory()) continue;
-        typedModules.add(pkg.name.startsWith('__') ? `@${pkg.name.replace('__', '/')}` : pkg.name);
+        typedModules.add(runtimeModuleNameFromAtTypesPackage(pkg.name));
         await walkDts(
           path.join(nodeModulesPath, '@types', pkg.name),
           `${packagePrefix}node_modules/@types/${pkg.name}`,
           results,
         );
+        addAtTypesRuntimeShim(packagePrefix, pkg.name);
       }
     }
 

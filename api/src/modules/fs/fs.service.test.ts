@@ -176,6 +176,32 @@ describe('collectTypeDefs', () => {
 
     expect(types.some((entry) => entry.virtualPath.includes('__generated__/some-untyped-package.d.ts'))).toBe(true);
   });
+
+  it('cria shim de modulo runtime quando a tipagem vem de @types', async () => {
+    await fs.writeFile(
+      path.join(workspace, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          react: '18.3.1',
+        },
+      }),
+    );
+    await fs.mkdir(path.join(workspace, 'node_modules', '@types', 'react'), { recursive: true });
+    await fs.writeFile(
+      path.join(workspace, 'node_modules', '@types', 'react', 'index.d.ts'),
+      'export declare function useState<T>(value: T): [T, (next: T) => void];\n',
+    );
+    await fs.writeFile(
+      path.join(workspace, 'node_modules', '@types', 'react', 'jsx-runtime.d.ts'),
+      'export declare const Fragment: unique symbol;\n',
+    );
+
+    const types = await collectTypeDefs(workspace);
+
+    expect(types.some((entry) => entry.virtualPath.endsWith('@types/react/index.d.ts'))).toBe(true);
+    expect(types.some((entry) => entry.virtualPath.endsWith('node_modules/react/__monaco__.d.ts'))).toBe(true);
+    expect(types.some((entry) => entry.virtualPath.includes('__generated__/react.d.ts'))).toBe(false);
+  });
 });
 
 describe('deletePath', () => {
