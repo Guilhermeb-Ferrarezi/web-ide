@@ -239,4 +239,66 @@ describe('<AssistantPanel />', () => {
     expect(window.localStorage.getItem(MESSAGES_KEY)).toBeNull();
     expect(screen.queryByText('resposta persistida')).not.toBeInTheDocument();
   });
+
+  it('permite limpar o rascunho manualmente', async () => {
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('Pergunte algo sobre o workspace...');
+    await userEvent.type(input, 'rascunho temporário');
+
+    await waitFor(() =>
+      expect(window.localStorage.getItem(getAssistantPanelStorageKey('repo', 'draft'))).toBe('rascunho temporário'),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Limpar rascunho' }));
+
+    expect(input).toHaveValue('');
+    await waitFor(() =>
+      expect(window.localStorage.getItem(getAssistantPanelStorageKey('repo', 'draft'))).toBeNull(),
+    );
+  });
+
+  it('permite reutilizar o último prompt enviado', async () => {
+    vi.spyOn(assistantApi, 'chatAssistant').mockResolvedValue({
+      message: 'ok',
+      model: 'test-model',
+    });
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('Pergunte algo sobre o workspace...');
+    await userEvent.type(input, 'refatore isso');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
+    await screen.findByText('ok');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Reutilizar último prompt' }));
+
+    expect(input).toHaveValue('refatore isso');
+  });
+
+  it('permite inserir rapidamente o arquivo aberto no prompt', async () => {
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Inserir arquivo atual' }));
+
+    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('Sobre o arquivo src/app.ts: ');
+  });
 });

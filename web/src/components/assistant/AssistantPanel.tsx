@@ -177,6 +177,23 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     }
   }
 
+  function clearDraft() {
+    setInput('');
+  }
+
+  function reuseLastPrompt() {
+    if (!lastPrompt) return;
+    setInput(lastPrompt);
+    textareaRef.current?.focus();
+  }
+
+  function insertActivePath() {
+    if (!activePath) return;
+    const prefix = `Sobre o arquivo ${activePath}: `;
+    setInput((current) => (current.trim() ? `${current.trim()}\n${prefix}` : prefix));
+    textareaRef.current?.focus();
+  }
+
   return (
     <div className="flex h-full flex-col bg-[#121019] text-[#ece8f7]">
       <div className="border-b border-white/10 px-4 py-3">
@@ -232,14 +249,16 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {QUICK_ACTIONS.map((action) => (
-                  <button
+                  <Button
                     key={action.label}
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => void sendMessage(action.prompt)}
-                    className="inline-flex items-center rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-100 transition-colors hover:bg-violet-500/20"
+                    className="rounded-full border border-violet-400/20 bg-violet-500/10 px-3 text-xs font-medium text-violet-100 hover:bg-violet-500/20 hover:text-violet-50"
                   >
                     {action.label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -299,19 +318,53 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
           placeholder="Pergunte algo sobre o workspace..."
           className="min-h-20 resize-none border-white/10 bg-black/30 text-sm text-[#f1edf8] placeholder:text-[#7f7895] overflow-hidden"
         />
-        <div className="mt-2 flex items-center justify-between gap-3">
-          <p className="text-[11px] text-[#7f7895]">
-            Enter envia • Shift+Enter quebra linha • {input.length} caractere(s)
-          </p>
-          <Button
-            type="button"
-            onClick={() => void sendMessage()}
-            disabled={sending || !input.trim()}
-            className={cn('gap-2 bg-violet-500 text-white hover:bg-violet-400', sending && 'cursor-wait')}
-          >
-            {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            Enviar
-          </Button>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={insertActivePath}
+              disabled={!activePath || sending}
+              className="h-8 border border-white/10 bg-white/5 px-2.5 text-[11px] text-[#d7d0ea] hover:bg-white/10 hover:text-white"
+            >
+              Inserir arquivo atual
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={reuseLastPrompt}
+              disabled={!lastPrompt || sending}
+              className="h-8 border border-white/10 bg-white/5 px-2.5 text-[11px] text-[#d7d0ea] hover:bg-white/10 hover:text-white"
+            >
+              Reutilizar último prompt
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearDraft}
+              disabled={!input || sending}
+              className="h-8 border border-white/10 bg-white/5 px-2.5 text-[11px] text-[#d7d0ea] hover:bg-white/10 hover:text-white"
+            >
+              Limpar rascunho
+            </Button>
+          </div>
+          <div className="flex items-center gap-3">
+            <p className="text-[11px] text-[#7f7895]">
+              Enter envia • Shift+Enter quebra linha • {input.length} caractere(s)
+            </p>
+            <Button
+              type="button"
+              onClick={() => void sendMessage()}
+              disabled={sending || !input.trim()}
+              className={cn('gap-2 bg-violet-500 text-white hover:bg-violet-400', sending && 'cursor-wait')}
+            >
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Enviar
+            </Button>
+          </div>
         </div>
       </div>
     </div>
