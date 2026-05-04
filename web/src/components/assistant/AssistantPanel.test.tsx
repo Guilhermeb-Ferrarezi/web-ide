@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AssistantPanel, getAssistantPanelStorageKey } from './AssistantPanel';
@@ -323,5 +323,88 @@ describe('<AssistantPanel />', () => {
         ],
       }),
     );
+  });
+
+  it('aceita imagem colada no textarea como anexo', async () => {
+    vi.spyOn(assistantApi, 'uploadAssistantImage').mockResolvedValue({
+      ok: true,
+      url: 'https://cdn.example.com/codex/image.png',
+      key: 'codex/image.png',
+      mimeType: 'image/png',
+      size: 2048,
+    });
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('Pergunte algo sobre o workspace...');
+    const file = new File(['img'], 'clipboard.png', { type: 'image/png' });
+
+    fireEvent.paste(input, { clipboardData: { files: [file] } });
+
+    expect(await screen.findByAltText('clipboard.png')).toBeInTheDocument();
+    expect(screen.getByText('2 KB')).toBeInTheDocument();
+    expect(assistantApi.uploadAssistantImage).toHaveBeenCalledWith('repo', file);
+  });
+
+  it('aceita arrastar e soltar imagens no painel', async () => {
+    vi.spyOn(assistantApi, 'uploadAssistantImage').mockResolvedValue({
+      ok: true,
+      url: 'https://cdn.example.com/codex/drop.png',
+      key: 'codex/drop.png',
+      mimeType: 'image/png',
+      size: 1536,
+    });
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    const dropFile = new File(['img'], 'drop.png', { type: 'image/png' });
+    fireEvent.drop(screen.getByText('Codex').closest('div')!.parentElement!.parentElement!, {
+      dataTransfer: { files: [dropFile] },
+    });
+
+    expect(await screen.findByAltText('drop.png')).toBeInTheDocument();
+    expect(screen.getByText('1.5 KB')).toBeInTheDocument();
+    expect(assistantApi.uploadAssistantImage).toHaveBeenCalledWith('repo', dropFile);
+  });
+
+  it('aceita colar varias imagens de uma vez', async () => {
+    vi.spyOn(assistantApi, 'uploadAssistantImage').mockResolvedValue({
+      ok: true,
+      url: 'https://cdn.example.com/codex/multi.png',
+      key: 'codex/multi.png',
+      mimeType: 'image/png',
+      size: 512,
+    });
+
+    render(
+      <AssistantPanel
+        workspace="repo"
+        activePath="src/app.ts"
+        activeContent="const value = 1;"
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('Pergunte algo sobre o workspace...');
+    const fileA = new File(['a'], 'a.png', { type: 'image/png' });
+    const fileB = new File(['b'], 'b.png', { type: 'image/png' });
+
+    fireEvent.paste(input, { clipboardData: { files: [fileA, fileB] } });
+
+    expect(await screen.findByAltText('a.png')).toBeInTheDocument();
+    expect(await screen.findByAltText('b.png')).toBeInTheDocument();
+    expect(screen.getAllByText('512 B')).toHaveLength(2);
+    expect(assistantApi.uploadAssistantImage).toHaveBeenCalledTimes(2);
   });
 });

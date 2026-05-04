@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent, type DragEvent, type ReactNode } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -57,9 +57,11 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
   const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [isDraggingImages, setIsDraggingImages] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const dragDepthRef = useRef(0);
   const firstWorkspaceRenderRef = useRef(true);
   const skipDraftPersistRef = useRef(true);
   const skipMessagesPersistRef = useRef(true);
@@ -85,6 +87,7 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     setLastPrompt(null);
     setAttachedFiles([]);
     setAttachedImages([]);
+    setIsDraggingImages(false);
   }, [workspace]);
 
   useEffect(() => {
@@ -212,17 +215,27 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     textareaRef.current?.focus();
   }
 
-  async function handleImageSelect(fileList: FileList | null) {
-    if (!fileList?.length || uploadingImage || sending) return;
-    const files = Array.from(fileList).filter((file) => file.type.startsWith('image/'));
-    if (files.length === 0) {
+  async function handleClipboardPaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    if (sending || uploadingImage) return;
+
+    const imageFiles = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) return;
+
+    event.preventDefault();
+    await handleImageSelect(imageFiles);
+  }
+
+  async function handleImageSelect(files: File[] | null) {
+    if (!files?.length || uploadingImage || sending) return;
+    const imageFiles = files.filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
       toast.error('Selecione um arquivo de imagem válido');
       return;
     }
 
     setUploadingImage(true);
     try {
-      const uploads = await Promise.all(files.map(async (file) => {
+      const uploads = await Promise.all(imageFiles.map(async (file) => {
         const result = await uploadAssistantImage(workspace, file);
         return {
           id: crypto.randomUUID(),
@@ -253,8 +266,45 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     textareaRef.current?.focus();
   }
 
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    if (!hasImageFiles(event.dataTransfer.files)) return;
+    event.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingImages(true);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!hasImageFiles(event.dataTransfer.files)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    if (!hasImageFiles(event.dataTransfer.files)) return;
+    event.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingImages(false);
+  }
+
+  async function handleDrop(event: DragEvent<HTMLDivElement>) {
+    if (!hasImageFiles(event.dataTransfer.files)) return;
+    event.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingImages(false);
+    await handleImageSelect(Array.from(event.dataTransfer.files));
+  }
+
   return (
-    <div className="flex h-full flex-col bg-[#121019] text-[#ece8f7]">
+    <div
+      className={cn(
+        'flex h-full flex-col bg-[#121019] text-[#ece8f7]',
+        isDraggingImages && 'ring-2 ring-inset ring-violet-400',
+      )}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="border-b border-white/10 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -395,18 +445,26 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
             ))}
           </div>
         )}
+        {isDraggingImages && (
+          <div className="mb-2 rounded-xl border border-violet-400/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-100">
+            Solte as imagens aqui para anexar ao Codex.
+          </div>
+        )}
         <input
           ref={imageInputRef}
           type="file"
           accept="image/*"
           multiple
-          className="hidden"
-          onChange={(event) => void handleImageSelect(event.target.files)}
+          aria-hidden="true"
+          tabIndex={-1}
+          style={{ display: 'none' }}
+          onChange={(event) => void handleImageSelect(Array.from(event.target.files ?? []))}
         />
         <Textarea
           ref={textareaRef}
           value={input}
           onChange={(event) => setInput(event.target.value)}
+          onPaste={(event) => void handleClipboardPaste(event)}
           onKeyDown={(event) => {
             if (event.key === 'ArrowUp' && !input.trim() && lastPrompt && !sending) {
               event.preventDefault();
@@ -697,16 +755,40 @@ function isPatchLike(content: string) {
   return /(^|\n)(---|\+\+\+|\*\*\* Begin Patch)/.test(content);
 }
 
+function hasImageFiles(files: FileList | null) {
+  return Boolean(files && Array.from(files).some((file) => file.type.startsWith('image/')));
+}
+
 function AttachedImageChip({ image, onRemove }: { image: ImageAttachment; onRemove: (id: string) => void }) {
   return (
-    <button
-      type="button"
-      aria-label={`Remover ${image.fileName} do prompt`}
-      onClick={() => onRemove(image.id)}
-      className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-white/10 bg-[#1a1724] px-2 text-xs text-[#d7d0ea] transition-colors hover:border-rose-300/30 hover:bg-rose-500/10 hover:text-white"
-    >
-      <ImagePlus className="h-3.5 w-3.5 shrink-0 text-[#8b83a4]" />
-      <span className="truncate">{image.fileName}</span>
-    </button>
+    <div className="group relative overflow-hidden rounded-xl border border-white/10 bg-[#1a1724] shadow-sm transition-colors hover:border-violet-400/30">
+      <img src={image.url} alt={image.fileName} className="h-24 w-32 object-cover" />
+      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2">
+        <div className="min-w-0">
+          <span className="block max-w-[9rem] truncate text-[11px] font-medium text-white/95">{image.fileName}</span>
+          <span className="mt-0.5 block text-[10px] text-white/70">{formatFileSize(image.size)}</span>
+        </div>
+        <button
+          type="button"
+          aria-label={`Remover ${image.fileName} do prompt`}
+          onClick={() => onRemove(image.id)}
+          className="rounded-full border border-white/15 bg-black/60 p-2 text-white/85 transition-colors hover:border-rose-300/40 hover:bg-rose-500/35 hover:text-white"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
   );
+}
+
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes < 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${formatDecimal(bytes / 1024, bytes < 10 * 1024)} KB`;
+  return `${formatDecimal(bytes / (1024 * 1024), bytes < 10 * 1024 * 1024)} MB`;
+}
+
+function formatDecimal(value: number, keepFraction: boolean) {
+  const formatted = value.toFixed(keepFraction ? 1 : 0);
+  return formatted.endsWith('.0') ? formatted.slice(0, -2) : formatted;
 }
