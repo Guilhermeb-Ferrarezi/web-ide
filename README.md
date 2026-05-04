@@ -28,6 +28,7 @@ bun run dev
 - API: http://localhost:3000
 - Workspaces locais em `api/.workspaces/` (configurável via `WORKSPACES_ROOT`)
 - Para liberar terminal irrestrito a usuários específicos, preencha `TERMINAL_SUPERUSERS` em `api/.env` com `login`, `githubUserId` ou `userId` separados por vírgula
+- Para anexar imagens ao Codex pelo painel lateral, configure também `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_ACCESS_KEY_ID`, `CLOUDFLARE_SECRET_ACCESS_KEY`, `CLOUDFLARE_BUCKET_NAME` e `CLOUDFLARE_PUBLIC_URL` na `api/.env`
 
 Para rodar separado:
 

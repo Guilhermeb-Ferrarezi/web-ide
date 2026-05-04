@@ -162,6 +162,7 @@ describe('<AssistantPanel />', () => {
         workspace: 'repo',
         activePath: 'src/app.ts',
         activeContent: 'const value = 1;',
+        imageUrls: [],
         messages: [{ role: 'user', content: 'Crie testes para o arquivo aberto, considerando seu conteúdo atual.' }],
       }),
     );

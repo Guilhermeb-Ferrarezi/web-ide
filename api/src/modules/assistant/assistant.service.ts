@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import fsSync from 'node:fs';
+import * as fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -17,6 +17,7 @@ export type AssistantChatContext = {
   workspacePath: string;
   activePath?: string | null;
   activeContent?: string | null;
+  imageUrls?: string[];
 };
 
 export type AssistantChatInput = AssistantChatContext & {
@@ -71,6 +72,13 @@ function buildSystemPrompt(context: AssistantChatContext): string {
 
   if (context.activePath) {
     lines.push(`Arquivo ativo: ${context.activePath}`);
+  }
+
+  if (context.imageUrls?.length) {
+    lines.push('Imagens anexadas pelo usuário:');
+    for (const url of context.imageUrls) {
+      lines.push(`![](${url})`);
+    }
   }
 
   const activeContent = trimContent(context.activeContent);

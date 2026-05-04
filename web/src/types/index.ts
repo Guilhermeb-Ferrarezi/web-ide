@@ -102,12 +102,21 @@ export type AssistantChatRequest = {
   workspace: string;
   activePath?: string | null;
   activeContent?: string | null;
+  imageUrls?: string[];
   messages: AssistantChatMessage[];
 };
 
 export type AssistantChatResponse = {
   message: string;
   model: string;
+};
+
+export type AssistantImageUploadResponse = {
+  ok: true;
+  url: string;
+  key: string;
+  mimeType: string;
+  size: number;
 };
 
 export type GitFileStatus = {

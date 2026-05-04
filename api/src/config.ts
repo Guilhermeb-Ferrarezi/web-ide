@@ -18,6 +18,11 @@ export const appConfigSchema = z.object({
   CODEX_BIN: z.string().min(1).default('codex'),
   CODEX_HOME: z.string().default(''),
   CODEX_TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),
+  CLOUDFLARE_ACCOUNT_ID: z.string().default(''),
+  CLOUDFLARE_ACCESS_KEY_ID: z.string().default(''),
+  CLOUDFLARE_SECRET_ACCESS_KEY: z.string().default(''),
+  CLOUDFLARE_BUCKET_NAME: z.string().default(''),
+  CLOUDFLARE_PUBLIC_URL: z.string().url().default(''),
 });
 
 const parsed = appConfigSchema.parse(process.env);

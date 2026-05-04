@@ -3,9 +3,9 @@ import ReactMarkdown from 'react-markdown';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { chatAssistant } from '@/api/assistant';
+import { chatAssistant, uploadAssistantImage } from '@/api/assistant';
 import { saveFile } from '@/api/fs';
-import { Check, Copy, Loader2, Send, Sparkles, Trash2, WandSparkles, X } from 'lucide-react';
+import { Check, Copy, ImagePlus, Loader2, Send, Sparkles, Trash2, WandSparkles, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { resolveDefaultFileIcon, resolveFileIcon } from '@/lib/fileTreeIcons';
@@ -18,6 +18,15 @@ type Props = {
   activeContent: string | null;
   canEdit?: boolean;
   onClose?: () => void;
+};
+
+type ImageAttachment = {
+  id: string;
+  fileName: string;
+  url: string;
+  key: string;
+  mimeType: string;
+  size: number;
 };
 
 const QUICK_ACTIONS = [
@@ -46,7 +55,10 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
   const [error, setError] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<string[]>([]);
+  const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const firstWorkspaceRenderRef = useRef(true);
   const skipDraftPersistRef = useRef(true);
@@ -72,6 +84,7 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
     setError(null);
     setLastPrompt(null);
     setAttachedFiles([]);
+    setAttachedImages([]);
   }, [workspace]);
 
   useEffect(() => {
@@ -137,13 +150,14 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
 
   async function sendMessage(rawValue?: string) {
     const nextInput = (rawValue ?? input).trim();
-    const nextContent = buildPromptContent(nextInput, attachedFiles);
+    const nextContent = buildPromptContent(nextInput, attachedFiles, attachedImages);
     if (!nextContent || sending) return;
 
     const nextMessages: AssistantChatMessage[] = [...messages, { role: 'user', content: nextContent }];
     setMessages(nextMessages);
     setInput('');
     setAttachedFiles([]);
+    setAttachedImages([]);
     setSending(true);
     setError(null);
     setLastPrompt(nextInput || nextContent);
@@ -153,6 +167,7 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
         workspace,
         activePath,
         activeContent,
+        imageUrls: attachedImages.map((image) => image.url),
         messages: nextMessages,
       });
 
@@ -194,6 +209,47 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
 
   function removeAttachedFile(path: string) {
     setAttachedFiles((current) => current.filter((item) => item !== path));
+    textareaRef.current?.focus();
+  }
+
+  async function handleImageSelect(fileList: FileList | null) {
+    if (!fileList?.length || uploadingImage || sending) return;
+    const files = Array.from(fileList).filter((file) => file.type.startsWith('image/'));
+    if (files.length === 0) {
+      toast.error('Selecione um arquivo de imagem válido');
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const uploads = await Promise.all(files.map(async (file) => {
+        const result = await uploadAssistantImage(workspace, file);
+        return {
+          id: crypto.randomUUID(),
+          fileName: file.name,
+          url: result.url,
+          key: result.key,
+          mimeType: result.mimeType,
+          size: result.size,
+        } satisfies ImageAttachment;
+      }));
+      setAttachedImages((current) => [...current, ...uploads]);
+      toast.success(`${uploads.length} imagem(ns) anexada(s)`);
+    } catch (cause) {
+      const message =
+        cause instanceof Error && /not configured|configuradas/i.test(cause.message)
+          ? 'Envie as credenciais do bucket na API para liberar anexos de imagem.'
+          : 'Não consegui enviar a imagem.';
+      toast.error(message);
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+      textareaRef.current?.focus();
+    }
+  }
+
+  function removeAttachedImage(id: string) {
+    setAttachedImages((current) => current.filter((item) => item.id !== id));
     textareaRef.current?.focus();
   }
 
@@ -308,7 +364,9 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
       </ScrollArea>
 
       <div className="border-t border-white/10 p-3">
-        {(attachedFiles.length > 0 || (activePath && activeFileName && activeFileIcon && activeFileFallbackIcon)) && (
+        {(attachedFiles.length > 0 ||
+          attachedImages.length > 0 ||
+          (activePath && activeFileName && activeFileIcon && activeFileFallbackIcon)) && (
           <div className="mb-2 flex flex-wrap items-center gap-2">
             {activePath && activeFileName && activeFileIcon && activeFileFallbackIcon && !attachedFiles.includes(activePath) && (
               <button
@@ -332,8 +390,19 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
             {attachedFiles.map((path) => (
               <AttachedFileChip key={path} path={path} onRemove={removeAttachedFile} />
             ))}
+            {attachedImages.map((image) => (
+              <AttachedImageChip key={image.id} image={image} onRemove={removeAttachedImage} />
+            ))}
           </div>
         )}
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(event) => void handleImageSelect(event.target.files)}
+        />
         <Textarea
           ref={textareaRef}
           value={input}
@@ -360,8 +429,18 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
             </p>
             <Button
               type="button"
+              variant="outline"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={sending || uploadingImage}
+              className="gap-2 border-white/10 bg-white/5 text-[#ece8f7] hover:bg-white/10"
+            >
+              {uploadingImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+              Imagem
+            </Button>
+            <Button
+              type="button"
               onClick={() => void sendMessage()}
-              disabled={sending || (!input.trim() && attachedFiles.length === 0)}
+              disabled={sending || uploadingImage || (!input.trim() && attachedFiles.length === 0 && attachedImages.length === 0)}
               className={cn('gap-2 bg-violet-500 text-white hover:bg-violet-400', sending && 'cursor-wait')}
             >
               {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -596,11 +675,15 @@ function getFileName(path: string) {
   return path.split('/').filter(Boolean).at(-1) ?? path;
 }
 
-function buildPromptContent(input: string, attachedFiles: string[]) {
-  if (attachedFiles.length === 0) return input;
+function buildPromptContent(input: string, attachedFiles: string[], attachedImages: ImageAttachment[]) {
+  if (attachedFiles.length === 0 && attachedImages.length === 0) return input;
 
   const fileList = attachedFiles.map((path) => `- ${path}`).join('\n');
-  const context = `Arquivos anexados ao prompt:\n${fileList}`;
+  const imageList = attachedImages.map((image) => `- ${image.url}`).join('\n');
+  const blocks = [];
+  if (attachedFiles.length > 0) blocks.push(`Arquivos anexados ao prompt:\n${fileList}`);
+  if (attachedImages.length > 0) blocks.push(`Imagens anexadas ao prompt:\n${imageList}`);
+  const context = blocks.join('\n\n');
   return input ? `${context}\n\n${input}` : context;
 }
 
@@ -612,4 +695,18 @@ function extractFirstCodeBlock(content: string): string | null {
 
 function isPatchLike(content: string) {
   return /(^|\n)(---|\+\+\+|\*\*\* Begin Patch)/.test(content);
+}
+
+function AttachedImageChip({ image, onRemove }: { image: ImageAttachment; onRemove: (id: string) => void }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Remover ${image.fileName} do prompt`}
+      onClick={() => onRemove(image.id)}
+      className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-md border border-white/10 bg-[#1a1724] px-2 text-xs text-[#d7d0ea] transition-colors hover:border-rose-300/30 hover:bg-rose-500/10 hover:text-white"
+    >
+      <ImagePlus className="h-3.5 w-3.5 shrink-0 text-[#8b83a4]" />
+      <span className="truncate">{image.fileName}</span>
+    </button>
+  );
 }

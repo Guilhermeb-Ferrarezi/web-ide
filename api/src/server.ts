@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import multipart from '@fastify/multipart';
 import { config } from './config.ts';
 import cookiePlugin from './plugins/cookie.ts';
 import sessionPlugin from './plugins/session.ts';
@@ -34,6 +35,7 @@ await app.register(cookiePlugin);
 await app.register(sessionPlugin);
 await app.register(corsPlugin);
 await app.register(websocketPlugin);
+await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } });
 
 app.get('/health', async () => ({ status: 'ok' }));
 

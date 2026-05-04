@@ -110,7 +110,7 @@ describe('chatWithAssistant', () => {
     expect(lastSpawn).not.toBeNull();
     expect(lastSpawn?.command).toBe('codex');
     expect(lastSpawn?.options.stdio).toEqual(['pipe', 'pipe', 'pipe']);
-    expect(lastSpawn?.options.env?.HOME).toBe('/home/guilherme');
+    expect(lastSpawn?.options.env?.HOME).toBe('/root');
     const args = lastSpawn?.args ?? [];
     expect(args[0]).toBe('exec');
     expect(args[1]).toBe('--output-last-message');
