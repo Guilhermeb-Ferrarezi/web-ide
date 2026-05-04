@@ -10,8 +10,10 @@ services:
       - WORKSPACES_ROOT=/data/workspaces
       - NODE_ENV=production
       - FRONTEND_URL=http://localhost:8080
+      - CODEX_HOME=/root/.codex
     volumes:
       - workspace_data:/data/workspaces
+      - ${HOME}/.codex:/root/.codex:ro
     networks:
       - ide_net
     restart: unless-stopped

@@ -7,8 +7,10 @@ RUN bun install --frozen-lockfile || bun install
 FROM oven/bun:1.3.11-alpine AS runtime
 WORKDIR /app
 
-RUN apk add --no-cache git bash python3 make g++ curl nodejs npm eza \
+RUN apk add --no-cache git bash python3 make g++ curl nodejs npm eza openssh-client \
   && npm install -g @openai/codex
+
+RUN mkdir -p /root/.codex
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json tsconfig.json ./

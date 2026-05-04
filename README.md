@@ -46,6 +46,7 @@ bun run docker:up
 - Web: http://localhost:8080
 - API: http://localhost:3000
 - Workspaces persistidos em volume Docker `workspace_data` → `/data/workspaces`
+- O Codex usa `CODEX_HOME=/root/.codex` e monta `~/.codex` do host como leitura no container da API; garanta que `auth.json` exista nesse diretório antes de subir.
 
 ## Outros scripts
 
