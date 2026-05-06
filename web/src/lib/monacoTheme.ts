@@ -34,6 +34,11 @@ function monacoCompatibilityRules(theme: InstalledTheme): InstalledTheme['rules'
     'punctuation.quasi.element.begin',
     'punctuation.quasi.element.end',
   ]);
+  const numberRule = firstMatchingRule(rules, [
+    'constant',
+    'constant.numeric',
+    'string',
+  ]);
 
   const compatibilityRules: Array<MonacoThemeRule | null> = [
     typeIdentifierRule
@@ -44,6 +49,21 @@ function monacoCompatibilityRules(theme: InstalledTheme): InstalledTheme['rules'
       : null,
     bracketRule
       ? { token: 'delimiter.bracket', foreground: bracketRule.foreground, fontStyle: bracketRule.fontStyle }
+      : null,
+    numberRule
+      ? { token: 'number', foreground: numberRule.foreground, fontStyle: numberRule.fontStyle }
+      : null,
+    numberRule
+      ? { token: 'number.float', foreground: numberRule.foreground, fontStyle: numberRule.fontStyle }
+      : null,
+    numberRule
+      ? { token: 'number.hex', foreground: numberRule.foreground, fontStyle: numberRule.fontStyle }
+      : null,
+    numberRule
+      ? { token: 'number.binary', foreground: numberRule.foreground, fontStyle: numberRule.fontStyle }
+      : null,
+    numberRule
+      ? { token: 'number.octal', foreground: numberRule.foreground, fontStyle: numberRule.fontStyle }
       : null,
   ];
 

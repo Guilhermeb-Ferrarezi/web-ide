@@ -9,6 +9,7 @@ import { installExtension, uninstallExtension } from '@/api/extensions';
 import { buildGitDiffHighlightRanges } from '@/lib/gitDiffHighlights';
 import { detectLanguage, isImage } from '@/lib/language';
 import { buildMonacoThemeData, getMonacoThemeName } from '@/lib/monacoTheme';
+import { configureTypeScriptSemanticTokens } from '@/lib/tsSemanticTokens';
 import { cn } from '@/lib/utils';
 import { useEditorStore } from '@/stores/editorStore';
 import { DEFAULT_EDITOR_THEME_ID, DEFAULT_ICON_THEME_ID, useAppearanceStore } from '@/stores/appearanceStore';
@@ -443,6 +444,11 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
     ts.typescriptDefaults.setEagerModelSync(true);
     ts.javascriptDefaults.setEagerModelSync(true);
   }, [monaco, projectContext, tab?.path]);
+
+  useEffect(() => {
+    if (!monaco) return;
+    configureTypeScriptSemanticTokens(monaco);
+  }, [monaco]);
 
   useEffect(() => {
     if (!activeTheme) {
