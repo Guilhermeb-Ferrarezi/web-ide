@@ -4,7 +4,7 @@ export function buildMonacoThemeData(theme: InstalledTheme) {
   return {
     base: theme.uiTheme,
     inherit: true,
-    rules: theme.rules,
+    rules: [...theme.rules, ...(theme.semanticRules ?? [])],
     colors: theme.colors,
   };
 }

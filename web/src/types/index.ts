@@ -177,6 +177,7 @@ export type InstalledTheme = {
   uiTheme: 'vs' | 'vs-dark' | 'hc-black';
   colors: Record<string, string>;
   rules: MonacoThemeRule[];
+  semanticRules?: MonacoThemeRule[];
 };
 
 export type InstalledIconTheme = {

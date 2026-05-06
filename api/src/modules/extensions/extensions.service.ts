@@ -78,6 +78,12 @@ type InstalledTheme = {
     background?: string;
     fontStyle?: string;
   }>;
+  semanticRules?: Array<{
+    token: string;
+    foreground?: string;
+    background?: string;
+    fontStyle?: string;
+  }>;
 };
 
 type InstalledIconTheme = {
@@ -171,6 +177,81 @@ function convertTokenColors(tokenColors: unknown): InstalledTheme['rules'] {
       background: normalizeHex(settings.background),
       fontStyle: settings.fontStyle,
     }));
+  });
+}
+
+type SemanticTokenRule = NonNullable<InstalledTheme['semanticRules']>[number];
+
+function normalizeScopeList(scope: string | string[] | undefined): string[] {
+  if (Array.isArray(scope)) return scope.flatMap((entry) => normalizeScopeList(entry));
+  if (typeof scope !== 'string') return [];
+  return scope.split(',').map((entry) => entry.trim()).filter(Boolean);
+}
+
+function semanticTokenRuleFromSettings(token: string, settings: Record<string, string>): SemanticTokenRule | null {
+  const foreground = normalizeHex(settings.foreground);
+  const background = normalizeHex(settings.background);
+  const fontStyle = settings.fontStyle;
+
+  if (!foreground && !background && !fontStyle) return null;
+
+  return {
+    token,
+    foreground,
+    background,
+    fontStyle,
+  };
+}
+
+function convertSemanticTokenColors(semanticTokenColors: unknown): SemanticTokenRule[] {
+  if (!semanticTokenColors || typeof semanticTokenColors !== 'object') return [];
+
+  return Object.entries(semanticTokenColors as Record<string, unknown>).flatMap(([token, value]) => {
+    if (typeof value === 'string') {
+      const foreground = normalizeHex(value);
+      return foreground ? [{ token, foreground }] : [];
+    }
+
+    if (!value || typeof value !== 'object') return [];
+
+    const settings = value as Record<string, string>;
+    const rule = semanticTokenRuleFromSettings(token, settings);
+    return rule ? [rule] : [];
+  });
+}
+
+const SEMANTIC_TEXTMATE_FALLBACKS: Array<{ semanticToken: string; scopes: string[] }> = [
+  { semanticToken: 'namespace', scopes: ['entity.name.namespace', 'support.class.component'] },
+  { semanticToken: 'class', scopes: ['entity.name.type.class', 'entity.name.class'] },
+  { semanticToken: 'interface', scopes: ['entity.name.type.interface', 'entity.name.interface'] },
+  { semanticToken: 'enum', scopes: ['entity.name.type.enum', 'entity.name.enum'] },
+  { semanticToken: 'typeParameter', scopes: ['entity.name.type.parameter', 'entity.name.type.type-parameter'] },
+  { semanticToken: 'type', scopes: ['entity.name.type', 'support.type', 'storage.type'] },
+  { semanticToken: 'parameter', scopes: ['variable.parameter'] },
+  { semanticToken: 'property', scopes: ['variable.object.property', 'variable.other.property'] },
+  { semanticToken: 'enumMember', scopes: ['variable.other.enummember', 'variable.other.enummember.ts'] },
+  { semanticToken: 'function', scopes: ['entity.name.function', 'support.function'] },
+  { semanticToken: 'method', scopes: ['entity.name.function.member', 'meta.method-call'] },
+  { semanticToken: 'variable', scopes: ['variable.other.readwrite', 'variable.other.object'] },
+];
+
+function buildSemanticFallbackRules(tokenColors: unknown): SemanticTokenRule[] {
+  if (!Array.isArray(tokenColors)) return [];
+
+  const entries = tokenColors.filter((entry) => entry && typeof entry === 'object') as Array<{
+    scope?: string | string[];
+    settings?: Record<string, string>;
+  }>;
+
+  return SEMANTIC_TEXTMATE_FALLBACKS.flatMap(({ semanticToken, scopes }) => {
+    const match = entries.find((entry) => {
+      const normalizedScopes = normalizeScopeList(entry.scope);
+      return scopes.some((scope) => normalizedScopes.some((candidate) => candidate === scope || candidate.startsWith(`${scope}.`)));
+    });
+
+    if (!match?.settings) return [];
+    const rule = semanticTokenRuleFromSettings(semanticToken, match.settings);
+    return rule ? [rule] : [];
   });
 }
 
@@ -312,13 +393,16 @@ async function buildInstalledExtensionPayload(extensionId: string): Promise<Inst
   const installedThemes = themes.map((theme: { id?: string; label?: string; path: string; uiTheme?: string }) => {
     const themePath = resolveArchivePath(packageJsonPath, theme.path);
     const rawTheme = parseJsonc<Record<string, unknown>>(readArchiveFile(archive, themePath));
+    const tokenColors = rawTheme.tokenColors;
+    const semanticRules = convertSemanticTokenColors(rawTheme.semanticTokenColors);
     return {
       id: `${extension.id}.${theme.id ?? theme.label ?? path.basename(theme.path, path.extname(theme.path))}`,
       extensionId: extension.id,
       label: theme.label ?? theme.id ?? extension.displayName,
       uiTheme: mapUiTheme(theme.uiTheme),
       colors: (rawTheme.colors as Record<string, string> | undefined) ?? {},
-      rules: convertTokenColors(rawTheme.tokenColors),
+      rules: convertTokenColors(tokenColors),
+      semanticRules: semanticRules.length > 0 ? semanticRules : buildSemanticFallbackRules(tokenColors),
     } satisfies InstalledTheme;
   });
 

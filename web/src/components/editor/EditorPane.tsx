@@ -619,7 +619,9 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
   }
 
   if (tab.kind === 'extension' && tab.extensionDetail) {
-    const extensionId = tab.extensionDetail.extension.id;
+    const extensionDetail = tab.extensionDetail;
+    const extensionId = extensionDetail.extension.id;
+    const extensionDisplayName = extensionDetail.extension.displayName;
     const installedTheme = installedThemes.find((theme) => theme.extensionId === extensionId) ?? null;
     const installedIconTheme = installedIconThemes.find((theme) => theme.extensionId === extensionId) ?? null;
     const deleting = installingId === `delete:${extensionId}`;
@@ -630,7 +632,7 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
       try {
         await uninstallExtension(extensionId);
         uninstallAppearanceExtension(extensionId);
-        toast.success(`${tab.extensionDetail.extension.displayName} removida`);
+        toast.success(`${extensionDisplayName} removida`);
       } catch {
         toast.error('Falha ao excluir tema');
       } finally {
@@ -679,7 +681,7 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
 
     return (
       <ExtensionDetailView
-        detail={tab.extensionDetail}
+        detail={extensionDetail}
         installing={installingId === extensionId}
         canInstall={canInstall}
         installedAction={installedAction}
@@ -754,6 +756,7 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
     },
     wordBasedSuggestions: 'currentDocument',
     snippetSuggestions: 'inline',
+    'semanticHighlighting.enabled': true,
   } as const;
 
   if (showCompare) {

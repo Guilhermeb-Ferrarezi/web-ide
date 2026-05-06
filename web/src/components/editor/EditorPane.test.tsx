@@ -205,6 +205,9 @@ describe('<EditorPane />', () => {
     expect(editorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         theme: 'vs-dark',
+        options: expect.objectContaining({
+          'semanticHighlighting.enabled': true,
+        }),
       }),
     );
   });
