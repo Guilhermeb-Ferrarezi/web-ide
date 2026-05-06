@@ -6,17 +6,24 @@ import type { GitStatus } from '@/types';
 export function useGitStatus(workspace: string | null) {
   const [status, setStatus] = useState<GitStatus | null>(null);
   const [loading, setLoading] = useState(false);
+  const requestSeqRef = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!workspace) return;
+    const requestSeq = requestSeqRef.current + 1;
+    requestSeqRef.current = requestSeq;
     setLoading(true);
     try {
       const data = await fetchStatus(workspace);
+      if (requestSeqRef.current !== requestSeq) return;
       setStatus(data);
     } catch {
+      if (requestSeqRef.current !== requestSeq) return;
       setStatus(null);
     } finally {
-      setLoading(false);
+      if (requestSeqRef.current === requestSeq) {
+        setLoading(false);
+      }
     }
   }, [workspace]);
 

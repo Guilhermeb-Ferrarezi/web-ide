@@ -16,6 +16,14 @@ const sampleStatus: GitStatus = {
   untracked: [],
 };
 
+function deferredStatus() {
+  let resolve!: (value: GitStatus) => void;
+  const promise = new Promise<GitStatus>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
 describe('useGitStatus', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,5 +69,34 @@ describe('useGitStatus', () => {
     });
     await new Promise((r) => setTimeout(r, 350));
     expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignora resposta antiga quando refresh mais recente ja terminou', async () => {
+    vi.useRealTimers();
+    const stale = deferredStatus();
+    const fresh = deferredStatus();
+    vi.spyOn(gitApi, 'fetchStatus')
+      .mockReturnValueOnce(stale.promise)
+      .mockReturnValueOnce(fresh.promise);
+
+    const { result } = renderHook(() => useGitStatus('repo'));
+    await waitFor(() => expect(gitApi.fetchStatus).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      void result.current.refresh();
+    });
+    await waitFor(() => expect(gitApi.fetchStatus).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      fresh.resolve({ ...sampleStatus, branch: 'fresh' });
+      await fresh.promise;
+    });
+    expect(result.current.status?.branch).toBe('fresh');
+
+    await act(async () => {
+      stale.resolve({ ...sampleStatus, branch: 'stale' });
+      await stale.promise;
+    });
+    expect(result.current.status?.branch).toBe('fresh');
   });
 });
