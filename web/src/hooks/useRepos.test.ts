@@ -8,6 +8,7 @@ vi.mock('@/api/repos');
 vi.mock('sonner', () => ({
   toast: {
     error: vi.fn(),
+    info: vi.fn(),
     loading: vi.fn(),
     warning: vi.fn(),
     success: vi.fn(),
@@ -155,5 +156,34 @@ describe('useRepos', () => {
     });
 
     expect(toast.success).toHaveBeenCalledWith('repo-1 clonado', { id: 'clone-toast' });
+  });
+
+  it('mostra toast de info antes de remover repositorio local', async () => {
+    vi.spyOn(reposApi, 'listRepos').mockResolvedValue(
+      makePayload({
+        localRepos: [
+          {
+            id: 'local-1',
+            slug: 'repo-1',
+            githubFullName: 'octocat/repo-1',
+            permission: 'write',
+            path: '/tmp/repo-1',
+            canManage: true,
+          },
+        ],
+      }),
+    );
+    const deleteSpy = vi.spyOn(reposApi, 'deleteLocalRepo').mockResolvedValue();
+
+    const { toast } = await import('sonner');
+    const { result } = renderHook(() => useRepos());
+    await waitFor(() => expect(result.current.localRepos).toHaveLength(1));
+
+    await act(async () => {
+      await result.current.remove(result.current.localRepos[0]);
+    });
+
+    expect(toast.info).toHaveBeenCalledWith('Removendo octocat/repo-1 da sua lista...');
+    expect(deleteSpy).toHaveBeenCalledWith('repo-1');
   });
 });

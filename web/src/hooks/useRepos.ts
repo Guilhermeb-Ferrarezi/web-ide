@@ -106,6 +106,7 @@ export function useRepos() {
 
   const remove = useCallback(async (repo: LocalRepo) => {
     try {
+      toast.info(`Removendo ${repo.githubFullName} da sua lista...`);
       await apiDelete(repo.slug);
       toast.success(`${repo.githubFullName} removido da sua lista`);
       setLocalRepos((prev) => prev.filter((r) => r.id !== repo.id));
