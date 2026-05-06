@@ -10,6 +10,9 @@ export type InstalledExtensionAction = {
   applyLabel: string;
   onApply: () => void;
   active: boolean;
+  onDeactivate: () => void;
+  onDelete: () => void;
+  deleting: boolean;
 };
 
 function formatDownloads(count: number) {
@@ -100,23 +103,23 @@ export function ExtensionDetailView({
 }: Props) {
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b px-10 py-8">
-        <div className="flex items-start gap-8">
+      <div className="border-b px-6 py-6">
+        <div className="flex items-start gap-6">
           {detail.extension.iconUrl ? (
             <img
               src={detail.extension.iconUrl}
               alt={detail.extension.displayName}
-              className="h-28 w-28 rounded-2xl border object-cover"
+              className="h-28 w-28 rounded-2xl border border-border/70 object-cover"
             />
           ) : (
-            <div className="flex h-28 w-28 items-center justify-center rounded-2xl border bg-muted/30 text-5xl text-muted-foreground">
+            <div className="flex h-28 w-28 items-center justify-center rounded-2xl border border-border/70 bg-muted/20 text-5xl text-muted-foreground">
               ◫
             </div>
           )}
 
           <div className="min-w-0 flex-1">
-            <h1 className="text-5xl font-semibold tracking-tight">{detail.extension.displayName}</h1>
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-lg text-muted-foreground">
+            <h1 className="text-4xl font-semibold tracking-tight">{detail.extension.displayName}</h1>
+            <div className="mt-3 flex flex-wrap items-center gap-2.5 text-base text-muted-foreground">
               <span>{detail.extension.namespace}</span>
               {detail.extension.verified ? <ShieldCheck className="h-4 w-4 text-sky-400" /> : null}
               <span className="text-sky-400">{detail.extension.namespace.toLowerCase()}.com</span>
@@ -132,26 +135,47 @@ export function ExtensionDetailView({
                 </>
               ) : null}
             </div>
-            <p className="mt-4 max-w-3xl text-2xl text-foreground/90">
+            <p className="mt-5 max-w-3xl text-xl leading-9 text-foreground/88">
               {detail.extension.description ?? 'No description provided.'}
             </p>
 
-            <div className="mt-5 space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
+            <div className="mt-6 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
                 {installedAction ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={installedAction.onApply}
-                    disabled={installedAction.active}
-                  >
-                    {installedAction.active ? 'Ativa' : installedAction.applyLabel}
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={installedAction.onApply}
+                      disabled={installedAction.active}
+                      className="h-8 px-3 text-sm"
+                    >
+                      {installedAction.active ? 'Ativa' : installedAction.applyLabel}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={installedAction.onDeactivate}
+                      disabled={!installedAction.active}
+                      className="h-8 px-3 text-sm"
+                    >
+                      Desativar
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={installedAction.onDelete}
+                      disabled={installedAction.deleting}
+                      className="h-8 px-3 text-sm"
+                    >
+                      {installedAction.deleting ? 'Excluindo...' : 'Excluir tema'}
+                    </Button>
+                  </>
                 ) : null}
                 {canInstall ? (
                   <Button
                     type="button"
-                    className="bg-emerald-400 text-emerald-950 hover:bg-emerald-300"
+                    className="h-8 bg-emerald-400 px-3 text-sm text-emerald-950 hover:bg-emerald-300"
                     onClick={onInstall}
                     disabled={installing}
                   >
@@ -163,15 +187,15 @@ export function ExtensionDetailView({
                     Extensão não suportada
                   </Button>
                 ) : null}
-                <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                <label className="flex items-center gap-2 pl-1 text-sm text-muted-foreground">
                   <input type="checkbox" checked readOnly className="h-4 w-4 rounded border-input bg-background" />
                   Auto Update
                 </label>
               </div>
-              <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                <span className="rounded-full border px-2.5 py-1">Instalar para usar no editor</span>
-                <span className="rounded-full border px-2.5 py-1">Leia o resumo ou abra recursos externos abaixo</span>
-                <span className="rounded-full border px-2.5 py-1">
+              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span className="rounded-full border border-border/70 px-3 py-1.5">Instalar para usar no editor</span>
+                <span className="rounded-full border border-border/70 px-3 py-1.5">Leia o resumo ou abra recursos externos abaixo</span>
+                <span className="rounded-full border border-border/70 px-3 py-1.5">
                   {detail.resources.length} recurso{detail.resources.length === 1 ? '' : 's'} externo{detail.resources.length === 1 ? '' : 's'}
                 </span>
               </div>
@@ -184,7 +208,7 @@ export function ExtensionDetailView({
           </div>
         </div>
 
-        <div className="mt-8 flex gap-6 border-b border-border/60 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        <div className="mt-7 flex gap-7 border-b border-border/60 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           <button type="button" className="border-b-2 border-emerald-300 pb-3 text-foreground">Details</button>
           <button type="button" className="pb-3">Features</button>
           <button type="button" className="pb-3">Changelog</button>
@@ -192,29 +216,31 @@ export function ExtensionDetailView({
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="grid min-h-full grid-cols-[minmax(0,1fr)_320px] gap-12 px-10 py-8">
+        <div className="grid min-h-full grid-cols-[minmax(0,1fr)_320px] gap-10 px-6 py-6">
           <div className="min-w-0 space-y-6">
-            <MarkdownBlock content={detail.readme} title={detail.extension.displayName} />
+            <div className="overflow-hidden rounded-2xl border border-border/60 bg-muted/[0.08] px-6 py-6">
+              <MarkdownBlock content={detail.readme} title={detail.extension.displayName} />
+            </div>
           </div>
 
           <aside className="border-l border-border/60 pl-8">
-            <div className="space-y-8">
+            <div className="space-y-7">
               <section>
-                <h2 className="mb-4 text-3xl font-semibold tracking-tight">Marketplace</h2>
+                <h2 className="mb-4 text-[2rem] font-semibold tracking-tight">Marketplace</h2>
                 <dl className="space-y-3 text-sm">
-                  <div className="flex justify-between gap-4 border-b border-border/40 py-1">
+                  <div className="flex justify-between gap-4 border-b border-border/40 py-1.5">
                     <dt className="text-muted-foreground">Identifier</dt>
                     <dd className="text-right">{detail.extension.namespace.toLowerCase()}.{detail.extension.name}</dd>
                   </div>
-                  <div className="flex justify-between gap-4 border-b border-border/40 py-1">
+                  <div className="flex justify-between gap-4 border-b border-border/40 py-1.5">
                     <dt className="text-muted-foreground">Version</dt>
                     <dd>{detail.extension.version}</dd>
                   </div>
-                  <div className="flex justify-between gap-4 border-b border-border/40 py-1">
+                  <div className="flex justify-between gap-4 border-b border-border/40 py-1.5">
                     <dt className="text-muted-foreground">Published</dt>
                     <dd>{formatRelativeDate(detail.publishedAt)}</dd>
                   </div>
-                  <div className="flex justify-between gap-4 border-b border-border/40 py-1">
+                  <div className="flex justify-between gap-4 border-b border-border/40 py-1.5">
                     <dt className="text-muted-foreground">Last Released</dt>
                     <dd>{formatRelativeDate(detail.updatedAt)}</dd>
                   </div>
@@ -222,10 +248,10 @@ export function ExtensionDetailView({
               </section>
 
               <section>
-                <h2 className="mb-4 text-3xl font-semibold tracking-tight">Categories</h2>
+                <h2 className="mb-4 text-[2rem] font-semibold tracking-tight">Categories</h2>
                 <div className="flex flex-wrap gap-2">
                   {detail.categories.length > 0 ? detail.categories.map((category) => (
-                    <span key={category} className="rounded border px-2 py-1 text-xs">
+                    <span key={category} className="rounded border border-border/70 px-2.5 py-1 text-xs">
                       {category}
                     </span>
                   )) : <span className="text-sm text-muted-foreground">None</span>}
@@ -233,7 +259,7 @@ export function ExtensionDetailView({
               </section>
 
               <section>
-                <h2 className="mb-4 text-3xl font-semibold tracking-tight">Resources</h2>
+                <h2 className="mb-4 text-[2rem] font-semibold tracking-tight">Resources</h2>
                 <div className="space-y-2">
                   {detail.resources.length > 0 ? detail.resources.map((resource) => (
                     <a

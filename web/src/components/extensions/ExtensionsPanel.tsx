@@ -44,11 +44,11 @@ function SidebarSection({
   if (items.length === 0) return null;
 
   return (
-    <section className="border-b border-border/60">
-      <div className="flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <section className="border-b border-border/50">
+      <div className="flex items-center justify-between px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         <span>{title}</span>
         {typeof count === 'number' ? (
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-secondary-foreground">{count}</span>
+          <span className="rounded-full border border-border/60 bg-background/40 px-1.5 py-0.5 text-[10px] text-muted-foreground">{count}</span>
         ) : null}
       </div>
 
@@ -58,8 +58,8 @@ function SidebarSection({
           role="button"
           tabIndex={0}
           className={cn(
-            'flex w-full items-start gap-3 px-3 py-3 text-left hover:bg-accent/30',
-            selectedId === item.extensionId && 'bg-accent/50',
+            'flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-accent/20',
+            selectedId === item.extensionId && 'bg-accent/35',
           )}
           onClick={() => onSelect(item.extensionId)}
           onKeyDown={(event) => {
@@ -70,22 +70,22 @@ function SidebarSection({
           }}
         >
           {item.iconUrl ? (
-            <img src={item.iconUrl} alt={item.displayName} className="h-10 w-10 rounded-md border object-cover" />
+            <img src={item.iconUrl} alt={item.displayName} className="h-10 w-10 rounded-lg border border-border/70 object-cover" />
           ) : (
-            <div className="flex h-10 w-10 items-center justify-center rounded-md border bg-muted/40 text-muted-foreground">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border/70 bg-muted/30 text-muted-foreground">
               <Blocks className="h-4 w-4" />
             </div>
           )}
 
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 pt-0.5">
             <div className="flex items-center gap-1.5">
-              <p className="truncate text-sm font-semibold">{item.displayName}</p>
+              <p className="truncate text-sm font-medium text-foreground">{item.displayName}</p>
               {item.verified ? <ShieldCheck className="h-3.5 w-3.5 text-sky-400" /> : null}
             </div>
             {item.description ? (
-              <p className="truncate text-xs text-muted-foreground">{item.description}</p>
+              <p className="truncate text-xs leading-5 text-muted-foreground">{item.description}</p>
             ) : null}
-            <p className="truncate text-xs text-muted-foreground">{item.publisher}</p>
+            <p className="truncate text-xs leading-5 text-muted-foreground/85">{item.publisher}</p>
           </div>
         </div>
       ))}
@@ -255,7 +255,7 @@ export function ExtensionsPanel() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search Extensions in Marketplace"
-              className="h-9 border-border/80 bg-muted/20 pl-9 text-sm"
+              className="h-10 border-border/80 bg-muted/10 pl-9 text-sm"
               onKeyDown={(event) => {
                 if (event.key === 'Enter') void handleSearch();
                 if (event.key === 'Escape' && query) {

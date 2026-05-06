@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { unzipSync } from 'fflate';
 import { db } from '../../db/client.ts';
 import { installedExtensions } from '../../db/schema.ts';
@@ -482,4 +482,16 @@ export async function getInstalledExtensions(input: {
   });
 
   return flattenInstalledExtensions(rows);
+}
+
+export async function uninstallExtension(input: {
+  extensionId: string;
+  userId: string;
+}): Promise<void> {
+  await db.delete(installedExtensions).where(
+    and(
+      eq(installedExtensions.userId, input.userId),
+      eq(installedExtensions.extensionId, input.extensionId),
+    ),
+  );
 }

@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { getExtensionDetail, getInstalledExtensions, installExtension, searchExtensions } from './extensions.service.ts';
+import { getExtensionDetail, getInstalledExtensions, installExtension, searchExtensions, uninstallExtension } from './extensions.service.ts';
 
 const searchQuerySchema = z.object({
   query: z.string().optional(),
@@ -44,4 +44,13 @@ export async function getExtensionById(req: FastifyRequest, reply: FastifyReply)
   } catch (err) {
     return reply.code(404).send({ error: 'extension_not_found', message: (err as Error).message });
   }
+}
+
+export async function deleteInstalledExtension(req: FastifyRequest, reply: FastifyReply) {
+  const { extensionId } = extensionParamsSchema.parse(req.params);
+  const user = req.session.user;
+  if (!user) return reply.code(401).send({ error: 'unauthenticated' });
+
+  await uninstallExtension({ extensionId, userId: user.userId });
+  return reply.code(204).send();
 }

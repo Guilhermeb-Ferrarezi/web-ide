@@ -28,3 +28,7 @@ export async function getExtensionDetail(extensionId: string): Promise<Extension
   const response = await api.get<ExtensionDetail>(`/extensions/${encodeURIComponent(extensionId)}`);
   return response.data;
 }
+
+export async function uninstallExtension(extensionId: string): Promise<void> {
+  await api.delete(`/extensions/${encodeURIComponent(extensionId)}/installed`);
+}

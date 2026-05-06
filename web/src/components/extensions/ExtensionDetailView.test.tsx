@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { ExtensionDetailView } from './ExtensionDetailView';
 import type { ExtensionDetail } from '@/types';
@@ -76,5 +77,35 @@ describe('<ExtensionDetailView />', () => {
     );
 
     expect(screen.getByText('Nenhum recurso externo disponível.')).toBeInTheDocument();
+  });
+
+  it('expõe ações para um tema instalado', async () => {
+    const onApply = vi.fn();
+    const onDeactivate = vi.fn();
+    const onDelete = vi.fn();
+
+    render(
+      <ExtensionDetailView
+        detail={detail}
+        installing={false}
+        canInstall={false}
+        installedAction={{
+          applyLabel: 'Set Color Theme',
+          onApply,
+          active: false,
+          onDeactivate,
+          onDelete,
+          deleting: false,
+        }}
+        onInstall={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Set Color Theme' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Excluir tema' }));
+
+    expect(screen.getByRole('button', { name: 'Desativar' })).toBeDisabled();
+    expect(onApply).toHaveBeenCalledTimes(1);
+    expect(onDelete).toHaveBeenCalledTimes(1);
   });
 });

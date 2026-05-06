@@ -145,4 +145,46 @@ describe('useAppearanceStore', () => {
     expect(useAppearanceStore.getState().activeThemeId).toBe('default-dark');
     expect(useAppearanceStore.getState().activeIconThemeId).toBe('material-default');
   });
+
+  it('desinstala uma extensão e volta para os temas padrão quando ela está ativa', () => {
+    useAppearanceStore.setState({
+      installedThemes: [
+        {
+          id: 'aura.dark',
+          extensionId: 'DaltonMenezes.aura-theme',
+          label: 'Aura Dark',
+          uiTheme: 'vs-dark',
+          colors: {},
+          rules: [],
+        },
+      ],
+      installedIconThemes: [
+        {
+          id: 'aura.icons',
+          extensionId: 'DaltonMenezes.aura-theme',
+          label: 'Aura Icons',
+          icons: {
+            file: 'file',
+            folder: 'folder',
+            folderExpanded: 'folder-open',
+            fileNames: {},
+            fileExtensions: {},
+            folderNames: {},
+            folderNamesExpanded: {},
+            languageIds: {},
+            iconDefinitions: {},
+          },
+        },
+      ],
+      activeThemeId: 'aura.dark',
+      activeIconThemeId: 'aura.icons',
+    });
+
+    useAppearanceStore.getState().uninstallExtension('DaltonMenezes.aura-theme');
+
+    expect(useAppearanceStore.getState().installedThemes).toEqual([]);
+    expect(useAppearanceStore.getState().installedIconThemes).toEqual([]);
+    expect(useAppearanceStore.getState().activeThemeId).toBe('default-dark');
+    expect(useAppearanceStore.getState().activeIconThemeId).toBe('material-default');
+  });
 });

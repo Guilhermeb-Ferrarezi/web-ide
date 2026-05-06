@@ -5,13 +5,13 @@ import type { EditorProjectFile, EditorTab } from '@/types';
 import { fetchProjectFiles, fetchTypes } from '@/api/fs';
 import { useEditor } from '@/hooks/useEditor';
 import { ExtensionDetailView, type InstalledExtensionAction } from '@/components/extensions/ExtensionDetailView';
-import { installExtension } from '@/api/extensions';
+import { installExtension, uninstallExtension } from '@/api/extensions';
 import { buildGitDiffHighlightRanges } from '@/lib/gitDiffHighlights';
 import { detectLanguage, isImage } from '@/lib/language';
 import { buildMonacoThemeData, getMonacoThemeName } from '@/lib/monacoTheme';
 import { cn } from '@/lib/utils';
 import { useEditorStore } from '@/stores/editorStore';
-import { DEFAULT_EDITOR_THEME_ID, useAppearanceStore } from '@/stores/appearanceStore';
+import { DEFAULT_EDITOR_THEME_ID, DEFAULT_ICON_THEME_ID, useAppearanceStore } from '@/stores/appearanceStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
@@ -258,6 +258,7 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
   const activeIconThemeId = useAppearanceStore((s) => s.activeIconThemeId);
   const installThemeStore = useAppearanceStore((s) => s.installTheme);
   const installIconThemeStore = useAppearanceStore((s) => s.installIconTheme);
+  const uninstallAppearanceExtension = useAppearanceStore((s) => s.uninstallExtension);
   const setActiveTheme = useAppearanceStore((s) => s.setActiveTheme);
   const setActiveIconTheme = useAppearanceStore((s) => s.setActiveIconTheme);
   const activeTheme = activeThemeId === DEFAULT_EDITOR_THEME_ID
@@ -621,19 +622,39 @@ export function EditorPane({ tab, readOnly = false, compareMode = false, onChang
     const extensionId = tab.extensionDetail.extension.id;
     const installedTheme = installedThemes.find((theme) => theme.extensionId === extensionId) ?? null;
     const installedIconTheme = installedIconThemes.find((theme) => theme.extensionId === extensionId) ?? null;
+    const deleting = installingId === `delete:${extensionId}`;
     let installedAction: InstalledExtensionAction | null = null;
+
+    async function handleDelete() {
+      setInstallingId(`delete:${extensionId}`);
+      try {
+        await uninstallExtension(extensionId);
+        uninstallAppearanceExtension(extensionId);
+        toast.success(`${tab.extensionDetail.extension.displayName} removida`);
+      } catch {
+        toast.error('Falha ao excluir tema');
+      } finally {
+        setInstallingId(null);
+      }
+    }
 
     if (installedTheme) {
       installedAction = {
         applyLabel: 'Set Color Theme',
         active: activeThemeId === installedTheme.id,
         onApply: () => setActiveTheme(installedTheme.id),
+        onDeactivate: () => setActiveTheme(DEFAULT_EDITOR_THEME_ID),
+        onDelete: () => void handleDelete(),
+        deleting,
       };
     } else if (installedIconTheme) {
       installedAction = {
         applyLabel: 'Set File Icon Theme',
         active: activeIconThemeId === installedIconTheme.id,
         onApply: () => setActiveIconTheme(installedIconTheme.id),
+        onDeactivate: () => setActiveIconTheme(DEFAULT_ICON_THEME_ID),
+        onDelete: () => void handleDelete(),
+        deleting,
       };
     }
 

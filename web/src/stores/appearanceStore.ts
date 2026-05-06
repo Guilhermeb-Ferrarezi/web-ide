@@ -17,6 +17,7 @@ type AppearanceState = {
   resetInstalled: () => void;
   setActiveTheme: (themeId: string, workspace?: string | null) => void;
   setActiveIconTheme: (iconThemeId: string, workspace?: string | null) => void;
+  uninstallExtension: (extensionId: string, workspace?: string | null) => void;
 };
 
 function upsertById<T extends { id: string }>(items: T[], nextItem: T): T[] {
@@ -127,5 +128,21 @@ export const useAppearanceStore = create<AppearanceState>((set) => ({
       const activeIconThemeId = resolveActiveId(state.installedIconThemes, iconThemeId, DEFAULT_ICON_THEME_ID);
       writePersistedAppearance({ activeThemeId: state.activeThemeId, activeIconThemeId }, workspace);
       return { activeIconThemeId };
+    }),
+  uninstallExtension: (extensionId, workspace) =>
+    set((state) => {
+      const installedThemes = state.installedThemes.filter((theme) => theme.extensionId !== extensionId);
+      const installedIconThemes = state.installedIconThemes.filter((theme) => theme.extensionId !== extensionId);
+      const activeThemeId = resolveActiveId(installedThemes, state.activeThemeId, DEFAULT_EDITOR_THEME_ID);
+      const activeIconThemeId = resolveActiveId(installedIconThemes, state.activeIconThemeId, DEFAULT_ICON_THEME_ID);
+
+      writePersistedAppearance({ activeThemeId, activeIconThemeId }, workspace);
+
+      return {
+        installedThemes,
+        installedIconThemes,
+        activeThemeId,
+        activeIconThemeId,
+      };
     }),
 }));
