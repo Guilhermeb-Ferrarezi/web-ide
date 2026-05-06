@@ -1,54 +1,35 @@
 import { create } from 'zustand';
-import type { EditorTab } from '@/types';
+import type { AutoSaveMode, EditorSettings, EditorTab } from '@/types';
+import { queueUserSettingPersist } from '@/lib/userSettingsPersistence';
+import { saveEditorSettings } from '@/api/settings';
 
 export type EditorJump = { line: number; column: number };
-export type AutoSaveMode = 'off' | 'afterDelay';
 
-const EDITOR_PREFERENCES_STORAGE_KEY = 'web-ide.editor-preferences';
+const defaultPreferences: EditorSettings = {
+  wordWrap: true,
+  autoSaveMode: 'off',
+  autoSaveDelayMs: 1200,
+  fontSize: 13,
+};
 
-function readStoredPreferences(): {
-  wordWrap: boolean;
-  autoSaveMode: AutoSaveMode;
-  autoSaveDelayMs: number;
-  fontSize: number;
-} {
-  if (typeof window === 'undefined') {
-    return { wordWrap: true, autoSaveMode: 'off', autoSaveDelayMs: 1200, fontSize: 13 };
-  }
-
-  try {
-    const raw = window.localStorage.getItem(EDITOR_PREFERENCES_STORAGE_KEY);
-    if (!raw) return { wordWrap: true, autoSaveMode: 'off', autoSaveDelayMs: 1200, fontSize: 13 };
-    const parsed = JSON.parse(raw) as Partial<{
-      wordWrap: boolean;
-      autoSaveMode: AutoSaveMode;
-      autoSaveDelayMs: number;
-      fontSize: number;
-    }>;
-
-    return {
-      wordWrap: parsed.wordWrap ?? true,
-      autoSaveMode: parsed.autoSaveMode === 'afterDelay' ? 'afterDelay' : 'off',
-      autoSaveDelayMs:
-        parsed.autoSaveDelayMs === 3000 || parsed.autoSaveDelayMs === 1200 ? parsed.autoSaveDelayMs : 1200,
-      fontSize: typeof parsed.fontSize === 'number' && parsed.fontSize >= 10 && parsed.fontSize <= 24 ? parsed.fontSize : 13,
-    };
-  } catch {
-    return { wordWrap: true, autoSaveMode: 'off', autoSaveDelayMs: 1200, fontSize: 13 };
-  }
+function persistPreferences(input: EditorSettings) {
+  queueUserSettingPersist('editor', input, saveEditorSettings);
 }
 
-function persistPreferences(input: {
-  wordWrap: boolean;
-  autoSaveMode: AutoSaveMode;
-  autoSaveDelayMs: number;
-  fontSize: number;
-}) {
-  if (typeof window === 'undefined') return;
-  window.localStorage.setItem(EDITOR_PREFERENCES_STORAGE_KEY, JSON.stringify(input));
+function normalizePreferences(input?: Partial<EditorSettings>): EditorSettings {
+  return {
+    wordWrap: input?.wordWrap ?? defaultPreferences.wordWrap,
+    autoSaveMode: input?.autoSaveMode === 'afterDelay' ? 'afterDelay' : 'off',
+    autoSaveDelayMs:
+      input?.autoSaveDelayMs === 3000 || input?.autoSaveDelayMs === 1200
+        ? input.autoSaveDelayMs
+        : defaultPreferences.autoSaveDelayMs,
+    fontSize:
+      typeof input?.fontSize === 'number' && input.fontSize >= 10 && input.fontSize <= 24
+        ? input.fontSize
+        : defaultPreferences.fontSize,
+  };
 }
-
-const storedPreferences = readStoredPreferences();
 
 type EditorState = {
   tabs: EditorTab[];
@@ -59,6 +40,7 @@ type EditorState = {
   autoSaveMode: AutoSaveMode;
   autoSaveDelayMs: number;
   fontSize: number;
+  hydratePreferences: (input?: Partial<EditorSettings>) => void;
   openTab: (tab: EditorTab) => void;
   upsertTab: (tab: EditorTab) => void;
   closeTab: (path: string) => void;
@@ -79,10 +61,11 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   activePath: null,
   pendingJump: null,
   cursorPosition: null,
-  wordWrap: storedPreferences.wordWrap,
-  autoSaveMode: storedPreferences.autoSaveMode,
-  autoSaveDelayMs: storedPreferences.autoSaveDelayMs,
-  fontSize: storedPreferences.fontSize,
+  wordWrap: defaultPreferences.wordWrap,
+  autoSaveMode: defaultPreferences.autoSaveMode,
+  autoSaveDelayMs: defaultPreferences.autoSaveDelayMs,
+  fontSize: defaultPreferences.fontSize,
+  hydratePreferences: (input) => set(normalizePreferences(input)),
   openTab: (tab) => {
     const exists = get().tabs.find((t) => t.path === tab.path);
     if (exists) return set({ activePath: tab.path });

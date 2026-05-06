@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { AppShell } from './AppShell';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useUserSettingsStore } from '@/stores/userSettingsStore';
 
 vi.mock('@/hooks/useEditor', () => ({
   useEditor: () => ({
@@ -42,6 +43,16 @@ vi.mock('@/hooks/useAuth', () => ({
     logout: vi.fn(),
   }),
 }));
+
+vi.mock('@/stores/userSettingsStore', async () => {
+  const { create } = await import('zustand');
+  const useUserSettingsStore = create(() => ({
+    sidePanel: 'files',
+    setSidePanel: (sidePanel: 'files' | 'search' | 'git' | 'extensions') => useUserSettingsStore.setState({ sidePanel }),
+  }));
+
+  return { useUserSettingsStore };
+});
 
 vi.mock('@/components/file-tree/FileTree', () => ({
   FileTree: () => <div>file-tree</div>,
@@ -86,6 +97,7 @@ vi.mock('./StatusBar', () => ({
 describe('<AppShell />', () => {
   beforeEach(() => {
     useWorkspaceStore.setState({ workspace: 'repo', permission: 'read' });
+    useUserSettingsStore.setState({ sidePanel: 'files' });
   });
 
   it('mostra aviso de somente leitura e desabilita o terminal quando a permissao eh read', () => {

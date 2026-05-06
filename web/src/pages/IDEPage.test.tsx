@@ -30,24 +30,46 @@ vi.mock('@/api/extensions', () => ({
   getInstalledExtensions: vi.fn(() => new Promise(() => {})),
 }));
 
-vi.mock('@/stores/workspaceStore', () => ({
-  useWorkspaceStore: (selector: any) => selector({
-    permission: 'write',
+vi.mock('@/api/settings', () => ({
+  getUserSettings: vi.fn(() => new Promise(() => {})),
+}));
+
+vi.mock('@/stores/workspaceStore', async () => {
+  const { create } = await import('zustand');
+  const useWorkspaceStore = create(() => ({
+    permission: 'write' as const,
     setWorkspace: vi.fn(),
     setPermission: vi.fn(),
-  }),
-}));
+  }));
+  return { useWorkspaceStore };
+});
 
-vi.mock('@/stores/editorStore', () => ({
-  useEditorStore: (selector: any) => selector({ reset: vi.fn() }),
-  default: {},
-}));
+vi.mock('@/stores/editorStore', async () => {
+  const { create } = await import('zustand');
+  const useEditorStore = create(() => ({
+    reset: vi.fn(),
+    hydratePreferences: vi.fn(),
+  }));
+  return { useEditorStore, default: {} };
+});
 
-vi.mock('@/stores/appearanceStore', () => ({
-  useAppearanceStore: (selector: any) => selector({
+vi.mock('@/stores/appearanceStore', async () => {
+  const { create } = await import('zustand');
+  const useAppearanceStore = create(() => ({
     replaceInstalled: vi.fn(),
     resetInstalled: vi.fn(),
-  }),
+    hydratePreferences: vi.fn(),
+  }));
+  return { useAppearanceStore };
+});
+
+vi.mock('@/stores/userSettingsStore', () => ({
+  useUserSettingsStore: {
+    getState: () => ({
+      reset: vi.fn(),
+      hydrate: vi.fn(),
+    }),
+  },
 }));
 
 describe('<IDEPage />', () => {

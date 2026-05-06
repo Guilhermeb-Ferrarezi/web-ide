@@ -16,6 +16,7 @@ import permissionsRoutes from './modules/permissions/permissions.routes.ts';
 import adminRoutes from './modules/admin/admin.routes.ts';
 import extensionsRoutes from './modules/extensions/extensions.routes.ts';
 import assistantRoutes from './modules/assistant/assistant.routes.ts';
+import settingsRoutes from './modules/settings/settings.routes.ts';
 
 const app = Fastify({
   logger: {
@@ -51,6 +52,7 @@ await app.register(
     await api.register(adminRoutes);
     await api.register(extensionsRoutes);
     await api.register(assistantRoutes);
+    await api.register(settingsRoutes);
   },
   { prefix: '/api' },
 );

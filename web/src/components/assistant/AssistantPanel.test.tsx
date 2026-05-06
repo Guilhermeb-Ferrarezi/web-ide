@@ -1,35 +1,15 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AssistantPanel, getAssistantPanelStorageKey } from './AssistantPanel';
+import { AssistantPanel } from './AssistantPanel';
 import * as assistantApi from '@/api/assistant';
-
-const DRAFT_KEY = 'assistant-panel:repo:draft';
-const MESSAGES_KEY = 'assistant-panel:repo:messages';
-
-const storage = new Map<string, string>();
-const localStorageMock = {
-  getItem: vi.fn((key: string) => storage.get(key) ?? null),
-  setItem: vi.fn((key: string, value: string) => {
-    storage.set(key, value);
-  }),
-  removeItem: vi.fn((key: string) => {
-    storage.delete(key);
-  }),
-  clear: vi.fn(() => {
-    storage.clear();
-  }),
-};
+import { useUserSettingsStore } from '@/stores/userSettingsStore';
 
 describe('<AssistantPanel />', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-    storage.clear();
-    Object.defineProperty(window, 'localStorage', {
-      configurable: true,
-      value: localStorageMock,
-    });
     HTMLElement.prototype.scrollIntoView = vi.fn();
+    useUserSettingsStore.getState().reset();
   });
 
   it('envia uma mensagem e mostra a resposta no painel', async () => {
@@ -107,7 +87,7 @@ describe('<AssistantPanel />', () => {
   });
 
   it('restaura o rascunho salvo ao reabrir o painel', () => {
-    window.localStorage.setItem(DRAFT_KEY, 'continuar depois');
+    useUserSettingsStore.setState({ assistantDraft: 'continuar depois' });
 
     render(
       <AssistantPanel
@@ -121,13 +101,12 @@ describe('<AssistantPanel />', () => {
   });
 
   it('restaura o histórico salvo ao reabrir o painel', () => {
-    window.localStorage.setItem(
-      MESSAGES_KEY,
-      JSON.stringify([
+    useUserSettingsStore.setState({
+      assistantMessages: [
         { role: 'user', content: 'revise este arquivo' },
         { role: 'assistant', content: 'Encontrei um helper duplicado.' },
-      ]),
-    );
+      ],
+    });
 
     render(
       <AssistantPanel
@@ -168,9 +147,8 @@ describe('<AssistantPanel />', () => {
     );
   });
 
-  it('não vaza rascunho ao trocar de workspace', async () => {
-    window.localStorage.setItem(getAssistantPanelStorageKey('repo', 'draft'), 'rascunho do repo');
-    window.localStorage.setItem(getAssistantPanelStorageKey('repo-2', 'draft'), 'rascunho do repo 2');
+  it('mantem o rascunho global ao trocar de workspace', async () => {
+    useUserSettingsStore.setState({ assistantDraft: 'rascunho global' });
 
     const { rerender } = render(
       <AssistantPanel
@@ -180,7 +158,7 @@ describe('<AssistantPanel />', () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('rascunho do repo');
+    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('rascunho global');
 
     rerender(
       <AssistantPanel
@@ -190,8 +168,7 @@ describe('<AssistantPanel />', () => {
       />,
     );
 
-    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('rascunho do repo 2');
-    expect(window.localStorage.getItem(getAssistantPanelStorageKey('repo-2', 'draft'))).toBe('rascunho do repo 2');
+    expect(screen.getByPlaceholderText('Pergunte algo sobre o workspace...')).toHaveValue('rascunho global');
   });
 
   it('remove o rascunho salvo depois de enviar', async () => {
@@ -213,7 +190,7 @@ describe('<AssistantPanel />', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 
     await waitFor(() => expect(assistantApi.chatAssistant).toHaveBeenCalledTimes(1));
-    expect(window.localStorage.getItem(DRAFT_KEY)).toBeNull();
+    expect(useUserSettingsStore.getState().assistantDraft).toBe('');
   });
 
   it('remove o histórico salvo ao limpar a conversa', async () => {
@@ -237,7 +214,7 @@ describe('<AssistantPanel />', () => {
 
     await userEvent.click(screen.getByTitle('Limpar conversa'));
 
-    expect(window.localStorage.getItem(MESSAGES_KEY)).toBeNull();
+    expect(useUserSettingsStore.getState().assistantMessages).toEqual([]);
     expect(screen.queryByText('resposta persistida')).not.toBeInTheDocument();
   });
 

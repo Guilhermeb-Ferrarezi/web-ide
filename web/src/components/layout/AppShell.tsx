@@ -20,30 +20,8 @@ import { useEditor } from '@/hooks/useEditor';
 import { useGitStatus } from '@/hooks/useGitStatus';
 import { cn } from '@/lib/utils';
 import { useEditorStore } from '@/stores/editorStore';
+import { useUserSettingsStore } from '@/stores/userSettingsStore';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-
-type SidePanel = 'files' | 'search' | 'git' | 'extensions';
-
-function readSidePanelPreference(): SidePanel {
-  try {
-    const storage = globalThis.localStorage;
-    if (!storage || typeof storage.getItem !== 'function') return 'files';
-    const saved = storage.getItem('ide:side-panel');
-    return saved === 'search' || saved === 'git' || saved === 'extensions' ? saved : 'files';
-  } catch {
-    return 'files';
-  }
-}
-
-function persistSidePanelPreference(panel: SidePanel) {
-  try {
-    const storage = globalThis.localStorage;
-    if (!storage || typeof storage.setItem !== 'function') return;
-    storage.setItem('ide:side-panel', panel);
-  } catch {
-    // ignore persistence failures
-  }
-}
 
 export function AppShell({ workspace }: { workspace: string }) {
   const { tabs, activePath, openGitDiff, setActive, closeTab: closeTabRaw, updateContent, save } = useEditor();
@@ -56,6 +34,8 @@ export function AppShell({ workspace }: { workspace: string }) {
   const setAutoSaveMode = useEditorStore((s) => s.setAutoSaveMode);
   const setAutoSaveDelayMs = useEditorStore((s) => s.setAutoSaveDelayMs);
   const setFontSize = useEditorStore((s) => s.setFontSize);
+  const side = useUserSettingsStore((s) => s.sidePanel);
+  const setSide = useUserSettingsStore((s) => s.setSidePanel);
 
   const closeTab = useCallback(
     (path: string) => {
@@ -87,16 +67,8 @@ export function AppShell({ workspace }: { workspace: string }) {
   const activeTab = tabs.find((t) => t.path === activePath) ?? null;
   const [comparisonPath, setComparisonPath] = useState<string | null>(null);
   const { status: gitStatus } = useGitStatus(workspace);
-  const initialSide = readSidePanelPreference();
-  const [side, setSideRaw] = useState<SidePanel>(() => {
-    return initialSide;
-  });
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantMounted, setAssistantMounted] = useState(false);
-  const setSide = (panel: SidePanel) => {
-    setSideRaw(panel);
-    persistSidePanelPreference(panel);
-  };
   const [showTerminal, setShowTerminal] = useState(false);
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);

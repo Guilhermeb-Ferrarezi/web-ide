@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { appConfigSchema } from '../config.ts';
-import { globalRoles, installedExtensions, repoPermissions, repos, sessions, users } from './schema.ts';
+import { globalRoles, installedExtensions, repoPermissions, repos, sessions, userSettings, users } from './schema.ts';
 
 describe('database config', () => {
   it('requires DATABASE_URL', () => {
@@ -22,6 +22,7 @@ describe('database config', () => {
     expect(globalRoles.role.name).toBe('role');
     expect(sessions.id.name).toBe('id');
     expect(installedExtensions.extensionId.name).toBe('extension_id');
+    expect(userSettings.settingKey.name).toBe('setting_key');
   });
 
   it('accepts terminal superuser env config', () => {
@@ -33,6 +34,7 @@ describe('database config', () => {
       SESSION_SECRET: '12345678901234567890123456789012',
       FRONTEND_URL: 'http://localhost:5173',
       TERMINAL_SUPERUSERS: 'octocat,42',
+      CLOUDFLARE_PUBLIC_URL: 'https://cdn.example.com',
     });
 
     expect(result.success).toBe(true);

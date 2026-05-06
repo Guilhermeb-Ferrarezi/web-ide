@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEditor } from '@/hooks/useEditor';
 import { cn } from '@/lib/utils';
+import { useUserSettingsStore } from '@/stores/userSettingsStore';
 import type { CodeSearchMatch, CodeSearchOptions, CodeSearchResult } from '@/types';
 
 type Props = {
@@ -16,14 +17,8 @@ type Props = {
 export function CodeSearchPanel({ workspace }: Props) {
   const { openFile } = useEditor();
   const [query, setQuery] = useState('');
-  const [options, setOptions] = useState<CodeSearchOptions>(() => {
-    try {
-      const saved = localStorage.getItem('ide:search-options');
-      return saved ? (JSON.parse(saved) as CodeSearchOptions) : {};
-    } catch {
-      return {};
-    }
-  });
+  const options = useUserSettingsStore((s) => s.searchOptions);
+  const setOptions = useUserSettingsStore((s) => s.setSearchOptions);
   const inputRef = useRef<HTMLInputElement>(null);
   const [results, setResults] = useState<CodeSearchResult[]>([]);
 
@@ -85,7 +80,6 @@ export function CodeSearchPanel({ workspace }: Props) {
   function toggleOption(key: keyof CodeSearchOptions) {
     const next = { ...options, [key]: !options[key] };
     setOptions(next);
-    try { localStorage.setItem('ide:search-options', JSON.stringify(next)); } catch { /* ignore */ }
     if (query.trim()) void runSearch(next);
   }
 

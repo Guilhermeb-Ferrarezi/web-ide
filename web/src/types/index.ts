@@ -91,6 +91,8 @@ export type CodeSearchOptions = {
   regex?: boolean;
 };
 
+export type SidePanel = 'files' | 'search' | 'git' | 'extensions';
+
 export type AssistantChatRole = 'user' | 'assistant';
 
 export type AssistantChatMessage = {
@@ -220,6 +222,37 @@ export type InstalledExtensionPayload = {
 export type InstalledExtensionsStatePayload = {
   themes: InstalledTheme[];
   iconThemes: InstalledIconTheme[];
+};
+
+export type AppearanceSettings = {
+  activeThemeId: string;
+  activeIconThemeId: string;
+};
+
+export type AutoSaveMode = 'off' | 'afterDelay';
+
+export type EditorSettings = {
+  wordWrap: boolean;
+  autoSaveMode: AutoSaveMode;
+  autoSaveDelayMs: number;
+  fontSize: number;
+};
+
+export type LayoutSettings = {
+  sidePanel: SidePanel;
+};
+
+export type AssistantSettings = {
+  draft: string;
+  messages: AssistantChatMessage[];
+};
+
+export type UserSettingsPayload = {
+  appearance?: AppearanceSettings;
+  editor?: EditorSettings;
+  layout?: LayoutSettings;
+  search?: CodeSearchOptions;
+  assistant?: AssistantSettings;
 };
 
 export type ExtensionResource = {

@@ -1,10 +1,10 @@
 import { create } from 'zustand';
-import type { InstalledExtensionsStatePayload, InstalledIconTheme, InstalledTheme } from '@/types';
-import { useWorkspaceStore } from './workspaceStore';
+import type { AppearanceSettings, InstalledExtensionsStatePayload, InstalledIconTheme, InstalledTheme } from '@/types';
+import { queueUserSettingPersist } from '@/lib/userSettingsPersistence';
+import { saveAppearanceSettings } from '@/api/settings';
 
 export const DEFAULT_EDITOR_THEME_ID = 'default-dark';
 export const DEFAULT_ICON_THEME_ID = 'material-default';
-const APPEARANCE_STORAGE_KEY_PREFIX = 'web-ide:appearance:';
 
 type AppearanceState = {
   installedThemes: InstalledTheme[];
@@ -13,7 +13,8 @@ type AppearanceState = {
   activeIconThemeId: string;
   installTheme: (theme: InstalledTheme) => void;
   installIconTheme: (iconTheme: InstalledIconTheme) => void;
-  replaceInstalled: (payload: InstalledExtensionsStatePayload, workspace?: string | null) => void;
+  hydratePreferences: (settings?: AppearanceSettings) => void;
+  replaceInstalled: (payload: InstalledExtensionsStatePayload) => void;
   resetInstalled: () => void;
   setActiveTheme: (themeId: string, workspace?: string | null) => void;
   setActiveIconTheme: (iconThemeId: string, workspace?: string | null) => void;
@@ -28,41 +29,8 @@ function upsertById<T extends { id: string }>(items: T[], nextItem: T): T[] {
   return nextItems;
 }
 
-type PersistedAppearance = {
-  activeThemeId?: string;
-  activeIconThemeId?: string;
-};
-
-function getWorkspaceKey(workspace?: string | null): string | null {
-  const resolved = workspace ?? useWorkspaceStore.getState().workspace;
-  return resolved ? `${APPEARANCE_STORAGE_KEY_PREFIX}${resolved}` : null;
-}
-
-function readPersistedAppearance(workspace?: string | null): PersistedAppearance | null {
-  const key = getWorkspaceKey(workspace);
-  if (!key) return null;
-
-  try {
-    const raw = globalThis.localStorage?.getItem(key);
-    if (!raw) return null;
-    return JSON.parse(raw) as PersistedAppearance;
-  } catch {
-    return null;
-  }
-}
-
-function writePersistedAppearance(
-  appearance: { activeThemeId: string; activeIconThemeId: string },
-  workspace?: string | null,
-) {
-  const key = getWorkspaceKey(workspace);
-  if (!key) return;
-
-  try {
-    globalThis.localStorage?.setItem(key, JSON.stringify(appearance));
-  } catch {
-    // ignore persistence failures
-  }
+function persistAppearance(appearance: AppearanceSettings) {
+  queueUserSettingPersist('appearance', appearance, saveAppearanceSettings);
 }
 
 function resolveActiveId<T extends { id: string }>(
@@ -87,21 +55,23 @@ export const useAppearanceStore = create<AppearanceState>((set) => ({
     set((state) => ({
       installedIconThemes: upsertById(state.installedIconThemes, iconTheme),
     })),
-  replaceInstalled: (payload, workspace) =>
+  hydratePreferences: (settings) =>
+    set({
+      activeThemeId: settings?.activeThemeId ?? DEFAULT_EDITOR_THEME_ID,
+      activeIconThemeId: settings?.activeIconThemeId ?? DEFAULT_ICON_THEME_ID,
+    }),
+  replaceInstalled: (payload) =>
     set((state) => {
-      const persisted = readPersistedAppearance(workspace);
       const activeThemeId = resolveActiveId(
         payload.themes,
-        persisted?.activeThemeId ?? state.activeThemeId,
+        state.activeThemeId,
         DEFAULT_EDITOR_THEME_ID,
       );
       const activeIconThemeId = resolveActiveId(
         payload.iconThemes,
-        persisted?.activeIconThemeId ?? state.activeIconThemeId,
+        state.activeIconThemeId,
         DEFAULT_ICON_THEME_ID,
       );
-
-      writePersistedAppearance({ activeThemeId, activeIconThemeId }, workspace);
 
       return {
         installedThemes: payload.themes,
@@ -117,26 +87,25 @@ export const useAppearanceStore = create<AppearanceState>((set) => ({
       activeThemeId: DEFAULT_EDITOR_THEME_ID,
       activeIconThemeId: DEFAULT_ICON_THEME_ID,
     }),
-  setActiveTheme: (themeId, workspace) =>
+  setActiveTheme: (themeId) =>
     set((state) => {
       const activeThemeId = resolveActiveId(state.installedThemes, themeId, DEFAULT_EDITOR_THEME_ID);
-      writePersistedAppearance({ activeThemeId, activeIconThemeId: state.activeIconThemeId }, workspace);
+      persistAppearance({ activeThemeId, activeIconThemeId: state.activeIconThemeId });
       return { activeThemeId };
     }),
-  setActiveIconTheme: (iconThemeId, workspace) =>
+  setActiveIconTheme: (iconThemeId) =>
     set((state) => {
       const activeIconThemeId = resolveActiveId(state.installedIconThemes, iconThemeId, DEFAULT_ICON_THEME_ID);
-      writePersistedAppearance({ activeThemeId: state.activeThemeId, activeIconThemeId }, workspace);
+      persistAppearance({ activeThemeId: state.activeThemeId, activeIconThemeId });
       return { activeIconThemeId };
     }),
-  uninstallExtension: (extensionId, workspace) =>
+  uninstallExtension: (extensionId) =>
     set((state) => {
       const installedThemes = state.installedThemes.filter((theme) => theme.extensionId !== extensionId);
       const installedIconThemes = state.installedIconThemes.filter((theme) => theme.extensionId !== extensionId);
       const activeThemeId = resolveActiveId(installedThemes, state.activeThemeId, DEFAULT_EDITOR_THEME_ID);
       const activeIconThemeId = resolveActiveId(installedIconThemes, state.activeIconThemeId, DEFAULT_ICON_THEME_ID);
-
-      writePersistedAppearance({ activeThemeId, activeIconThemeId }, workspace);
+      persistAppearance({ activeThemeId, activeIconThemeId });
 
       return {
         installedThemes,

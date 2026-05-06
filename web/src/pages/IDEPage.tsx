@@ -8,11 +8,13 @@ import { AppShell } from '@/components/layout/AppShell';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useEditorStore } from '@/stores/editorStore';
 import { useAppearanceStore } from '@/stores/appearanceStore';
+import { useUserSettingsStore } from '@/stores/userSettingsStore';
 import { useWatcher } from '@/hooks/useWatcher';
 import { watcherBus } from '@/lib/watcherBus';
 import { fetchFile } from '@/api/fs';
 import { listLocalRepos } from '@/api/repos';
 import { getInstalledExtensions } from '@/api/extensions';
+import { getUserSettings } from '@/api/settings';
 
 export default function IDEPage() {
   const { workspace } = useParams<{ workspace: string }>();
@@ -20,23 +22,32 @@ export default function IDEPage() {
   const permission = useWorkspaceStore((s) => s.permission);
   const [loadingPermission, setLoadingPermission] = useState(true);
   const [loadingExtensions, setLoadingExtensions] = useState(true);
+  const [loadingSettings, setLoadingSettings] = useState(true);
 
   useEffect(() => {
     const workspaceStore = useWorkspaceStore.getState();
     const editorStore = useEditorStore.getState();
     const appearanceStore = useAppearanceStore.getState();
+    const userSettingsStore = useUserSettingsStore.getState();
 
     workspaceStore.setWorkspace(workspace ?? null);
     workspaceStore.setPermission(null);
     editorStore.reset();
+    editorStore.hydratePreferences();
+    userSettingsStore.reset();
     appearanceStore.resetInstalled();
+    appearanceStore.hydratePreferences();
     setLoadingPermission(true);
     setLoadingExtensions(true);
+    setLoadingSettings(true);
     return () => {
       workspaceStore.setWorkspace(null);
       workspaceStore.setPermission(null);
       editorStore.reset();
+      editorStore.hydratePreferences();
+      userSettingsStore.reset();
       appearanceStore.resetInstalled();
+      appearanceStore.hydratePreferences();
     };
   }, [workspace]);
 
@@ -63,13 +74,37 @@ export default function IDEPage() {
   useWatcher(workspace ?? null, (e) => watcherBus.emit(e));
 
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      setLoadingSettings(true);
+      try {
+        const settings = await getUserSettings();
+        if (cancelled) return;
+        useUserSettingsStore.getState().hydrate(settings);
+        useEditorStore.getState().hydratePreferences(settings.editor);
+        useAppearanceStore.getState().hydratePreferences(settings.appearance);
+      } catch {
+        if (cancelled) return;
+        useUserSettingsStore.getState().reset();
+        useEditorStore.getState().hydratePreferences();
+        useAppearanceStore.getState().hydratePreferences();
+      } finally {
+        if (!cancelled) setLoadingSettings(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!workspace) return;
     let cancelled = false;
     void (async () => {
       setLoadingExtensions(true);
       try {
         const installed = await getInstalledExtensions();
-        if (!cancelled) useAppearanceStore.getState().replaceInstalled(installed, workspace);
+        if (!cancelled) useAppearanceStore.getState().replaceInstalled(installed);
       } catch {
         if (!cancelled) useAppearanceStore.getState().resetInstalled();
       } finally {
@@ -111,7 +146,7 @@ export default function IDEPage() {
 
   if (!workspace) return null;
 
-  const booting = loadingPermission || loadingExtensions;
+  const booting = loadingPermission || loadingExtensions || loadingSettings;
 
   return (
     <div className="flex h-full flex-col">

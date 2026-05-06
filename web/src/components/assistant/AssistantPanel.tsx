@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils';
 import { resolveDefaultFileIcon, resolveFileIcon } from '@/lib/fileTreeIcons';
 import { IconWithFallback } from '@/components/shared/IconWithFallback';
 import type { AssistantChatMessage } from '@/types';
+import { useUserSettingsStore } from '@/stores/userSettingsStore';
 
 type Props = {
   workspace: string;
@@ -44,13 +45,11 @@ const QUICK_ACTIONS = [
   },
 ] as const;
 
-export function getAssistantPanelStorageKey(workspace: string, bucket: 'draft' | 'messages') {
-  return `assistant-panel:${workspace}:${bucket}`;
-}
-
 export function AssistantPanel({ workspace, activePath, activeContent, canEdit = true, onClose }: Props) {
-  const [messages, setMessages] = useState<AssistantChatMessage[]>(() => readStoredMessages(workspace));
-  const [input, setInput] = useState(() => readStoredDraft(workspace));
+  const messages = useUserSettingsStore((s) => s.assistantMessages);
+  const setMessages = useUserSettingsStore((s) => s.setAssistantMessages);
+  const input = useUserSettingsStore((s) => s.assistantDraft);
+  const setInput = useUserSettingsStore((s) => s.setAssistantDraft);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastPrompt, setLastPrompt] = useState<string | null>(null);
@@ -63,8 +62,6 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
   const endRef = useRef<HTMLDivElement>(null);
   const dragDepthRef = useRef(0);
   const firstWorkspaceRenderRef = useRef(true);
-  const skipDraftPersistRef = useRef(true);
-  const skipMessagesPersistRef = useRef(true);
   const activeFileName = activePath ? getFileName(activePath) : null;
   const activeFileIcon = activePath ? resolveFileIcon(activePath) : null;
   const activeFileFallbackIcon = activePath ? resolveDefaultFileIcon(activePath) : null;
@@ -79,38 +76,12 @@ export function AssistantPanel({ workspace, activePath, activeContent, canEdit =
       return;
     }
 
-    skipDraftPersistRef.current = true;
-    skipMessagesPersistRef.current = true;
-    setInput(readStoredDraft(workspace));
-    setMessages(readStoredMessages(workspace));
     setError(null);
     setLastPrompt(null);
     setAttachedFiles([]);
     setAttachedImages([]);
     setIsDraggingImages(false);
   }, [workspace]);
-
-  useEffect(() => {
-    if (skipDraftPersistRef.current) {
-      skipDraftPersistRef.current = false;
-      return;
-    }
-
-    const handle = window.setTimeout(() => {
-      persistDraft(workspace, input);
-    }, 180);
-
-    return () => window.clearTimeout(handle);
-  }, [workspace, input]);
-
-  useEffect(() => {
-    if (skipMessagesPersistRef.current) {
-      skipMessagesPersistRef.current = false;
-      return;
-    }
-
-    persistMessages(workspace, messages);
-  }, [workspace, messages]);
 
   useEffect(() => {
     if (typeof endRef.current?.scrollIntoView === 'function') {
@@ -672,52 +643,6 @@ function CodeBlock({ code, language }: { code: string; language?: string }) {
       </pre>
     </div>
   );
-}
-
-function readStoredDraft(workspace: string): string {
-  if (typeof window === 'undefined') return '';
-  return window.localStorage.getItem(getAssistantPanelStorageKey(workspace, 'draft')) ?? '';
-}
-
-function persistDraft(workspace: string, value: string) {
-  if (typeof window === 'undefined') return;
-  const key = getAssistantPanelStorageKey(workspace, 'draft');
-  if (!value.trim()) {
-    window.localStorage.removeItem(key);
-    return;
-  }
-  window.localStorage.setItem(key, value);
-}
-
-function readStoredMessages(workspace: string): AssistantChatMessage[] {
-  if (typeof window === 'undefined') return [];
-  const stored = window.localStorage.getItem(getAssistantPanelStorageKey(workspace, 'messages'));
-  if (!stored) return [];
-
-  try {
-    const parsed = JSON.parse(stored);
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(
-      (item): item is AssistantChatMessage =>
-        typeof item === 'object' &&
-        item !== null &&
-        (item.role === 'user' || item.role === 'assistant') &&
-        typeof item.content === 'string',
-    );
-  } catch {
-    return [];
-  }
-}
-
-function persistMessages(workspace: string, messages: AssistantChatMessage[]) {
-  if (typeof window === 'undefined') return;
-  const key = getAssistantPanelStorageKey(workspace, 'messages');
-  if (messages.length === 0) {
-    window.localStorage.removeItem(key);
-    return;
-  }
-  window.localStorage.setItem(key, JSON.stringify(messages));
 }
 
 function flattenNodeText(node: ReactNode): string {

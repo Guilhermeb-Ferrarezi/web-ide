@@ -99,3 +99,19 @@ export const installedExtensions = pgTable(
     pk: primaryKey({ columns: [t.userId, t.extensionId] }),
   }),
 );
+
+export const userSettings = pgTable(
+  'user_settings',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    settingKey: text('setting_key').notNull(),
+    valueJson: text('value_json').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (t) => ({
+    pk: primaryKey({ columns: [t.userId, t.settingKey] }),
+  }),
+);
