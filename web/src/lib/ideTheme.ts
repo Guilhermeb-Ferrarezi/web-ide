@@ -77,7 +77,7 @@ const MIN_USABLE_ALPHA = 0.5;
 const MIN_TEXT_CONTRAST = 4.5;
 const MIN_MUTED_TEXT_CONTRAST = 3;
 const MIN_BORDER_CONTRAST = 1.35;
-const MAX_SURFACE_SATURATION = 16;
+const MAX_SURFACE_SATURATION = 24;
 
 export function getShellThemeMode(theme: InstalledTheme | null): ShellThemeMode {
   if (!theme) return 'dark';
@@ -262,14 +262,29 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
   }
 
   const colors = theme.colors;
-  const baseBackground = pickColor(colors, ['sideBar.background', 'editor.background', 'panel.background']);
+  const baseBackground = pickColor(colors, ['editor.background', 'sideBar.background', 'panel.background']);
   const baseForeground = pickColor(colors, ['sideBar.foreground', 'editor.foreground', 'foreground']);
-  const borderColor = pickColor(colors, ['panel.border', 'sideBar.border', 'contrastBorder', 'editorGroup.border']);
+  const borderColor = pickColor(
+    colors,
+    ['input.border', 'panel.border', 'sideBar.border', 'contrastBorder', 'editorGroup.border'],
+  );
   const primaryColor = pickColor(colors, ['button.background', 'list.activeSelectionBackground', 'focusBorder']);
-  const accentColor = pickColor(colors, ['list.hoverBackground', 'list.activeSelectionBackground', 'button.background']);
-  const mutedColor = pickColor(colors, ['list.inactiveSelectionBackground', 'panel.background', 'sideBarSectionHeader.background']);
+  const accentColor = pickColor(
+    colors,
+    ['list.hoverBackground', 'tab.activeBackground', 'list.activeSelectionBackground', 'button.background'],
+  );
+  const secondaryColor = pickColor(colors, ['activityBar.background', 'sideBarSectionHeader.background', 'panel.background']);
+  const cardColor = pickColor(colors, ['sideBar.background', 'panel.background', 'editorWidget.background']);
+  const mutedColor = pickColor(
+    colors,
+    ['sideBarSectionHeader.background', 'list.inactiveSelectionBackground', 'panel.background', 'sideBar.background'],
+  );
   const mutedForegroundColor = pickColor(colors, ['descriptionForeground', 'list.inactiveSelectionForeground', 'editorLineNumber.foreground']);
-  const popoverColor = pickColor(colors, ['editorWidget.background', 'panel.background', 'editor.background']);
+  const popoverColor = pickColor(
+    colors,
+    ['editorWidget.background', 'menu.background', 'dropdown.background', 'panel.background', 'editor.background'],
+  );
+  const inputColor = pickColor(colors, ['input.background', 'inputOption.activeBackground', 'editorWidget.background']);
 
   const fallbackBackgroundHex = mode === 'dark' ? '#0a0a0a' : '#ffffff';
   const background = colorToSurfaceCssValue(baseBackground) ?? defaults.background;
@@ -287,13 +302,16 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
   const accent = colorToCssValue(accentColor) ?? shiftLightness(baseBackground, mode === 'dark' ? 12 : -10, defaults.accent);
   const muted = colorToSurfaceCssValue(mutedColor)
     ?? shiftLightness(baseBackground, mode === 'dark' ? 8 : -6, defaults.muted);
-  const secondary = colorToSurfaceCssValue(baseBackground)
-    ? shiftLightness(baseBackground, mode === 'dark' ? 10 : -8, defaults.secondary)
-    : defaults.secondary;
-  const card = colorToSurfaceCssValue(baseBackground)
-    ? shiftLightness(baseBackground, mode === 'dark' ? 2 : -2, defaults.card)
-    : defaults.card;
+  const secondary = colorToSurfaceCssValue(secondaryColor)
+    ?? (colorToSurfaceCssValue(baseBackground)
+      ? shiftLightness(baseBackground, mode === 'dark' ? 10 : -8, defaults.secondary)
+      : defaults.secondary);
+  const card = colorToSurfaceCssValue(cardColor)
+    ?? (colorToSurfaceCssValue(baseBackground)
+      ? shiftLightness(baseBackground, mode === 'dark' ? 2 : -2, defaults.card)
+      : defaults.card);
   const popover = colorToSurfaceCssValue(popoverColor) ?? card;
+  const input = colorToSurfaceCssValue(inputColor) ?? border;
   const ring = colorToCssValue(pickColor(colors, ['focusBorder', 'button.background'])) ?? primary;
   const primaryForeground = resolvePrimaryForeground(primaryColor ?? '', defaults['primary-foreground']);
   const resolvedMutedForeground = colorToCssValue(mutedForegroundColor);
@@ -326,7 +344,7 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
       destructive: defaults.destructive,
       'destructive-foreground': defaults['destructive-foreground'],
       border,
-      input: border,
+      input,
       ring,
     },
   };

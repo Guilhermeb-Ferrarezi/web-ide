@@ -35,7 +35,7 @@ describe('ideTheme', () => {
     const resolved = resolveShellTheme(theme);
 
     expect(resolved.mode).toBe('dark');
-    expect(resolved.tokens.background).toBe(DEFAULT_SHELL_THEME.dark.background);
+    expect(resolved.tokens.background).not.toBe(DEFAULT_SHELL_THEME.dark.background);
     expect(resolved.tokens.foreground).not.toBe(DEFAULT_SHELL_THEME.dark.foreground);
     expect(resolved.tokens.border).not.toBe(DEFAULT_SHELL_THEME.dark.border);
     expect(resolved.tokens.primary).not.toBe(DEFAULT_SHELL_THEME.dark.primary);
@@ -97,7 +97,7 @@ describe('ideTheme', () => {
       }),
     );
 
-    expect(resolved.tokens.background).toBe(DEFAULT_SHELL_THEME.dark.background);
+    expect(resolved.tokens.background).not.toBe(DEFAULT_SHELL_THEME.dark.background);
     expect(resolved.tokens.foreground).toBe(DEFAULT_SHELL_THEME.dark.foreground);
     expect(resolved.tokens['muted-foreground']).toBe(DEFAULT_SHELL_THEME.dark['muted-foreground']);
   });
@@ -117,6 +117,33 @@ describe('ideTheme', () => {
     expect(resolved.tokens.card).toBe(DEFAULT_SHELL_THEME.dark.card);
     expect(resolved.tokens.secondary).toBe(DEFAULT_SHELL_THEME.dark.secondary);
     expect(resolved.tokens.primary).not.toBe(DEFAULT_SHELL_THEME.dark.primary);
+  });
+
+  it('uses a broader set of theme colors for distinct shell surfaces', () => {
+    const resolved = resolveShellTheme(
+      makeTheme({
+        colors: {
+          'editor.background': '#12141a',
+          'editor.foreground': '#f5f7ff',
+          'activityBar.background': '#1b2437',
+          'sideBar.background': '#161d2c',
+          'sideBarSectionHeader.background': '#1f2940',
+          'editorWidget.background': '#24304a',
+          'list.hoverBackground': '#31405f',
+          'input.background': '#2a3650',
+          'input.border': '#43506f',
+          'focusBorder': '#8fb8ff',
+          'button.background': '#5f8cff',
+        },
+      }),
+    );
+
+    expect(resolved.tokens.background).not.toBe(DEFAULT_SHELL_THEME.dark.background);
+    expect(resolved.tokens.card).not.toBe(DEFAULT_SHELL_THEME.dark.card);
+    expect(resolved.tokens.secondary).not.toBe(DEFAULT_SHELL_THEME.dark.secondary);
+    expect(resolved.tokens.popover).not.toBe(DEFAULT_SHELL_THEME.dark.popover);
+    expect(resolved.tokens.accent).not.toBe(DEFAULT_SHELL_THEME.dark.accent);
+    expect(resolved.tokens.input).not.toBe(DEFAULT_SHELL_THEME.dark.input);
   });
 
   it('applies shell tokens and toggles the root mode class', () => {
