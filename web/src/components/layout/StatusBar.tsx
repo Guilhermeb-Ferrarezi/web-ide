@@ -42,18 +42,26 @@ export function StatusBar({ workspace }: { workspace: string }) {
   }
 
   return (
-    <div className="flex h-7 items-center justify-between gap-3 border-t bg-muted/40 px-3 text-xs text-muted-foreground">
+    <div
+      className="flex h-7 items-center justify-between gap-3 border-t px-3 text-xs"
+      style={{
+        background: 'var(--ide-statusbar-background)',
+        color: 'var(--ide-statusbar-muted-foreground)',
+        borderColor: 'var(--ide-panel-border)',
+      }}
+    >
       <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
           onClick={() => copyValue(workspace, 'workspace')}
           title="Copiar nome do workspace"
-          className="shrink-0 font-mono text-foreground transition-colors hover:text-primary"
+          className="shrink-0 font-mono transition-colors"
+          style={{ color: 'var(--ide-statusbar-foreground)' }}
         >
           {copiedTarget === 'workspace' ? 'Copiado!' : workspace}
         </button>
         {gitStatus?.branch && (
-          <span className="flex shrink-0 items-center gap-1 font-mono text-muted-foreground/70">
+          <span className="flex shrink-0 items-center gap-1 font-mono" style={{ color: 'var(--ide-statusbar-muted-foreground)' }}>
             <GitBranch className="h-3 w-3" />
             {gitStatus.branch}
           </span>
@@ -70,7 +78,8 @@ export function StatusBar({ workspace }: { workspace: string }) {
             type="button"
             onClick={toggleWordWrap}
             title={wordWrap ? 'Quebra de linha: ativada (clique para desativar)' : 'Quebra de linha: desativada (clique para ativar)'}
-            className={`shrink-0 flex items-center gap-1 rounded px-1 transition-colors hover:text-foreground ${wordWrap ? 'text-muted-foreground' : 'text-muted-foreground/40'}`}
+            className="shrink-0 flex items-center gap-1 rounded px-1 transition-colors"
+            style={{ color: wordWrap ? 'var(--ide-statusbar-foreground)' : 'var(--ide-statusbar-muted-foreground)' }}
           >
             <WrapText className="h-3.5 w-3.5" />
           </button>
@@ -79,7 +88,8 @@ export function StatusBar({ workspace }: { workspace: string }) {
           type="button"
           title={`Tamanho da fonte: ${fontSize}px (Ctrl+= aumentar, Ctrl+- reduzir, Ctrl+0 resetar)`}
           onClick={() => setFontSize(13)}
-          className="shrink-0 rounded px-1 transition-colors hover:text-foreground"
+          className="shrink-0 rounded px-1 transition-colors"
+          style={{ color: 'var(--ide-statusbar-foreground)' }}
         >
           {fontSize}px
         </button>
@@ -95,7 +105,8 @@ export function StatusBar({ workspace }: { workspace: string }) {
             }
           }}
           title={autoSaveMode === 'afterDelay' ? 'Auto Save ligado — clique para desativar' : 'Auto Save desligado — clique para ativar'}
-          className={`shrink-0 rounded px-1 transition-colors hover:text-foreground ${autoSaveMode === 'afterDelay' ? '' : 'text-muted-foreground/50'}`}
+          className="shrink-0 rounded px-1 transition-colors"
+          style={{ color: autoSaveMode === 'afterDelay' ? 'var(--ide-statusbar-foreground)' : 'var(--ide-statusbar-muted-foreground)' }}
         >
           {autoSaveMode === 'afterDelay' ? `Auto Save ${autoSaveDelayMs >= 3000 ? '3s' : '1.2s'}` : 'Auto Save off'}
         </button>
@@ -105,13 +116,14 @@ export function StatusBar({ workspace }: { workspace: string }) {
             type="button"
             onClick={() => { tabs.filter((t) => t.dirty && t.kind === 'file').forEach((t) => void save(t.path)); }}
             title="Salvar todos os arquivos não salvos"
-            className="shrink-0 text-amber-600 transition-colors hover:text-amber-500 dark:text-amber-400 dark:hover:text-amber-300"
+            className="shrink-0 transition-colors"
+            style={{ color: 'var(--ide-statusbar-accent-foreground)' }}
           >
             {dirtyCount} não salvos · Salvar todos
           </button>
         )}
         {dirtyCount === 1 && (
-          <span className="shrink-0 text-amber-600 dark:text-amber-400">
+          <span className="shrink-0" style={{ color: 'var(--ide-statusbar-accent-foreground)' }}>
             Não salvo · Ctrl+S
           </span>
         )}
@@ -121,12 +133,13 @@ export function StatusBar({ workspace }: { workspace: string }) {
             onClick={() => copyValue(visiblePath, 'path')}
             aria-label={visiblePath}
             title={visiblePath}
-            className="min-w-0 truncate text-left transition-colors hover:text-foreground"
+            className="min-w-0 truncate text-left transition-colors"
+            style={{ color: 'var(--ide-statusbar-foreground)' }}
           >
             {copiedTarget === 'path' ? 'Caminho copiado!' : `${tab.name}${tab.dirty ? ' • Não salvo' : ''}`}
           </button>
         ) : (
-          <span className="truncate text-muted-foreground/80">Nenhum arquivo ativo</span>
+          <span className="truncate" style={{ color: 'var(--ide-statusbar-muted-foreground)' }}>Nenhum arquivo ativo</span>
         )}
       </div>
     </div>

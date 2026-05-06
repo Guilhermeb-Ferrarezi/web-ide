@@ -62,13 +62,17 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose, onCloseOthers,
 
   if (tabs.length === 0) return null;
   return (
-    <div className="relative flex h-9 items-stretch border-b bg-muted/30">
+    <div
+      className="relative flex h-9 items-stretch border-b"
+      style={{ background: 'var(--ide-tabs-background)', borderColor: 'var(--ide-panel-border)' }}
+    >
       {canScrollLeft && (
         <button
           type="button"
           aria-label="Rolar abas para a esquerda"
           onClick={() => scrollBy(-120)}
-          className="flex shrink-0 items-center border-r px-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="flex shrink-0 items-center border-r px-1"
+          style={{ color: 'var(--ide-tab-inactive-foreground)', borderColor: 'var(--ide-panel-border)' }}
         >
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
@@ -115,13 +119,18 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose, onCloseOthers,
             onContextMenu={(e) => { e.preventDefault(); setTabCtxMenu({ path: tab.path, x: e.clientX, y: e.clientY }); }}
             className={cn(
               'group flex shrink-0 items-center gap-2 border-r px-3 text-sm cursor-pointer',
-              active ? 'bg-background' : 'bg-muted/30 hover:bg-muted/50',
             )}
+            style={{
+              borderColor: 'var(--ide-panel-border)',
+              background: active ? 'var(--ide-tab-active-background)' : 'var(--ide-tab-inactive-background)',
+              color: active ? 'var(--ide-tab-active-foreground)' : 'var(--ide-tab-inactive-foreground)',
+            }}
           >
             {showExtensionFallback ? (
               <span
                 aria-label={tab.name}
-                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted text-muted-foreground"
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm"
+                style={{ background: 'var(--ide-panel-accent-background)', color: 'var(--ide-panel-accent-foreground)' }}
               >
                 <Blocks className="h-3 w-3" />
               </span>
@@ -144,7 +153,8 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose, onCloseOthers,
                 onClose(tab.path);
               }}
               aria-label={`Fechar ${tab.name}`}
-              className="rounded p-0.5 opacity-60 hover:bg-accent hover:opacity-100"
+              className="rounded p-0.5 opacity-60 hover:opacity-100"
+              style={{ background: 'transparent' }}
             >
               <X className="h-3 w-3" />
             </button>
@@ -157,7 +167,8 @@ export function EditorTabs({ tabs, activePath, onSelect, onClose, onCloseOthers,
           type="button"
           aria-label="Rolar abas para a direita"
           onClick={() => scrollBy(120)}
-          className="flex shrink-0 items-center border-l px-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          className="flex shrink-0 items-center border-l px-1"
+          style={{ color: 'var(--ide-tab-inactive-foreground)', borderColor: 'var(--ide-panel-border)' }}
         >
           <ChevronRight className="h-3.5 w-3.5" />
         </button>

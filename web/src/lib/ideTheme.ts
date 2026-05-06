@@ -26,6 +26,8 @@ export type ShellThemeTokens = Record<
   string
 >;
 
+type ThemeCssVariables = Record<string, string>;
+
 export const DEFAULT_SHELL_THEME: Record<ShellThemeMode, ShellThemeTokens> = {
   light: {
     background: '0 0% 100%',
@@ -268,12 +270,109 @@ function colorToSurfaceCssValue(input: string | undefined): string | null {
   return colorToCssValue(input);
 }
 
-export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellThemeMode; tokens: ShellThemeTokens } {
+function withAlpha(input: string | undefined, alpha: number, fallback: string): string {
+  const color = parseColor(input);
+  if (!isUsableColor(color)) return fallback;
+  return `rgba(${color.r}, ${color.g}, ${color.b}, ${clamp(alpha, 0, 1)})`;
+}
+
+function resolveThemeCssVariables(
+  theme: InstalledTheme | null,
+  mode: ShellThemeMode,
+  tokens: ShellThemeTokens,
+): ThemeCssVariables {
+  if (!theme || theme.id === DEFAULT_EDITOR_THEME_ID) {
+    return {
+      '--ide-sidebar-rail-background': mode === 'dark' ? '#191721' : '#f4f1fb',
+      '--ide-sidebar-rail-foreground': mode === 'dark' ? '#d7d4e4' : '#352b48',
+      '--ide-sidebar-rail-foreground-muted': mode === 'dark' ? '#a59fba' : '#6d6384',
+      '--ide-sidebar-rail-active-background': mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(25, 0, 46, 0.08)',
+      '--ide-sidebar-rail-hover-background': mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(25, 0, 46, 0.06)',
+      '--ide-sidebar-panel-background': `hsl(${tokens.card})`,
+      '--ide-sidebar-panel-foreground': `hsl(${tokens.foreground})`,
+      '--ide-sidebar-panel-muted-foreground': `hsl(${tokens['muted-foreground']})`,
+      '--ide-tabs-background': `hsl(${tokens.card})`,
+      '--ide-tab-active-background': `hsl(${tokens.background})`,
+      '--ide-tab-active-foreground': `hsl(${tokens.foreground})`,
+      '--ide-tab-inactive-background': `hsl(${tokens.muted})`,
+      '--ide-tab-inactive-foreground': `hsl(${tokens['muted-foreground']})`,
+      '--ide-statusbar-background': `hsl(${tokens.secondary})`,
+      '--ide-statusbar-foreground': `hsl(${tokens['secondary-foreground']})`,
+      '--ide-statusbar-muted-foreground': `hsl(${tokens['muted-foreground']})`,
+      '--ide-statusbar-accent-foreground': `hsl(${tokens.primary})`,
+      '--ide-panel-border': `hsl(${tokens.border})`,
+      '--ide-panel-accent-background': `hsl(${tokens.accent})`,
+      '--ide-panel-accent-foreground': `hsl(${tokens['accent-foreground']})`,
+    };
+  }
+
+  const colors = theme.colors;
+  const sidebarRailBackground = pickColor(colors, ['activityBar.background', 'sideBar.background', 'titleBar.activeBackground']) ?? '#191721';
+  const sidebarRailForeground = pickColor(colors, ['activityBar.foreground', 'sideBar.foreground', 'editor.foreground']) ?? '#d7d4e4';
+  const sidebarRailForegroundMuted = pickColor(colors, ['activityBar.inactiveForeground', 'sideBarSectionHeader.foreground', 'editorLineNumber.foreground'])
+    ?? softenTextColor(sidebarRailForeground, mode, mode === 'dark' ? '#a59fba' : '#6d6384');
+  const sidebarPanelBackground = pickColor(colors, ['sideBar.background', 'editorWidget.background', 'panel.background']) ?? `hsl(${tokens.card})`;
+  const sidebarPanelForeground = pickColor(colors, ['sideBar.foreground', 'editor.foreground', 'list.activeSelectionForeground']) ?? `hsl(${tokens.foreground})`;
+  const sidebarPanelMutedForeground = pickColor(colors, ['sideBarSectionHeader.foreground', 'editorLineNumber.foreground', 'descriptionForeground'])
+    ?? `hsl(${tokens['muted-foreground']})`;
+  const tabsBackground = pickColor(colors, ['editorGroupHeader.tabsBackground', 'titleBar.activeBackground', 'sideBar.background']) ?? `hsl(${tokens.card})`;
+  const tabActiveBackground = pickColor(colors, ['editor.background', 'tab.activeBackground']) ?? `hsl(${tokens.background})`;
+  const tabActiveForeground = pickColor(colors, ['editor.foreground', 'tab.activeForeground']) ?? `hsl(${tokens.foreground})`;
+  const tabInactiveBackground = pickColor(colors, ['tab.inactiveBackground', 'editorGroupHeader.tabsBackground', 'sideBar.background']) ?? `hsl(${tokens.muted})`;
+  const tabInactiveForeground = pickColor(colors, ['tab.inactiveForeground', 'sideBarSectionHeader.foreground', 'editorLineNumber.foreground'])
+    ?? `hsl(${tokens['muted-foreground']})`;
+  const statusBarBackground = pickColor(colors, ['statusBar.background', 'activityBar.background', 'sideBar.background']) ?? `hsl(${tokens.secondary})`;
+  const statusBarForeground = pickColor(colors, ['statusBar.foreground', 'editor.foreground', 'sideBar.foreground']) ?? `hsl(${tokens['secondary-foreground']})`;
+  const statusBarMutedForeground = pickColor(colors, ['titleBar.activeForeground', 'sideBarSectionHeader.foreground', 'editorLineNumber.foreground'])
+    ?? `hsl(${tokens['muted-foreground']})`;
+  const statusBarAccentForeground = pickColor(colors, ['statusBarItem.remoteBackground', 'activityBarBadge.background', 'list.highlightForeground'])
+    ?? `hsl(${tokens.primary})`;
+  const panelBorder = pickColor(colors, ['input.border', 'dropdown.border', 'sideBarSectionHeader.border', 'panel.border']) ?? `hsl(${tokens.border})`;
+  const panelAccentBackground = pickColor(colors, ['list.activeSelectionBackground', 'menu.selectionBackground', 'selection.background'])
+    ?? `hsl(${tokens.accent})`;
+  const panelAccentForeground = pickColor(colors, ['list.activeSelectionForeground', 'menu.selectionForeground', 'button.foreground'])
+    ?? `hsl(${tokens['accent-foreground']})`;
+
+  return {
+    '--ide-sidebar-rail-background': sidebarRailBackground,
+    '--ide-sidebar-rail-foreground': sidebarRailForeground,
+    '--ide-sidebar-rail-foreground-muted': sidebarRailForegroundMuted,
+    '--ide-sidebar-rail-active-background': withAlpha(
+      pickColor(colors, ['activityBarBadge.background', 'menu.selectionBackground', 'list.activeSelectionBackground']),
+      0.18,
+      mode === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(25, 0, 46, 0.08)',
+    ),
+    '--ide-sidebar-rail-hover-background': withAlpha(
+      pickColor(colors, ['activityBar.inactiveForeground', 'sideBarSectionHeader.foreground', 'editorLineNumber.foreground']),
+      0.12,
+      mode === 'dark' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(25, 0, 46, 0.06)',
+    ),
+    '--ide-sidebar-panel-background': sidebarPanelBackground,
+    '--ide-sidebar-panel-foreground': sidebarPanelForeground,
+    '--ide-sidebar-panel-muted-foreground': sidebarPanelMutedForeground,
+    '--ide-tabs-background': tabsBackground,
+    '--ide-tab-active-background': tabActiveBackground,
+    '--ide-tab-active-foreground': tabActiveForeground,
+    '--ide-tab-inactive-background': tabInactiveBackground,
+    '--ide-tab-inactive-foreground': tabInactiveForeground,
+    '--ide-statusbar-background': statusBarBackground,
+    '--ide-statusbar-foreground': statusBarForeground,
+    '--ide-statusbar-muted-foreground': statusBarMutedForeground,
+    '--ide-statusbar-accent-foreground': statusBarAccentForeground,
+    '--ide-panel-border': panelBorder,
+    '--ide-panel-accent-background': panelAccentBackground,
+    '--ide-panel-accent-foreground': panelAccentForeground,
+  };
+}
+
+export function resolveShellTheme(
+  theme: InstalledTheme | null,
+): { mode: ShellThemeMode; tokens: ShellThemeTokens; cssVariables: ThemeCssVariables } {
   const mode = getShellThemeMode(theme);
   const defaults = DEFAULT_SHELL_THEME[mode];
 
   if (!theme || theme.id === DEFAULT_EDITOR_THEME_ID) {
-    return { mode, tokens: defaults };
+    return { mode, tokens: defaults, cssVariables: resolveThemeCssVariables(theme, mode, defaults) };
   }
 
   const colors = theme.colors;
@@ -344,40 +443,47 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
     ? resolvedMutedForeground
     : softenTextColor(baseForeground, mode, defaults['muted-foreground']);
 
+  const resolvedTokens = {
+    background,
+    foreground,
+    card,
+    'card-foreground': foreground,
+    popover,
+    'popover-foreground': foreground,
+    primary,
+    'primary-foreground': primaryForeground,
+    secondary,
+    'secondary-foreground': foreground,
+    muted,
+    'muted-foreground': mutedForeground,
+    accent,
+    'accent-foreground': foreground,
+    destructive: defaults.destructive,
+    'destructive-foreground': defaults['destructive-foreground'],
+    border,
+    input,
+    ring,
+  } satisfies ShellThemeTokens;
+
   return {
     mode,
-    tokens: {
-      background,
-      foreground,
-      card,
-      'card-foreground': foreground,
-      popover,
-      'popover-foreground': foreground,
-      primary,
-      'primary-foreground': primaryForeground,
-      secondary,
-      'secondary-foreground': foreground,
-      muted,
-      'muted-foreground': mutedForeground,
-      accent,
-      'accent-foreground': foreground,
-      destructive: defaults.destructive,
-      'destructive-foreground': defaults['destructive-foreground'],
-      border,
-      input,
-      ring,
-    },
+    tokens: resolvedTokens,
+    cssVariables: resolveThemeCssVariables(theme, mode, resolvedTokens),
   };
 }
 
 export function applyShellTheme(theme: InstalledTheme | null): ShellThemeMode {
   const root = document.documentElement;
-  const { mode, tokens } = resolveShellTheme(theme);
+  const { mode, tokens, cssVariables } = resolveShellTheme(theme);
 
   root.classList.toggle('dark', mode === 'dark');
 
   for (const [token, value] of Object.entries(tokens)) {
     root.style.setProperty(`--${token}`, value);
+  }
+
+  for (const [name, value] of Object.entries(cssVariables)) {
+    root.style.setProperty(name, value);
   }
 
   return mode;

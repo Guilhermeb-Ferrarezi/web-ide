@@ -267,7 +267,14 @@ export function AppShell({ workspace }: { workspace: string }) {
       <div className="flex flex-1 min-w-0 overflow-hidden">
         <ResizablePanelGroup direction="horizontal" className="min-w-0 flex-1">
           <TooltipProvider delayDuration={600}>
-            <div className="flex h-full w-14 shrink-0 flex-col items-center gap-2 border-r bg-[#191721] py-3">
+            <div
+              className="flex h-full w-14 shrink-0 flex-col items-center gap-2 border-r py-3"
+              style={{
+                background: 'var(--ide-sidebar-rail-background)',
+                color: 'var(--ide-sidebar-rail-foreground)',
+                borderColor: 'var(--ide-panel-border)',
+              }}
+            >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -277,9 +284,17 @@ export function AppShell({ workspace }: { workspace: string }) {
                     aria-keyshortcuts="Ctrl+1"
                     aria-pressed={side === 'files'}
                     className={cn(
-                      'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                      side === 'files' && 'bg-white/8 text-[#f5f3ff]',
+                      'h-12 w-12 rounded-xl',
+                      side === 'files' && 'shadow-sm',
                     )}
+                    style={{
+                      color: side === 'files'
+                        ? 'var(--ide-sidebar-rail-foreground)'
+                        : 'var(--ide-sidebar-rail-foreground-muted)',
+                      background: side === 'files'
+                        ? 'var(--ide-sidebar-rail-active-background)'
+                        : 'transparent',
+                    }}
                     onClick={() => setSide('files')}
                   >
                     <Files className={sidebarIconClass} />
@@ -299,9 +314,17 @@ export function AppShell({ workspace }: { workspace: string }) {
                     aria-keyshortcuts="Ctrl+2"
                     aria-pressed={side === 'search'}
                     className={cn(
-                      'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                      side === 'search' && 'bg-white/8 text-[#f5f3ff]',
+                      'h-12 w-12 rounded-xl',
+                      side === 'search' && 'shadow-sm',
                     )}
+                    style={{
+                      color: side === 'search'
+                        ? 'var(--ide-sidebar-rail-foreground)'
+                        : 'var(--ide-sidebar-rail-foreground-muted)',
+                      background: side === 'search'
+                        ? 'var(--ide-sidebar-rail-active-background)'
+                        : 'transparent',
+                    }}
                     onClick={() => setSide('search')}
                   >
                     <Search className={sidebarIconClass} />
@@ -320,14 +343,28 @@ export function AppShell({ workspace }: { workspace: string }) {
                     aria-keyshortcuts="Ctrl+3"
                     aria-pressed={side === 'git'}
                     className={cn(
-                      'relative h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                      side === 'git' && 'bg-white/8 text-[#f5f3ff]',
+                      'relative h-12 w-12 rounded-xl',
+                      side === 'git' && 'shadow-sm',
                     )}
+                    style={{
+                      color: side === 'git'
+                        ? 'var(--ide-sidebar-rail-foreground)'
+                        : 'var(--ide-sidebar-rail-foreground-muted)',
+                      background: side === 'git'
+                        ? 'var(--ide-sidebar-rail-active-background)'
+                        : 'transparent',
+                    }}
                     onClick={() => setSide('git')}
                   >
                     <GitFork className={sidebarIconClass} />
                     {gitChangedCount > 0 && (
-                      <span className="absolute bottom-1 right-1 min-w-4 rounded-full bg-[#8b5cf6] px-1 text-[10px] font-semibold leading-4 text-white shadow-sm">
+                      <span
+                        className="absolute bottom-1 right-1 min-w-4 rounded-full px-1 text-[10px] font-semibold leading-4 shadow-sm"
+                        style={{
+                          background: 'var(--ide-statusbar-accent-foreground)',
+                          color: 'var(--ide-sidebar-rail-background)',
+                        }}
+                      >
                         {gitChangedCount}
                       </span>
                     )}
@@ -346,9 +383,17 @@ export function AppShell({ workspace }: { workspace: string }) {
                     aria-keyshortcuts="Ctrl+4"
                     aria-pressed={side === 'extensions'}
                     className={cn(
-                      'relative h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                      side === 'extensions' && 'bg-white/8 text-[#f5f3ff]',
+                      'relative h-12 w-12 rounded-xl',
+                      side === 'extensions' && 'shadow-sm',
                     )}
+                    style={{
+                      color: side === 'extensions'
+                        ? 'var(--ide-sidebar-rail-foreground)'
+                        : 'var(--ide-sidebar-rail-foreground-muted)',
+                      background: side === 'extensions'
+                        ? 'var(--ide-sidebar-rail-active-background)'
+                        : 'transparent',
+                    }}
                     onClick={() => setSide('extensions')}
                   >
                     <Blocks className={sidebarIconClass} />
@@ -368,9 +413,17 @@ export function AppShell({ workspace }: { workspace: string }) {
                     aria-pressed={assistantOpen}
                     disabled={permission !== 'write'}
                     className={cn(
-                      'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                      assistantOpen && 'bg-white/8 text-[#f5f3ff]',
+                      'h-12 w-12 rounded-xl',
+                      assistantOpen && 'shadow-sm',
                     )}
+                    style={{
+                      color: assistantOpen
+                        ? 'var(--ide-sidebar-rail-foreground)'
+                        : 'var(--ide-sidebar-rail-foreground-muted)',
+                      background: assistantOpen
+                        ? 'var(--ide-sidebar-rail-active-background)'
+                        : 'transparent',
+                    }}
                     onClick={() => {
                       if (permission === 'write') setAssistantOpen((current) => !current);
                     }}
@@ -396,9 +449,17 @@ export function AppShell({ workspace }: { workspace: string }) {
                     size="icon"
                     aria-label="Terminal"
                     className={cn(
-                      'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                      showTerminal && 'bg-white/8 text-[#f5f3ff]',
+                      'h-12 w-12 rounded-xl',
+                      showTerminal && 'shadow-sm',
                     )}
+                    style={{
+                      color: showTerminal
+                        ? 'var(--ide-sidebar-rail-foreground)'
+                        : 'var(--ide-sidebar-rail-foreground-muted)',
+                      background: showTerminal
+                        ? 'var(--ide-sidebar-rail-active-background)'
+                        : 'transparent',
+                    }}
                     onClick={() => setShowTerminal((v) => !v)}
                     disabled={permission !== 'write'}
                   >
@@ -426,9 +487,17 @@ export function AppShell({ workspace }: { workspace: string }) {
                       aria-expanded={settingsMenuOpen}
                       aria-pressed={settingsMenuOpen}
                       className={cn(
-                        'h-12 w-12 rounded-xl text-[#d7d4e4] hover:bg-white/6 hover:text-white',
-                        settingsMenuOpen && 'bg-white/8 text-[#f5f3ff]',
+                        'h-12 w-12 rounded-xl',
+                        settingsMenuOpen && 'shadow-sm',
                       )}
+                      style={{
+                        color: settingsMenuOpen
+                          ? 'var(--ide-sidebar-rail-foreground)'
+                          : 'var(--ide-sidebar-rail-foreground-muted)',
+                        background: settingsMenuOpen
+                          ? 'var(--ide-sidebar-rail-active-background)'
+                          : 'transparent',
+                      }}
                       onClick={() => setSettingsMenuOpen((current) => !current)}
                     >
                       {user?.avatarUrl ? (
@@ -441,7 +510,14 @@ export function AppShell({ workspace }: { workspace: string }) {
                   <TooltipContent side="right">Conta e configurações</TooltipContent>
                 </Tooltip>
                 {settingsMenuOpen && !settingsDialogOpen && (
-                  <div className="absolute bottom-0 left-full z-50 ml-3 w-64 rounded-xl border border-white/10 bg-[#16151d] p-3 text-sm text-[#e8e4f4] shadow-2xl">
+                  <div
+                    className="absolute bottom-0 left-full z-50 ml-3 w-64 rounded-xl border p-3 text-sm shadow-2xl"
+                    style={{
+                      background: 'var(--ide-sidebar-panel-background)',
+                      color: 'var(--ide-sidebar-panel-foreground)',
+                      borderColor: 'var(--ide-panel-border)',
+                    }}
+                  >
                     <div className="flex items-center gap-3">
                       {user?.avatarUrl ? (
                         <img src={user.avatarUrl} alt={user.login} className="h-10 w-10 rounded-full border border-white/10 object-cover" />
@@ -452,10 +528,10 @@ export function AppShell({ workspace }: { workspace: string }) {
                       )}
                       <div className="min-w-0">
                         <p className="truncate font-medium">{user?.login ?? 'GitHub'}</p>
-                        <p className="truncate text-xs text-[#a59fba]">{resolvedAutoSaveLabel}</p>
+                        <p className="truncate text-xs" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }}>{resolvedAutoSaveLabel}</p>
                       </div>
                     </div>
-                    <Separator className="my-3 bg-white/10" />
+                    <Separator className="my-3" style={{ background: 'var(--ide-panel-border)' }} />
                     <div className="space-y-2">
                       <button
                         type="button"
@@ -464,13 +540,14 @@ export function AppShell({ workspace }: { workspace: string }) {
                           setSettingsSection('editor');
                           setSettingsDialogOpen(true);
                         }}
-                        className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
+                        className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left"
+                        style={{ borderColor: 'var(--ide-panel-border)', background: 'var(--ide-sidebar-rail-hover-background)' }}
                       >
                         <span className="flex items-center gap-2">
-                          <Settings2 className="h-4 w-4 text-[#a59fba]" />
+                          <Settings2 className="h-4 w-4" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }} />
                           Configurações
                         </span>
-                        <span className="text-xs text-[#a59fba]">Abrir</span>
+                        <span className="text-xs" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }}>Abrir</span>
                       </button>
                       <button
                         type="button"
@@ -482,13 +559,14 @@ export function AppShell({ workspace }: { workspace: string }) {
                           }
                           setSettingsMenuOpen(false);
                         }}
-                        className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
+                        className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left"
+                        style={{ borderColor: 'var(--ide-panel-border)', background: 'var(--ide-sidebar-rail-hover-background)' }}
                       >
                         <span className="flex items-center gap-2">
-                          <Clock3 className="h-4 w-4 text-[#a59fba]" />
+                          <Clock3 className="h-4 w-4" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }} />
                           Auto Save
                         </span>
-                        <span className="text-xs text-[#a59fba]">{autoSaveMode === 'afterDelay' ? 'Ligado' : 'Off'}</span>
+                        <span className="text-xs" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }}>{autoSaveMode === 'afterDelay' ? 'Ligado' : 'Off'}</span>
                       </button>
                       <button
                         type="button"
@@ -496,13 +574,14 @@ export function AppShell({ workspace }: { workspace: string }) {
                           toggleWordWrap();
                           setSettingsMenuOpen(false);
                         }}
-                        className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/8"
+                        className="flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left"
+                        style={{ borderColor: 'var(--ide-panel-border)', background: 'var(--ide-sidebar-rail-hover-background)' }}
                       >
                         <span className="flex items-center gap-2">
-                          <WrapText className="h-4 w-4 text-[#a59fba]" />
+                          <WrapText className="h-4 w-4" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }} />
                           Quebra de linha
                         </span>
-                        {wordWrap && <Check className="h-4 w-4 text-[#8b5cf6]" />}
+                        {wordWrap && <Check className="h-4 w-4" style={{ color: 'var(--ide-statusbar-accent-foreground)' }} />}
                       </button>
                       <button
                         type="button"

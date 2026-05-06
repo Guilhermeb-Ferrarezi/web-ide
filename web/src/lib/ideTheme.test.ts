@@ -179,4 +179,35 @@ describe('ideTheme', () => {
     expect(document.documentElement.style.getPropertyValue('--background')).not.toBe('');
     expect(document.documentElement.style.getPropertyValue('--foreground')).not.toBe('');
   });
+
+  it('maps explicit VS Code shell colors into dedicated css variables', () => {
+    applyShellTheme(
+      makeTheme({
+        colors: {
+          'editor.background': '#19002e',
+          'editor.foreground': '#ff0e82',
+          'sideBar.background': '#240041',
+          'sideBarSectionHeader.foreground': '#c79bff',
+          'activityBar.background': '#900048',
+          'activityBar.foreground': '#00ffb7',
+          'activityBar.inactiveForeground': '#c79bff',
+          'statusBar.background': '#c79bff',
+          'statusBar.foreground': '#19002e',
+          'statusBarItem.remoteBackground': '#00ffb7',
+          'editorGroupHeader.tabsBackground': '#240041',
+          'tab.inactiveBackground': '#2f0b4b',
+          'input.border': '#c79bff',
+          'list.activeSelectionBackground': '#900048cd',
+          'list.activeSelectionForeground': '#ffffff',
+        },
+      }),
+    );
+
+    expect(document.documentElement.style.getPropertyValue('--ide-sidebar-rail-background')).toBe('#900048');
+    expect(document.documentElement.style.getPropertyValue('--ide-sidebar-rail-foreground')).toBe('#00ffb7');
+    expect(document.documentElement.style.getPropertyValue('--ide-tabs-background')).toBe('#240041');
+    expect(document.documentElement.style.getPropertyValue('--ide-tab-inactive-background')).toBe('#2f0b4b');
+    expect(document.documentElement.style.getPropertyValue('--ide-statusbar-background')).toBe('#c79bff');
+    expect(document.documentElement.style.getPropertyValue('--ide-statusbar-foreground')).toBe('#19002e');
+  });
 });

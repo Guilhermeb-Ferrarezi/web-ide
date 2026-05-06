@@ -76,7 +76,7 @@ function InlineTreeInput({ icon, fallbackIcon, level, value, folder, onChange, o
           className="h-7 border-border/70 bg-background px-2 text-sm"
           aria-label="Nome do arquivo"
         />
-        <span className="text-[10px] text-muted-foreground">Enter para confirmar • Esc para cancelar</span>
+        <span className="text-[10px]" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }}>Enter para confirmar • Esc para cancelar</span>
       </div>
     </div>
   );

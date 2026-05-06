@@ -447,9 +447,12 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
   const activeFileName = activePath?.split('/').pop() ?? activePath;
 
   return (
-    <div className="relative flex h-full flex-col">
-      <div className="flex items-center justify-between border-b px-2 py-1.5">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+    <div
+      className="relative flex h-full flex-col"
+      style={{ background: 'var(--ide-sidebar-panel-background)', color: 'var(--ide-sidebar-panel-foreground)' }}
+    >
+      <div className="flex items-center justify-between border-b px-2 py-1.5" style={{ borderColor: 'var(--ide-panel-border)' }}>
+        <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }}>
           {workspace}
         </span>
         <div className="flex items-center gap-1">
@@ -478,8 +481,8 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
           </Button>
         </div>
       </div>
-      <div className="relative border-b px-2 py-1.5">
-        <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <div className="relative border-b px-2 py-1.5" style={{ borderColor: 'var(--ide-panel-border)' }}>
+        <Search className="pointer-events-none absolute left-4 top-1/2 h-3.5 w-3.5 -translate-y-1/2" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }} />
         <Input
           ref={resolvedFilterRef}
           value={fileFilter}
@@ -495,14 +498,15 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
             type="button"
             aria-label="Limpar filtro"
             onClick={() => { setFileFilter(''); resolvedFilterRef.current?.focus(); }}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2"
+            style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }}
           >
             <X className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
       {activeFileName && filteredFiles === null && (
-        <div className="border-b px-3 py-1.5 text-[11px] text-muted-foreground">
+        <div className="border-b px-3 py-1.5 text-[11px]" style={{ borderColor: 'var(--ide-panel-border)', color: 'var(--ide-sidebar-panel-muted-foreground)' }}>
           <p>{`Arquivo ativo: ${activeFileName}`}</p>
           <p>Clique direito para ações</p>
         </div>
@@ -510,13 +514,13 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
       <ScrollArea className="flex-1">
         {filteredFiles !== null ? (
           filteredFiles.length === 0 ? (
-            <div className="space-y-1 p-3 text-xs text-muted-foreground">
+            <div className="space-y-1 p-3 text-xs" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }}>
               <p>{`Nenhum arquivo corresponde a “${fileFilter.trim()}”.`}</p>
               <p>Use Esc ou o botão limpar para tentar outro filtro.</p>
             </div>
           ) : (
             <>
-              <div className="space-y-1 border-b px-3 py-2 text-[11px] text-muted-foreground">
+              <div className="space-y-1 border-b px-3 py-2 text-[11px]" style={{ borderColor: 'var(--ide-panel-border)', color: 'var(--ide-sidebar-panel-muted-foreground)' }}>
                 <p>{`${filteredFiles.length} ${filteredFiles.length === 1 ? 'arquivo encontrado' : 'arquivos encontrados'}`}</p>
                 <p>Use Esc para limpar o filtro atual.</p>
               </div>
@@ -536,7 +540,7 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
                       )}
                     >
                       <span className="truncate">{node.name}</span>
-                      <span className="ml-auto truncate text-muted-foreground">{node.path.slice(0, node.path.length - node.name.length).replace(/\/$/, '')}</span>
+                      <span className="ml-auto truncate" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }}>{node.path.slice(0, node.path.length - node.name.length).replace(/\/$/, '')}</span>
                     </button>
                   </li>
                 ))}
@@ -544,7 +548,7 @@ export function FileTree({ workspace, filterInputRef }: { workspace: string; fil
             </>
           )
           ) : loading ? (
-            <p className="p-3 text-xs text-muted-foreground">Carregando...</p>
+            <p className="p-3 text-xs" style={{ color: 'var(--ide-sidebar-panel-muted-foreground)' }}>Carregando...</p>
         ) : tree.length === 0 && !showRootInlineInput ? (
           <div
             data-testid="file-tree-drop-root"
