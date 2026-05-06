@@ -41,6 +41,22 @@ describe('ideTheme', () => {
     expect(resolved.tokens.primary).not.toBe(DEFAULT_SHELL_THEME.dark.primary);
   });
 
+  it('prefers editor foreground over chromatic sidebar foreground for shell text', () => {
+    const resolved = resolveShellTheme(
+      makeTheme({
+        colors: {
+          'editor.background': '#161a22',
+          'editor.foreground': '#e6edf3',
+          'sideBar.foreground': '#b07cff',
+          'descriptionForeground': '#8d63d9',
+        },
+      }),
+    );
+
+    expect(resolved.tokens.foreground).toBe('208 35% 92.7%');
+    expect(resolved.tokens['muted-foreground']).not.toBe('265 61% 62.9%');
+  });
+
   it('resolves light shell tokens when the VS Code theme is light', () => {
     const theme = makeTheme({
       uiTheme: 'vs',
@@ -99,7 +115,8 @@ describe('ideTheme', () => {
 
     expect(resolved.tokens.background).not.toBe(DEFAULT_SHELL_THEME.dark.background);
     expect(resolved.tokens.foreground).toBe(DEFAULT_SHELL_THEME.dark.foreground);
-    expect(resolved.tokens['muted-foreground']).toBe(DEFAULT_SHELL_THEME.dark['muted-foreground']);
+    expect(resolved.tokens['muted-foreground']).not.toBe(DEFAULT_SHELL_THEME.dark['muted-foreground']);
+    expect(resolved.tokens['muted-foreground']).not.toBe(resolved.tokens.background);
   });
 
   it('keeps saturated theme backgrounds out of the shell surfaces', () => {

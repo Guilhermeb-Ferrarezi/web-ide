@@ -78,6 +78,7 @@ const MIN_TEXT_CONTRAST = 4.5;
 const MIN_MUTED_TEXT_CONTRAST = 3;
 const MIN_BORDER_CONTRAST = 1.35;
 const MAX_SURFACE_SATURATION = 24;
+const MAX_MUTED_TEXT_SATURATION = 32;
 
 export function getShellThemeMode(theme: InstalledTheme | null): ShellThemeMode {
   if (!theme) return 'dark';
@@ -208,6 +209,20 @@ function shiftLightness(input: string | undefined, amount: number, fallback: str
   return hslToCssValue({ ...hsl, l: clamp(hsl.l + amount, 0, 100) });
 }
 
+function softenTextColor(input: string | undefined, mode: ShellThemeMode, fallback: string): string {
+  const color = parseColor(input);
+  if (!isUsableColor(color)) return fallback;
+
+  const hsl = rgbToHsl(color);
+  return hslToCssValue({
+    h: hsl.h,
+    s: Math.min(hsl.s, 18),
+    l: mode === 'dark'
+      ? clamp(Math.max(hsl.l - 18, 72), 0, 100)
+      : clamp(Math.min(hsl.l + 28, 38), 0, 100),
+  });
+}
+
 function pickColor(colors: Record<string, string>, keys: string[]): string | undefined {
   for (const key of keys) {
     const value = colors[key];
@@ -263,7 +278,7 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
 
   const colors = theme.colors;
   const baseBackground = pickColor(colors, ['editor.background', 'sideBar.background', 'panel.background']);
-  const baseForeground = pickColor(colors, ['sideBar.foreground', 'editor.foreground', 'foreground']);
+  const baseForeground = pickColor(colors, ['editor.foreground', 'tab.activeForeground', 'sideBar.foreground', 'foreground']);
   const borderColor = pickColor(
     colors,
     ['input.border', 'panel.border', 'sideBar.border', 'contrastBorder', 'editorGroup.border'],
@@ -279,7 +294,10 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
     colors,
     ['sideBarSectionHeader.background', 'list.inactiveSelectionBackground', 'panel.background', 'sideBar.background'],
   );
-  const mutedForegroundColor = pickColor(colors, ['descriptionForeground', 'list.inactiveSelectionForeground', 'editorLineNumber.foreground']);
+  const mutedForegroundColor = pickColor(
+    colors,
+    ['list.inactiveSelectionForeground', 'tab.inactiveForeground', 'descriptionForeground', 'editorLineNumber.foreground'],
+  );
   const popoverColor = pickColor(
     colors,
     ['editorWidget.background', 'menu.background', 'dropdown.background', 'panel.background', 'editor.background'],
@@ -315,14 +333,16 @@ export function resolveShellTheme(theme: InstalledTheme | null): { mode: ShellTh
   const ring = colorToCssValue(pickColor(colors, ['focusBorder', 'button.background'])) ?? primary;
   const primaryForeground = resolvePrimaryForeground(primaryColor ?? '', defaults['primary-foreground']);
   const resolvedMutedForeground = colorToCssValue(mutedForegroundColor);
+  const mutedForegroundSaturation = colorSaturation(mutedForegroundColor);
   const mutedForegroundContrast = getContrastRatio(
     mutedForegroundColor,
     mutedColor ?? baseBackground ?? fallbackBackgroundHex,
   );
   const mutedForeground = resolvedMutedForeground
     && (mutedForegroundContrast === null || mutedForegroundContrast >= MIN_MUTED_TEXT_CONTRAST)
+    && (mutedForegroundSaturation === null || mutedForegroundSaturation <= MAX_MUTED_TEXT_SATURATION)
     ? resolvedMutedForeground
-    : defaults['muted-foreground'];
+    : softenTextColor(baseForeground, mode, defaults['muted-foreground']);
 
   return {
     mode,
