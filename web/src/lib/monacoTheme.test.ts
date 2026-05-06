@@ -23,14 +23,27 @@ describe('buildMonacoThemeData', () => {
         'editor.selectionBackground': '#a277ff55',
         'sideBar.background': '#24103a',
       },
-      rules: [{ token: 'keyword', foreground: 'ff79c6' }],
+      rules: [
+        { token: 'keyword', foreground: 'ff79c6' },
+        { token: 'variable.other.property', foreground: 'c17ac8' },
+      ],
       semanticRules: [{ token: 'class', foreground: '8be9fd' }],
     });
 
     const result = buildMonacoThemeData(theme);
 
     expect(result.base).toBe('vs-dark');
-    expect(result.rules).toEqual([...theme.rules, ...theme.semanticRules!]);
+    expect(result.rules).toEqual(
+      expect.arrayContaining([
+        ...theme.rules,
+        ...theme.semanticRules!,
+      ]),
+    );
+    expect(result.rules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ token: 'identifier' }),
+      ]),
+    );
     expect(result.colors['editor.background']).toBe('#24103a');
     expect(result.colors['editor.foreground']).toBe('#f8f8f2');
     expect(result.colors['editor.selectionBackground']).toBe('#a277ff55');

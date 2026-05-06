@@ -203,20 +203,39 @@ function semanticTokenRuleFromSettings(token: string, settings: Record<string, s
   };
 }
 
+function mergeThemeSettings(entries: Array<Record<string, string>>): Record<string, string> {
+  return entries.reduce<Record<string, string>>((acc, entry) => {
+    if (!acc.foreground && entry.foreground) acc.foreground = entry.foreground;
+    if (!acc.background && entry.background) acc.background = entry.background;
+    if (!acc.fontStyle && entry.fontStyle) acc.fontStyle = entry.fontStyle;
+    return acc;
+  }, {});
+}
+
+function expandSemanticRuleVariants(rule: SemanticTokenRule): SemanticTokenRule[] {
+  const variants = [rule];
+
+  if (!rule.token.includes('.')) {
+    variants.push({ ...rule, token: `${rule.token}.declaration` });
+  }
+
+  return variants;
+}
+
 function convertSemanticTokenColors(semanticTokenColors: unknown): SemanticTokenRule[] {
   if (!semanticTokenColors || typeof semanticTokenColors !== 'object') return [];
 
   return Object.entries(semanticTokenColors as Record<string, unknown>).flatMap(([token, value]) => {
     if (typeof value === 'string') {
       const foreground = normalizeHex(value);
-      return foreground ? [{ token, foreground }] : [];
+      return foreground ? expandSemanticRuleVariants({ token, foreground }) : [];
     }
 
     if (!value || typeof value !== 'object') return [];
 
     const settings = value as Record<string, string>;
     const rule = semanticTokenRuleFromSettings(token, settings);
-    return rule ? [rule] : [];
+    return rule ? expandSemanticRuleVariants(rule) : [];
   });
 }
 
@@ -244,14 +263,19 @@ function buildSemanticFallbackRules(tokenColors: unknown): SemanticTokenRule[] {
   }>;
 
   return SEMANTIC_TEXTMATE_FALLBACKS.flatMap(({ semanticToken, scopes }) => {
-    const match = entries.find((entry) => {
+    const matchingEntries = entries.filter((entry) => {
       const normalizedScopes = normalizeScopeList(entry.scope);
       return scopes.some((scope) => normalizedScopes.some((candidate) => candidate === scope || candidate.startsWith(`${scope}.`)));
     });
 
-    if (!match?.settings) return [];
-    const rule = semanticTokenRuleFromSettings(semanticToken, match.settings);
-    return rule ? [rule] : [];
+    if (matchingEntries.length === 0) return [];
+    const mergedSettings = mergeThemeSettings(
+      matchingEntries
+        .map((entry) => entry.settings)
+        .filter((settings): settings is Record<string, string> => Boolean(settings)),
+    );
+    const rule = semanticTokenRuleFromSettings(semanticToken, mergedSettings);
+    return rule ? expandSemanticRuleVariants(rule) : [];
   });
 }
 
@@ -371,6 +395,14 @@ function flattenInstalledExtensions(rows: Array<{ themesJson: string; iconThemes
     },
     { themes: [], iconThemes: [] },
   );
+}
+
+function installedPayloadNeedsRefresh(payload: Pick<InstalledExtensionPayload, 'themes' | 'iconThemes'>): boolean {
+  if (payload.themes.length > 0) {
+    return payload.themes.some((theme) => !Array.isArray(theme.semanticRules));
+  }
+
+  return payload.iconThemes.length === 0;
 }
 
 async function buildInstalledExtensionPayload(extensionId: string): Promise<InstalledExtensionPayload> {
@@ -564,6 +596,41 @@ export async function getInstalledExtensions(input: {
   const rows = await db.query.installedExtensions.findMany({
     where: eq(installedExtensions.userId, input.userId),
   });
+
+  for (const row of rows) {
+    const payload = {
+      extensionId: row.extensionId,
+      displayName: row.displayName,
+      themes: JSON.parse(row.themesJson) as InstalledTheme[],
+      iconThemes: JSON.parse(row.iconThemesJson) as InstalledIconTheme[],
+    } satisfies InstalledExtensionPayload;
+
+    if (!installedPayloadNeedsRefresh(payload)) continue;
+
+    try {
+      const refreshed = await buildInstalledExtensionPayload(row.extensionId);
+      await db
+        .update(installedExtensions)
+        .set({
+          displayName: refreshed.displayName,
+          themesJson: JSON.stringify(refreshed.themes),
+          iconThemesJson: JSON.stringify(refreshed.iconThemes),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(installedExtensions.userId, input.userId),
+            eq(installedExtensions.extensionId, row.extensionId),
+          ),
+        );
+
+      row.displayName = refreshed.displayName;
+      row.themesJson = JSON.stringify(refreshed.themes);
+      row.iconThemesJson = JSON.stringify(refreshed.iconThemes);
+    } catch {
+      // Keep the last persisted payload if the marketplace is temporarily unavailable.
+    }
+  }
 
   return flattenInstalledExtensions(rows);
 }
