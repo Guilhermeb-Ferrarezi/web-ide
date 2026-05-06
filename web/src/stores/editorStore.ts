@@ -46,7 +46,7 @@ type EditorState = {
   closeTab: (path: string) => void;
   setActive: (path: string) => void;
   updateContent: (path: string, content: string) => void;
-  markSaved: (path: string) => void;
+  markSaved: (path: string, savedContent?: string) => void;
   setPendingJump: (jump: EditorJump | null) => void;
   setCursorPosition: (pos: { line: number; column: number } | null) => void;
   toggleWordWrap: () => void;
@@ -95,10 +95,16 @@ export const useEditorStore = create<EditorState>((set, get) => ({
         t.path === path ? { ...t, content, dirty: content !== t.originalContent } : t,
       ),
     })),
-  markSaved: (path) =>
+  markSaved: (path, savedContent) =>
     set((s) => ({
       tabs: s.tabs.map((t) =>
-        t.path === path ? { ...t, originalContent: t.content, dirty: false } : t,
+        t.path === path
+          ? {
+              ...t,
+              originalContent: savedContent ?? t.content,
+              dirty: t.content !== (savedContent ?? t.content),
+            }
+          : t,
       ),
     })),
   setPendingJump: (jump) => set({ pendingJump: jump }),

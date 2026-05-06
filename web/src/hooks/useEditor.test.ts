@@ -42,4 +42,53 @@ describe('useEditor', () => {
 
     expect(fsApi.saveFile).not.toHaveBeenCalled();
   });
+
+  it('mantem dirty quando o usuario digita enquanto um save anterior ainda esta em voo', async () => {
+    useWorkspaceStore.setState({ workspace: 'repo', permission: 'write' });
+    let resolveSave: (() => void) | null = null;
+    vi.mocked(fsApi.saveFile).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveSave = resolve;
+        }),
+    );
+
+    useEditorStore.getState().openTab({
+      path: 'README.md',
+      name: 'README.md',
+      content: 'linha 1',
+      originalContent: 'linha 1',
+      encoding: 'utf-8',
+      mimeType: 'text/markdown',
+      dirty: false,
+      kind: 'file',
+    });
+    useEditorStore.getState().updateContent('README.md', 'linha 1\nlinha 2');
+
+    const { result } = renderHook(() => useEditor());
+
+    let savePromise!: Promise<void>;
+    await act(async () => {
+      savePromise = result.current.save('README.md');
+    });
+
+    await act(async () => {
+      useEditorStore.getState().updateContent('README.md', 'linha 1\nlinha 2\nlinha 3');
+    });
+
+    await act(async () => {
+      resolveSave?.();
+      await savePromise;
+    });
+
+    expect(fsApi.saveFile).toHaveBeenCalledWith('repo', 'README.md', 'linha 1\nlinha 2', 'utf-8');
+    expect(useEditorStore.getState().tabs).toEqual([
+      expect.objectContaining({
+        path: 'README.md',
+        content: 'linha 1\nlinha 2\nlinha 3',
+        originalContent: 'linha 1\nlinha 2',
+        dirty: true,
+      }),
+    ]);
+  });
 });

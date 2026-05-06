@@ -59,8 +59,9 @@ export function useEditor() {
       const tab = useEditorStore.getState().tabs.find((t) => t.path === filePath);
       if (!workspace || !tab || tab.kind !== 'file' || permission !== 'write') return;
       try {
-        await saveFile(workspace, tab.path, tab.content, tab.encoding);
-        markSaved(filePath);
+        const contentToSave = tab.content;
+        await saveFile(workspace, tab.path, contentToSave, tab.encoding);
+        markSaved(filePath, contentToSave);
       } catch {
         toast.error('Falha ao salvar');
       }
