@@ -25,7 +25,7 @@ describe('buildMonacoThemeData', () => {
       },
       rules: [
         { token: 'keyword', foreground: 'ff79c6' },
-        { token: 'variable.other.property', foreground: 'c17ac8' },
+        { token: 'entity.name.type', foreground: '6cb2c7' },
       ],
       semanticRules: [{ token: 'class', foreground: '8be9fd' }],
     });
@@ -41,7 +41,7 @@ describe('buildMonacoThemeData', () => {
     );
     expect(result.rules).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ token: 'identifier' }),
+        expect.objectContaining({ token: 'type.identifier' }),
       ]),
     );
     expect(result.colors['editor.background']).toBe('#24103a');

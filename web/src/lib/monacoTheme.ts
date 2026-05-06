@@ -16,13 +16,6 @@ function firstMatchingRule(
 function monacoCompatibilityRules(theme: InstalledTheme): InstalledTheme['rules'] {
   const rules = theme.rules;
 
-  const identifierRule = firstMatchingRule(rules, [
-    'variable.object.property',
-    'variable.other.property',
-    'variable.other.object.property',
-    'meta.object-literal.key',
-    'variable',
-  ]);
   const typeIdentifierRule = firstMatchingRule(rules, [
     'entity.name.type',
     'entity.name.class',
@@ -43,9 +36,6 @@ function monacoCompatibilityRules(theme: InstalledTheme): InstalledTheme['rules'
   ]);
 
   const compatibilityRules: Array<MonacoThemeRule | null> = [
-    identifierRule
-      ? { token: 'identifier', foreground: identifierRule.foreground, fontStyle: identifierRule.fontStyle }
-      : null,
     typeIdentifierRule
       ? { token: 'type.identifier', foreground: typeIdentifierRule.foreground, fontStyle: typeIdentifierRule.fontStyle }
       : null,
