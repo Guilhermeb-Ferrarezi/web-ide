@@ -7,7 +7,7 @@ RUN bun install --frozen-lockfile || bun install
 FROM oven/bun:1.3.11-alpine AS runtime
 WORKDIR /app
 
-RUN apk add --no-cache git bash python3 make g++ curl nodejs npm eza bat ripgrep \
+RUN apk add --no-cache git bash python3 make g++ curl nodejs npm eza bat ripgrep cloudflared \
   && npm install -g @openai/codex
 
 RUN mkdir -p /root/.codex
