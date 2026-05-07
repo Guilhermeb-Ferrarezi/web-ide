@@ -10,9 +10,6 @@ WORKDIR /app
 RUN apk add --no-cache git bash python3 make g++ curl nodejs npm eza bat ripgrep \
   && npm install -g @openai/codex
 
-RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
-    && apk update \
-    && apk add --no-cache cloudflared
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json tsconfig.json ./
